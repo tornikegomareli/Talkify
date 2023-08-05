@@ -78,13 +78,15 @@ public class TalkifySpeechRecognizer {
   private var voiceRate: Float = 0.5
   private var multiplier: Float = 0.5
   private var volume: Float = 1.0
-  private var voiceRecorder: VoiceRecorder = VoiceRecorder(
-    microphonePermission: MicrophonePermission(),
-    recordingSession: TalkifyRecordingSession()
-  )
+  private var voiceRecorder: VoiceRecorder
 
   /// Creates a new `TalkifySpeechRecognizer` instance
-  public init() {}
+  public init() {
+    voiceRecorder = .init(
+      microphonePermission: MicrophonePermission(),
+      recordingSession: TalkifyRecordingSession()
+    )
+  }
 
   /// Begins speech synthesis with the given text
   ///
@@ -272,5 +274,6 @@ extension TalkifySpeechRecognizer: VoiceRecorderDelegate {
   ///     - text: The recognized text.
   public func voiceRecorderDidFinishRecordingWithText(_ text: String) {
     recognizedText = text
+    print(text)
   }
 }
