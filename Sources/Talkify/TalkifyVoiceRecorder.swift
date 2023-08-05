@@ -21,11 +21,7 @@ public protocol VoiceRecorderDelegate: AnyObject {
 
 @available(macOS 10.15, *)
 public class VoiceRecorder {
-  public weak var delegate: VoiceRecorderDelegate? {
-    didSet {
-      print(oldValue)
-    }
-  }
+  public weak var delegate: VoiceRecorderDelegate?
 
   public let audioEngine = AVAudioEngine()
   public let speechRecognizer: SFSpeechRecognizer

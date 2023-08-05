@@ -9,12 +9,12 @@ import Foundation
 import AVFoundation
 
 /// A protocol for delegates that receive recording-related events
-public protocol TalkifySpeechRecognizerProvider: AnyObject {
+public protocol TalkifySpeechRecognizerRecordingDelegate: AnyObject {
   /// Called when recording finishes with recognized text
   ///
   /// - Parameters:
   ///     - text: The recognized text
-  func recordingDidFinishWithResults(text: String)
+  func recordingDidFinishWithResults(text: String?)
 
   /// Called when recording starts
   func recordingDidStart()
@@ -65,7 +65,7 @@ public protocol TalkifySpeechRecognitionSpeakingDelegate: AnyObject {
 public class TalkifySpeechRecognizer {
 
   /// The delegate for recording-related events
-  public weak var recordingDelegate: TalkifySpeechRecognizerProvider?
+  public weak var recordingDelegate: TalkifySpeechRecognizerRecordingDelegate?
 
   /// The delegate for speech synthesis-related events
   public weak var speakingDelegate: TalkifySpeechRecognitionSpeakingDelegate?
@@ -273,7 +273,7 @@ extension TalkifySpeechRecognizer: VoiceRecorderDelegate {
   /// - Parameters:
   ///     - text: The recognized text.
   public func voiceRecorderDidFinishRecordingWithText(_ text: String) {
-    recognizedText = text
-    print(text)
+    recordingDelegate?.recordingDidFinishWithResults(text: recognizedText)
   }
 }
+
