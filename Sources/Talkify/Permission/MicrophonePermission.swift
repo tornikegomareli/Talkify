@@ -20,10 +20,10 @@ import AVFAudio
 /// of the microphone permission.
 @available(iOS 13.0, *)
 @available(macOS 10.15, *)
-struct MicrophonePermission: PermissionProvider, Sendable {
+public struct MicrophonePermission: PermissionProvider, Sendable {
   let audioSession: AudioSession
   /// Represents the status of the microphone permission.
-  typealias PermissionStatus = AudioPermissionStatus
+  public typealias PermissionStatus = AudioPermissionStatus
 
   /// Initializes a new `MicrophonePermission` with the given audio session.
   ///
@@ -40,7 +40,7 @@ struct MicrophonePermission: PermissionProvider, Sendable {
   ///
   /// - Parameter completion: A closure that takes the status of the permission as a parameter.
   /// The status is represented by the `AudioPermissionStatus` type.
-  func checkPermissionStatus(completion: @escaping (PermissionStatus) -> Void) {
+  public func checkPermissionStatus(completion: @escaping (PermissionStatus) -> Void) {
     audioSession.checkPermissionStatus(completion: completion)
   }
 
@@ -49,7 +49,7 @@ struct MicrophonePermission: PermissionProvider, Sendable {
   /// The result of the request is returned asynchronously through the `completion` closure.
   ///
   /// - Parameter completion: A closure that takes a Boolean value indicating whether the permission was granted.
-  func requestPermission(completion: @escaping (Bool) async -> Void) {
+  public func requestPermission(completion: @escaping (Bool) async -> Void) {
     audioSession.requestPermission(completion: completion)
   }
 
