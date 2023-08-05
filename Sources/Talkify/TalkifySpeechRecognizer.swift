@@ -273,6 +273,7 @@ extension TalkifySpeechRecognizer: VoiceRecorderDelegate {
   /// - Parameters:
   ///     - text: The recognized text.
   public func voiceRecorderDidFinishRecordingWithText(_ text: String) {
+    recognizedText = text
     recordingDelegate?.recordingDidFinishWithResults(text: recognizedText)
   }
 }

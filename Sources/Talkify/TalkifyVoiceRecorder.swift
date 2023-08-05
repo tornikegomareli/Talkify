@@ -155,7 +155,7 @@ public class VoiceRecorder {
   /// Stops recording
   func stopRecording() {
     audioEngine.stop()
-    audioEngine.inputNode.removeTap(onBus: 0) // Remove the tap on the input node
+    audioEngine.inputNode.removeTap(onBus: 0)
     recognitionTask?.cancel()
     recognitionTask = nil
   }
