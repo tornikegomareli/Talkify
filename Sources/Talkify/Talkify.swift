@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 
 /// A class that handles speech synthesis and recognition
+@available(iOS 13.0, *)
 @available(macOS 10.15, *)
 public class Talkify {
   /// The delegate for recording-related events
@@ -69,6 +70,7 @@ public class Talkify {
 }
 
 // MARK: - Recording Delegate
+@available(iOS 13.0, *)
 @available(macOS 10.15, *)
 extension Talkify: VoiceRecorderDelegate {
   /// Notifies the delegate that the voice recorder has started recording audio.

@@ -19,6 +19,7 @@ public protocol VoiceRecorderDelegate: AnyObject {
   func voiceRecorderDidRequestMicrophonePermission(granted: Bool)
 }
 
+@available(iOS 13.0, *)
 @available(macOS 10.15, *)
 public class TalkifySpeechRecognizer {
   public weak var delegate: VoiceRecorderDelegate?
