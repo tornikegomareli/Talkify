@@ -1,38 +1,57 @@
-//
-//  TalkifySpeechRecognizer.swift
-//
-//
-//  Created by Tornike on 19/03/2023.
-//
+///
+///  TalkifySpeechRecognizer.swift
+///
+///
+///  Created by Tornike on 19/03/2023.
+///
+///
+/// `TalkifySpeechRecognizer` is a public class that offers APIs for managing speech recognition tasks.
+/// This class is available on iOS 13.0 and macOS 10.15 or later.
+
 
 import Foundation
 import AVFoundation
 import Speech
 
-/// Delegate protocol to handle voice recording events
+/// The `VoiceRecorderDelegate` protocol defines the methods a delegate of a `TalkifySpeechRecognizer` object should implement.
+/// This protocol notifies your app’s objects when recording has started or stopped, or when errors occur.
 public protocol VoiceRecorderDelegate: AnyObject {
+  /// Tells the delegate that the voice recorder has finished recording and recognized the text.
   func voiceRecorderDidFinishRecordingWithText(_ text: String)
+  /// Tells the delegate that the voice recorder has started recording.
   func voiceRecorderDidStartRecording()
+  /// Tells the delegate that the voice recorder has stopped recording.
   func voiceRecorderDidStopRecording()
+  /// Tells the delegate that the voice recorder has encountered an error.
   func voiceRecorderDidEncounterError(_ error: Error)
+  /// Tells the delegate that the voice recorder has checked the microphone permission status.
   func voiceRecorderDidCheckMicrophonePermission(status: AudioPermissionStatus)
+  /// Tells the delegate that the voice recorder has requested microphone permission.
   func voiceRecorderDidRequestMicrophonePermission(granted: Bool)
 }
 
 @available(iOS 13.0, *)
 @available(macOS 10.15, *)
 public class TalkifySpeechRecognizer {
+  /// A delegate object that handles voice recording events.
   public weak var delegate: VoiceRecorderDelegate?
 
+  /// An instance of `AVAudioEngine` for audio operations.
   public let audioEngine = AVAudioEngine()
+
+  /// An instance of `SFSpeechRecognizer` for speech recognition.
   public let speechRecognizer: SFSpeechRecognizer
 
+  /// A speech recognition request. This property is read-only.
   public private(set) var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+
+  /// A speech recognition task. This property is read-only.
   public private(set) var recognitionTask: SFSpeechRecognitionTask?
 
   private var microphonePermission: MicrophonePermission
   private var recordingSession: TalkifyRecordingSession
 
+  /// Returns a new `TalkifySpeechRecognizer` object.
   public static func inital() -> TalkifySpeechRecognizer {
     return .init(
       microphonePermission: MicrophonePermission(),
@@ -40,6 +59,7 @@ public class TalkifySpeechRecognizer {
     )
   }
 
+  /// Initializes a new `TalkifySpeechRecognizer` object with the given parameters.
   public init(
     recognitionRequest: SFSpeechAudioBufferRecognitionRequest? = nil,
     recognitionTask: SFSpeechRecognitionTask? = nil,
@@ -59,6 +79,7 @@ public class TalkifySpeechRecognizer {
     checkMicrophonePermission()
   }
 
+  /// Checks the status of microphone permission.
   public func checkMicrophonePermission() {
     microphonePermission.checkPermissionStatus { [weak self] status in
       guard let self = self else {
@@ -79,7 +100,7 @@ public class TalkifySpeechRecognizer {
     }
   }
 
-  /// Request microphone permission
+  /// Requests microphone permission.
   public func requestMicrophonePermission() {
     microphonePermission.requestPermission { [weak self] granted in
       guard let self = self else {
