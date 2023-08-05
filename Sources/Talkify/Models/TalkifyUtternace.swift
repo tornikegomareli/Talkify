@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 
 /// A subclass of `AVSpeechUtterance` that allows for metadata to be associated with the utterance.
+@available(macOS 10.14, *)
 class TalkifyUtternace: AVSpeechUtterance {
 
   /// A dictionary of metadata associated with the utterance.
@@ -65,7 +66,7 @@ class TalkifyUtternace: AVSpeechUtterance {
 
   /// Sets up the values for the utterance.
   public func setupTalkifyValues(
-    customVoice: TalkativeVoice = TalkativeVoice(),
+    customVoice: TalkifyVoice = TalkifyVoice(),
     customRate: Float = 1.0,
     customMultiplier: Float = 1.0,
     customVolume: Float = 1.0

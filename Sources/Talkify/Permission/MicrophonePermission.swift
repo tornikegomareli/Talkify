@@ -17,8 +17,9 @@ import Foundation
 ///
 /// The `PermissionStatus` associated type is `AudioPermissionStatus`, which represents the status
 /// of the microphone permission.
-struct MicrophonePermission: PermissionProvider {
-
+@available(macOS 10.15, *)
+struct MicrophonePermission: PermissionProvider, Sendable {
+  let audioSession: AudioSession
   /// Represents the status of the microphone permission.
   typealias PermissionStatus = AudioPermissionStatus
 

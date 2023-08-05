@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 
 /// This enum represents the different languages that are supported by `AVSpeechSynthesisVoice`.
+@available(macOS 10.14, *)
 public enum TalkifyLanguage: String, CaseIterable {
   // MARK: - English
   case englishAU = "en-AU"
@@ -165,7 +166,7 @@ public enum TalkifyLanguage: String, CaseIterable {
   }
 
   /// Returns the all the `TalkifyLanguage` array of objects which are available for coressponding Language code
-  static func languages(forVoiceIdentifier identifier: TalkativeVoiceIdentifier) -> [TalkifyLanguage] {
+  static func languages(forVoiceIdentifier identifier: TalkifyVoiceIdentifier) -> [TalkifyLanguage] {
     let identifierString = identifier.rawValue
     let languageCodes = TalkifyLanguage.allCases.filter { language in
       identifierString.contains(language.rawValue)

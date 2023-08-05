@@ -49,7 +49,7 @@ public class TalkifyVoice: AVSpeechSynthesisVoice {
    - language: The language of the voice.
    - quality: The quality of the voice.
    */
-  public init(voice: TalkativeVoiceIdentifier = .samantha, quality: AVSpeechSynthesisVoiceQuality = .default) {
+  public init(voice: TalkifyVoiceIdentifier = .samantha, quality: AVSpeechSynthesisVoiceQuality = .default) {
     self.voiceQuality = quality
     self.voiceIdentifier = voice
     super.init()
@@ -78,7 +78,7 @@ public class TalkifyVoice: AVSpeechSynthesisVoice {
    - language: The language of the voice.
    - quality: The quality of the voice.
    */
-  public func setVoice(voice: TalkativeVoiceIdentifier, quality: AVSpeechSynthesisVoiceQuality) {
+  public func setVoice(voice: TalkifyVoiceIdentifier, quality: AVSpeechSynthesisVoiceQuality) {
     self.voiceQuality = quality
     self.voiceIdentifier = voice
   }

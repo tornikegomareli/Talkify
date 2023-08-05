@@ -37,8 +37,9 @@ extension AVAudioSession: AudioSession {
 #if os(macOS)
 import AVFoundation
 
-struct MacOSAudioSession: AudioSession {
-  func checkPermissionStatus(completion: @escaping (PermissionStatus) -> Void) {
+@available(macOS 10.15, *)
+struct MacOSAudioSession: AudioSession, Sendable {
+  func checkPermissionStatus(completion: @escaping (AudioPermissionStatus) -> Void) {
     switch AVCaptureDevice.authorizationStatus(for: .audio) {
     case .authorized:
       completion(.granted)
@@ -53,9 +54,10 @@ struct MacOSAudioSession: AudioSession {
     }
   }
 
+  @available(macOS 10.15, *)
   func requestPermission(completion: @escaping (Bool) async -> Void) {
     AVCaptureDevice.requestAccess(for: .audio) { granted in
-      Task(priority: .background) {
+      Task(priority: .high) {
         await completion(granted)
       }
     }

@@ -7,13 +7,13 @@
 
 import Foundation
 
-public enum AudioPermissionStatus {
+public enum AudioPermissionStatus: Sendable {
   case granted
   case denied
   case undetermined
 }
 
-public protocol AudioSession {
-  func checkPermissionStatus(completion: @escaping (PermissionStatus) -> Void)
+public protocol AudioSession: Sendable {
+  func checkPermissionStatus(completion: @escaping (AudioPermissionStatus) -> Void)
   func requestPermission(completion: @escaping (Bool) async -> Void)
 }
