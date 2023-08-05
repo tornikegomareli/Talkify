@@ -25,6 +25,7 @@ public class TalkifyVoice: AVSpeechSynthesisVoice {
 
   // MARK: - Overridden Properties
 
+  @available(iOS 13.0, *)
   @available(macOS 10.15, *)
   @available(macOS 10.15, *)
   public override var gender: AVSpeechSynthesisVoiceGender {

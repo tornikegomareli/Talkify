@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AVFAudio
 
 /// A struct representing a microphone permission provider.
 ///
@@ -17,6 +18,7 @@ import Foundation
 ///
 /// The `PermissionStatus` associated type is `AudioPermissionStatus`, which represents the status
 /// of the microphone permission.
+@available(iOS 13.0, *)
 @available(macOS 10.15, *)
 struct MicrophonePermission: PermissionProvider, Sendable {
   let audioSession: AudioSession

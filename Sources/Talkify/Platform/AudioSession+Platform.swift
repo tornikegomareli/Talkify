@@ -10,8 +10,9 @@ import Foundation
 #if os(iOS)
 import AVFoundation
 
-extension AVAudioSession: AudioSession {
-  func checkPermissionStatus(completion: @escaping (PermissionStatus) -> Void) {
+@available(iOS 13.0, *)
+extension AVAudioSession: AudioSession, @unchecked Sendable {
+  public func checkPermissionStatus(completion: @escaping (AudioPermissionStatus) -> Void) {
     switch self.recordPermission {
     case .granted:
       completion(.granted)
@@ -24,7 +25,7 @@ extension AVAudioSession: AudioSession {
     }
   }
 
-  func requestPermission(completion: @escaping (Bool) async -> Void) {
+  public func requestPermission(completion: @escaping (Bool) async -> Void) {
     self.requestRecordPermission { granted in
       Task(priority: .background) {
         await completion(granted)
