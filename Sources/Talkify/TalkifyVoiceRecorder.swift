@@ -21,7 +21,11 @@ public protocol VoiceRecorderDelegate: AnyObject {
 
 @available(macOS 10.15, *)
 public class VoiceRecorder {
-  public weak var delegate: VoiceRecorderDelegate?
+  public weak var delegate: VoiceRecorderDelegate? {
+    didSet {
+      print(oldValue)
+    }
+  }
 
   public let audioEngine = AVAudioEngine()
   public let speechRecognizer: SFSpeechRecognizer
@@ -33,14 +37,12 @@ public class VoiceRecorder {
   private var recordingSession: TalkifyRecordingSession
 
   public init(
-    delegate: VoiceRecorderDelegate? = nil,
     recognitionRequest: SFSpeechAudioBufferRecognitionRequest? = nil,
     recognitionTask: SFSpeechRecognitionTask? = nil,
     language: TalkifyLanguage = .englishUS,
     microphonePermission: MicrophonePermission,
     recordingSession: TalkifyRecordingSession
   ) {
-    self.delegate = delegate
     self.recognitionRequest = recognitionRequest
     self.recognitionTask = recognitionTask
     self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: language.rawValue))!
@@ -92,6 +94,29 @@ public class VoiceRecorder {
   /// Start audio recording and recognition
   private func startRecording() {
     print("Recording did start")
+    SFSpeechRecognizer.requestAuthorization { (authStatus) in
+      OperationQueue.main.addOperation {
+        switch authStatus {
+        case .authorized:
+          // The user authorized your app for speech recognition.
+          // Update your UI to reflect this authorization status.
+          print("Speech recognition authorized")
+
+        case .denied:
+          // The user denied your app's use of speech recognition.
+          // Update your UI to reflect this authorization status.
+          print("User denied access to speech recognition")
+
+        case .restricted, .notDetermined:
+          // Speech recognition restricted on this device or user has not yet responded to the access prompt.
+          // Update your UI to reflect this authorization status.
+          print("Speech recognition restricted/not determined")
+
+        @unknown default:
+          print("Unknown authorization status for speech recognition")
+        }
+      }
+    }
     do {
       try recordingSession.prepareSession()
       let inputNode = recordingSession.getInputNode(audioEngine: audioEngine)
