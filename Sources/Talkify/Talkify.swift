@@ -34,7 +34,7 @@ public class Talkify {
 
   /// Configures the speaker. This method returns a reference to the receiver for chaining purposes.
   @discardableResult
-  public func setupSpeaker(with speaker: TalkifySpeaker) -> Self {
+  public func setSpeaker(with speaker: TalkifySpeaker) -> Self {
     talkifySpeaker = speaker
     return self
   }
