@@ -269,11 +269,6 @@ Replace `.englishUS` with your desired language option from the `TalkifyLanguage
 ---
 For detailed usage and advanced functionalities, refer to the inline documentation provided within the Talkify class and its extensions.
 
-# Why ?
-Just to beat my procrastination 😄
-
-But it really aims to be a comprehensive solution for developers looking to incorporate speech recognition and synthesis into their apps. It abstracts away the complexity of the underlying APIs, allowing developers to focus on creating engaging user experiences.
-
 ## Contribution 🤝
 
 I will appreciate your contributions! Whether you're fixing bugs, improving the documentation, or enhancing the features, I'd love to have your help. Here's how you can contribute:
@@ -288,7 +283,7 @@ I will appreciate your contributions! Whether you're fixing bugs, improving the 
 
 ## Issues 🐞
 
-Encountered a bug or an unexpected behavior? I appreciate your feedback. Please open a new issue on the [GitHub repository](https://github.com/tornikegomareli/Talkify/tree/main/issues), providing as much detail as possible. This helps us address and fix issues faster.
+Encountered a bug or an unexpected behavior? I appreciate your feedback. Just Open a new issue on the [GitHub repository](https://github.com/tornikegomareli/Talkify/tree/main/issues), providing as much as u can. This helps me address and fix issues faster.
 
 ## Future Plans ⚒️
 
@@ -298,6 +293,11 @@ Because this repository is more for educational purpose, I will happily add new 
 - **Rx and Combine Listeners**: In addition to the delegate pattern, I'm planning on introducing listeners using popular reactive frameworks like RxSwift and Combine.
 - **Unit Tests**: To ensure the robustness and reliability of Talkify, unit tests are on the way. This will boost confidence in the library's functionality and make future changes safer.
 - **Third party integrations**: I have idea to add some third party APIS, for example ChatGPT Speech recognition api with ergonomics to use, but I don't know I need to still think about it, if it will be worth at all.
+
+# Why ?
+Just to beat my procrastination 😄
+
+But it really aims to be a comprehensive solution for developers looking to incorporate speech recognition and synthesis into their apps. It abstracts away the complexity of the underlying APIs.
 
 ## License
 
