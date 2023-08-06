@@ -1,4 +1,4 @@
-# Talkify: Swift Speech Recognition and Synthesis Library
+# Talkify: Swift Speech Recognition and Synthesis Library for iOS & macOS
 
 <p align="center">
 <a href="https://swift.org/package-manager/"><img src="https://img.shields.io/badge/SPM-supported-DE5C43.svg?style=for-the-badge"></a>
