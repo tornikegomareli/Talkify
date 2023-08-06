@@ -31,6 +31,13 @@ public class Talkify {
     self.voiceRecorder = voiceRecorder
     self.talkifySpeaker = speaker
   }
+
+  /// Configures the speaker. This method returns a reference to the receiver for chaining purposes.
+  @discardableResult
+  public func setupSpeaker(with speaker: TalkifySpeaker) -> Self {
+    talkifySpeaker = speaker
+    return self
+  }
   
   /// Configures the voice recorder for recording. This method returns a reference to the receiver for chaining purposes.
   @discardableResult
