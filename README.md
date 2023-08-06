@@ -299,11 +299,13 @@ Because this repository is more for educational purpose, I will happily add new 
 - **Unit Tests**: To ensure the robustness and reliability of Talkify, unit tests are on the way. This will boost confidence in the library's functionality and make future changes safer.
 - **Third party integrations**: I have idea to add some third party APIS, for example ChatGPT Speech recognition api with ergonomics to use, but I don't know I need to still think about it, if it will be worth at all.
 
----
+## License
+
+Talkify is licensed under the MIT License. See [LICENSE](https://github.com/tornikegomareli/Talkify/blob/main/LICENSE) for more information.
+
+
 
 ---
-
-## 🌟
 
 If you've found the README helpful or you like the project idea, please give it a ⭐️ (star) on GitHub. 
 
