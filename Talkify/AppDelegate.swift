@@ -32,6 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Requests permissions and prepares the selected Speech Model
         // shortly after launch (CONTEXT.md).
         dictationController.start()
+
+        // Debug hook for headless HUD verification; goes away with the debug
+        // menu items once the Settings picker exists.
+        if ProcessInfo.processInfo.arguments.contains("--hud-demo") {
+            statusItemController.runHUDDemo()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
