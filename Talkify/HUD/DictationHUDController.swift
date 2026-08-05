@@ -9,6 +9,10 @@ import SwiftUI
 @MainActor
 final class DictationHUDController {
     private static let messageDuration = Duration.seconds(2)
+    /// How long the retract animation needs before the panel can order out.
+    /// A perceptual duration rather than the spring's settling time, per
+    /// WWDC23 "Animate with springs": don't wait for settling.
+    private static let dismissDuration = Duration.milliseconds(350)
     private static let latchedText = "Listening (latched)"
 
     private enum Mode {
@@ -20,8 +24,10 @@ final class DictationHUDController {
     private let panel: DictationHUDPanel
     private let hostingView: NSHostingView<DictationHUDShellView>
     private let content = DictationHUDContent()
+    private let sounds = DictationHUDSounds()
     private var mode = Mode.hidden
     private var messageDismissTask: Task<Void, Never>?
+    private var orderOutTask: Task<Void, Never>?
 
     init() {
         let placeholder = HUDScreenSnapshot(
@@ -60,6 +66,7 @@ final class DictationHUDController {
         cancelMessageDismiss()
         mode = .session
         present(isLatched ? Self.latchedText : "Listening…", on: screen)
+        sounds.playBegin()
     }
 
     func showLatched() {
@@ -79,8 +86,19 @@ final class DictationHUDController {
 
     func hide() {
         cancelMessageDismiss()
+        if case .session = mode {
+            sounds.playEnd()
+        }
         mode = .hidden
-        panel.orderOut(nil)
+        content.isRevealed = false
+
+        // Keep the panel front while the retract plays, then order out.
+        orderOutTask?.cancel()
+        orderOutTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.dismissDuration)
+            guard !Task.isCancelled, let self, case .hidden = mode else { return }
+            panel.orderOut(nil)
+        }
     }
 
     private func selectScreen(targetDisplayID: CGDirectDisplayID?) -> HUDScreenSnapshot? {
@@ -102,10 +120,20 @@ final class DictationHUDController {
     }
 
     private func present(_ text: String, on screen: HUDScreenSnapshot) {
+        orderOutTask?.cancel()
         content.text = text
         hostingView.rootView = DictationHUDShellView(screen: screen, content: content)
         panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
         panel.orderFrontRegardless()
+
+        guard !content.isRevealed else { return }
+        // The shell needs one committed frame in its parked position or the
+        // reveal renders already-descended and the animation never plays.
+        // Force that frame synchronously, then flip on the next runloop tick.
+        panel.displayIfNeeded()
+        Task { @MainActor [content] in
+            content.isRevealed = true
+        }
     }
 
     private func scheduleMessageDismiss() {
