@@ -7,6 +7,7 @@ final class StatusItemController: NSObject {
     private let toggleDictation: () -> Void
     private let dictationItem: NSMenuItem
     private var demoTask: Task<Void, Never>?
+    private var demoLevelTask: Task<Void, Never>?
 
     init(hudController: DictationHUDController, toggleDictation: @escaping () -> Void) {
         self.hudController = hudController
@@ -71,6 +72,22 @@ final class StatusItemController: NSObject {
         }
         draftItem.submenu = draftMenu
         menu.addItem(draftItem)
+
+        // And for the flagged voice-reactive visual (CONTEXT.md).
+        let visualItem = NSMenuItem(title: "Debug: HUD Voice Visual", action: nil, keyEquivalent: "")
+        let visualMenu = NSMenu()
+        for style in HUDVoiceVisualStyle.allCases {
+            let styleItem = NSMenuItem(
+                title: style.rawValue,
+                action: #selector(runHUDDemoWithVisual(_:)),
+                keyEquivalent: ""
+            )
+            styleItem.target = self
+            styleItem.representedObject = style.rawValue
+            visualMenu.addItem(styleItem)
+        }
+        visualItem.submenu = visualMenu
+        menu.addItem(visualItem)
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -94,6 +111,14 @@ final class StatusItemController: NSObject {
 
     @objc private func toggleDictationItem() {
         toggleDictation()
+    }
+
+    @objc private func runHUDDemoWithVisual(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String,
+           let style = HUDVoiceVisualStyle(rawValue: raw) {
+            hudController.useVoiceVisual(style)
+        }
+        runHUDDemo()
     }
 
     @objc private func runHUDDemoWithDraftStyle(_ sender: NSMenuItem) {
@@ -122,8 +147,10 @@ final class StatusItemController: NSObject {
 
     @objc func runHUDDemo() {
         demoTask?.cancel()
+        demoLevelTask?.cancel()
         demoTask = Task { [hudController] in
             hudController.showListening(on: nil, isLatched: false)
+            startDemoLevels()
             try? await Task.sleep(for: .seconds(1))
             hudController.showLiveText("Draft text arrives")
             try? await Task.sleep(for: .seconds(1))
@@ -137,12 +164,29 @@ final class StatusItemController: NSObject {
             try? await Task.sleep(for: .seconds(2))
             hudController.showLatched()
             try? await Task.sleep(for: .seconds(1))
+            demoLevelTask?.cancel()
             hudController.showFinalizing()
             try? await Task.sleep(for: .seconds(1))
             hudController.hide()
             try? await Task.sleep(for: .milliseconds(500))
             hudController.playPasteSound()
             hudController.showMessage("Demo finished")
+        }
+    }
+
+    /// Synthesized speech-like levels so the voice visuals can be auditioned
+    /// without dictating: syllable bursts over a quiet noise floor.
+    private func startDemoLevels() {
+        demoLevelTask?.cancel()
+        demoLevelTask = Task { [hudController] in
+            var t = 0.0
+            while !Task.isCancelled {
+                let burst = max(0, sin(t * 5.6))
+                let level = 0.05 + burst * (0.3 + 0.35 * Double.random(in: 0...1))
+                hudController.showAudioLevel(Float(min(1, level)))
+                t += 0.022
+                try? await Task.sleep(for: .milliseconds(22))
+            }
         }
     }
 }

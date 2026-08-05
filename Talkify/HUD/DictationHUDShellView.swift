@@ -12,6 +12,17 @@ final class DictationHUDContent {
     var revealStyle = HUDRevealStyle.slide
     /// Grow Down is the chosen default; the others stay for the Settings picker.
     var longDraftStyle = HUDLongDraftStyle.growDown
+    var voiceVisualStyle = HUDVoiceVisualStyle.waveform
+    /// True only while listening — the visuals react to the microphone, so
+    /// they leave when it stops.
+    var showsVoiceVisual = false
+    /// Smoothed microphone level, 0–1.
+    var audioLevel: Double = 0
+    /// Raw recent levels, newest last, sized for the waveform's bars.
+    var levelHistory = [Double](repeating: 0, count: HUDVoiceVisualView.barCount)
+    /// False once levels stop arriving while listening: a dead microphone
+    /// must look different from silence (CONTEXT.md).
+    var isAudioAlive = true
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
@@ -30,7 +41,14 @@ struct DictationHUDShellView: View {
     let content: DictationHUDContent
 
     private var size: CGSize {
-        HUDNotchGeometry.contentSize(for: screen)
+        HUDNotchGeometry.contentSize(for: screen, includesVisualBand: showsVisualBand)
+    }
+
+    /// Reduce Motion always shows the quiet level meter, which needs the
+    /// band; otherwise only the waveform does.
+    private var showsVisualBand: Bool {
+        content.showsVoiceVisual
+            && (reduceMotion || content.voiceVisualStyle.usesVisualBand)
     }
 
     private var filletSize: CGFloat {
@@ -51,6 +69,10 @@ struct DictationHUDShellView: View {
             // with the camera.
             Color.clear
                 .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
+            if showsVisualBand {
+                HUDVoiceVisualView(content: content, showsMeter: reduceMotion)
+                    .frame(height: HUDNotchGeometry.visualBandHeight)
+            }
             textBand
         }
         .frame(width: size.width)
@@ -59,7 +81,9 @@ struct DictationHUDShellView: View {
             content.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
         )
+        .animation(.spring(duration: 0.25, bounce: 0), value: showsVisualBand)
         .background { housing }
+        .overlay { edgeGlow }
             .overlay(alignment: .topLeading) { fillet(.leading) }
             .overlay(alignment: .topTrailing) { fillet(.trailing) }
             .opacity(revealOpacity)
@@ -161,6 +185,30 @@ struct DictationHUDShellView: View {
         Color.black
             .clipShape(housingShape)
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
+    }
+
+    /// The edge-glow voice visual: an Apple-Intelligence-style gradient
+    /// hugging the shape's border, intensity following the voice, draft text
+    /// untouched in the middle. A dead microphone freezes it to a dim amber
+    /// ring; silence keeps a faint colored floor.
+    @ViewBuilder
+    private var edgeGlow: some View {
+        if content.showsVoiceVisual, !reduceMotion, content.voiceVisualStyle == .glow {
+            let level = content.audioLevel
+            housingShape
+                .strokeBorder(
+                    content.isAudioAlive
+                        ? AnyShapeStyle(AngularGradient(
+                            colors: [.blue, .purple, .pink, .orange, .blue],
+                            center: .center
+                        ))
+                        : AnyShapeStyle(Color.orange),
+                    lineWidth: content.isAudioAlive ? 2.5 + 6 * level : 2
+                )
+                .blur(radius: 5)
+                .opacity(content.isAudioAlive ? 0.35 + 0.65 * level : 0.4)
+                .allowsHitTesting(false)
+        }
     }
 
     /// Sits alongside the body rather than inside it. Absent on a display with

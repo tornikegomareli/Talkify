@@ -48,24 +48,35 @@ struct HUDNotchGeometryTests {
     }
 
     @Test func contentSizeAddsTextBandBelowHousing() {
-        let size = HUDNotchGeometry.contentSize(for: notched)
+        let size = HUDNotchGeometry.contentSize(for: notched, includesVisualBand: false)
         #expect(size == CGSize(width: 540, height: 32 + HUDNotchGeometry.textBandHeight))
+    }
+
+    @Test func contentSizeAddsVisualBandWhenIncluded() {
+        let size = HUDNotchGeometry.contentSize(for: notched, includesVisualBand: true)
+        let expected = 32 + HUDNotchGeometry.visualBandHeight + HUDNotchGeometry.textBandHeight
+        #expect(size.height == expected)
     }
 
     @Test func windowFrameIsTopCenterWithShadowSlack() {
         let frame = HUDNotchGeometry.windowFrame(for: notched)
         let expectedWidth: CGFloat = 540 + 44 * 2
-        let expectedHeight: CGFloat = 32 + HUDNotchGeometry.maxTextBandHeight + 44
+        let expectedHeight: CGFloat = 32
+            + HUDNotchGeometry.visualBandHeight
+            + HUDNotchGeometry.maxTextBandHeight
+            + 44
         #expect(frame.width == expectedWidth)
         #expect(frame.height == expectedHeight)
         #expect(frame.midX == notched.frame.midX)
         #expect(frame.maxY == notched.frame.maxY)
     }
 
-    @Test func windowFitsTheTallestTextBand() {
+    @Test func windowFitsTheTallestShape() {
         #expect(HUDNotchGeometry.maxTextBandHeight > HUDNotchGeometry.textBandHeight)
         let frame = HUDNotchGeometry.windowFrame(for: notched)
-        let tallestShape = 32 + HUDNotchGeometry.maxTextBandHeight
+        let tallestShape = 32
+            + HUDNotchGeometry.visualBandHeight
+            + HUDNotchGeometry.maxTextBandHeight
         #expect(frame.height >= tallestShape + HUDNotchGeometry.shadowPadding)
     }
 

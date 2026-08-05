@@ -28,6 +28,8 @@ final class DictationHUDController {
     private var mode = Mode.hidden
     private var messageDismissTask: Task<Void, Never>?
     private var orderOutTask: Task<Void, Never>?
+    private var lastLevelAt = ContinuousClock.now
+    private var micWatchdogTask: Task<Void, Never>?
 
     init() {
         let placeholder = HUDScreenSnapshot(
@@ -56,10 +58,15 @@ final class DictationHUDController {
            let style = HUDLongDraftStyle(rawValue: stored) {
             content.longDraftStyle = style
         }
+        if let stored = UserDefaults.standard.string(forKey: Self.voiceVisualStyleKey),
+           let style = HUDVoiceVisualStyle(rawValue: stored) {
+            content.voiceVisualStyle = style
+        }
     }
 
     private static let revealStyleKey = "hudRevealStyle"
     private static let longDraftStyleKey = "hudLongDraftStyle"
+    private static let voiceVisualStyleKey = "hudVoiceVisual"
 
     /// Debug-only hook for auditioning reveal styles from the menu; the
     /// future Settings UI replaces it. Persists like the sound set.
@@ -72,6 +79,25 @@ final class DictationHUDController {
     func useLongDraftStyle(_ style: HUDLongDraftStyle) {
         content.longDraftStyle = style
         UserDefaults.standard.set(style.rawValue, forKey: Self.longDraftStyleKey)
+    }
+
+    /// Debug-only hook for auditioning voice visuals; same pattern.
+    func useVoiceVisual(_ style: HUDVoiceVisualStyle) {
+        content.voiceVisualStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: Self.voiceVisualStyleKey)
+    }
+
+    /// Live microphone level, 0–1, ~46 Hz while listening. Smooths the meter
+    /// and glow (fast attack, slow release), feeds the waveform history raw,
+    /// and marks the microphone alive for the dead-mic watchdog.
+    func showAudioLevel(_ level: Float) {
+        guard content.showsVoiceVisual else { return }
+        let raw = Double(level)
+        content.audioLevel = max(raw, content.audioLevel * 0.88)
+        content.levelHistory.removeFirst()
+        content.levelHistory.append(raw)
+        lastLevelAt = ContinuousClock.now
+        content.isAudioAlive = true
     }
 
     /// Debug-only hook for auditioning the candidate sound sets from the
@@ -93,6 +119,7 @@ final class DictationHUDController {
     func showMessage(_ text: String, on displayID: CGDirectDisplayID?) {
         guard let screen = selectScreen(targetDisplayID: displayID) else { return }
         mode = .message
+        stopVoiceVisual()
         present(text, on: screen)
         scheduleMessageDismiss()
     }
@@ -101,6 +128,7 @@ final class DictationHUDController {
         guard let screen = selectScreen(targetDisplayID: displayID) else { return }
         cancelMessageDismiss()
         mode = .session
+        startVoiceVisual()
         present(isLatched ? Self.latchedText : "Listening…", on: screen)
         sounds.playBegin()
     }
@@ -117,11 +145,13 @@ final class DictationHUDController {
 
     func showFinalizing() {
         guard case .session = mode else { return }
+        stopVoiceVisual()
         content.text = "Finalizing…"
     }
 
     func hide() {
         cancelMessageDismiss()
+        stopVoiceVisual()
         if case .session = mode {
             sounds.playEnd()
         }
@@ -170,6 +200,34 @@ final class DictationHUDController {
         Task { @MainActor [content] in
             content.isRevealed = true
         }
+    }
+
+    /// Resets the visual to a live-and-silent baseline and arms the dead-mic
+    /// watchdog: levels stopping for over 600ms while listening means the
+    /// microphone is dead, which must look different from silence (CONTEXT.md).
+    private func startVoiceVisual() {
+        content.showsVoiceVisual = true
+        content.audioLevel = 0
+        content.levelHistory = [Double](repeating: 0, count: HUDVoiceVisualView.barCount)
+        content.isAudioAlive = true
+        lastLevelAt = ContinuousClock.now
+
+        micWatchdogTask?.cancel()
+        micWatchdogTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard let self, !Task.isCancelled else { return }
+                if lastLevelAt.duration(to: .now) > .milliseconds(600) {
+                    content.isAudioAlive = false
+                }
+            }
+        }
+    }
+
+    private func stopVoiceVisual() {
+        micWatchdogTask?.cancel()
+        micWatchdogTask = nil
+        content.showsVoiceVisual = false
     }
 
     private func scheduleMessageDismiss() {
