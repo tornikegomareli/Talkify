@@ -8,7 +8,8 @@ final class DictationHUDContent {
     var text = ""
     /// Drives the reveal/dismiss animation.
     var isRevealed = false
-    var revealStyle = HUDRevealStyle.unfurl
+    /// Slide is the chosen default; the others stay for the Settings picker.
+    var revealStyle = HUDRevealStyle.slide
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
