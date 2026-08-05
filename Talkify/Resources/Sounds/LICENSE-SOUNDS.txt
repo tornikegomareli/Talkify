@@ -16,5 +16,10 @@ ChimeBegin.wav / ChimeEnd.wav
   Synthesized in-repo (sine + harmonics, two-note fifth up/down).
   Original Talkify asset — no external license.
 
+Synth3Begin/End.wav, Synth7Begin/End.wav
+  Synthesized in-repo (damped inharmonic partials + attack noise),
+  styled after a reference app's percussive pairs but generated from
+  hand-chosen parameters. Original Talkify assets — no external license.
+
 Pop/Click End variants are their Begin recording pitched down 22% by
 header resampling.

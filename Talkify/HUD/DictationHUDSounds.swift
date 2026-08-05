@@ -11,6 +11,12 @@ enum DictationSoundSet: String, CaseIterable {
     /// Our own synthesized two-note pluck: rising fifth in, falling fifth
     /// out. Original asset, no license constraints.
     case chime = "Chime"
+    /// Synthesized double-strike tock-tick with a singing tail, in the style
+    /// of a reference app's v3 pair. Original asset.
+    case synth3 = "Synth3"
+    /// Synthesized single woody tock, tick-then-tock out, in the style of the
+    /// reference app's v7 pair. Original asset.
+    case synth7 = "Synth7"
 }
 
 /// The two bumps that bracket a Direct Dictation session: one when listening
