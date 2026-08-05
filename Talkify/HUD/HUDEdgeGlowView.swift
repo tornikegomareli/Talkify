@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Hosts the edge-glow shader (EdgeGlow.metal): a hot silver comet with a
 /// fading tail sweeping the HUD's open silhouette — corner to notch and back,
-/// never across the hidden top edge — its brightness following the voice.
-/// The view extends past the shape on the flanks and bottom so the halo can
-/// spill outside the border.
+/// never across the hidden top edge. Deliberately static: the glow signals
+/// listening while the draft text carries the feedback; only a dead
+/// microphone changes it (static amber). The view extends past the shape on
+/// the flanks and bottom so the halo can spill outside the border.
 struct HUDEdgeGlowView: View {
     /// Room the halo gets beyond the shape's border.
     static let spill: CGFloat = 28
@@ -28,13 +29,7 @@ struct HUDEdgeGlowView: View {
                             ),
                             .float(HUDNotchGeometry.bottomCornerRadius),
                             .float(Float(context.date.timeIntervalSince(start))),
-                            .float(Float(content.audioLevel)),
-                            .float(content.isAudioAlive ? 1 : 0),
-                            .float(Float(
-                                content.lastPulseAt.map {
-                                    context.date.timeIntervalSince($0)
-                                } ?? 99
-                            ))
+                            .float(content.isAudioAlive ? 1 : 0)
                         )
                     )
             }

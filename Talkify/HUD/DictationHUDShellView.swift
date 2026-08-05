@@ -20,8 +20,6 @@ final class DictationHUDContent {
     var audioLevel: Double = 0
     /// Raw recent levels, newest last, one per waveform bar.
     var levelHistory = [Float](repeating: 0, count: HUDWaveformView.barCount)
-    /// Set when a syllable onset lands, so the glow can pulse.
-    var lastPulseAt: Date?
     /// False once levels stop arriving while listening: a dead microphone
     /// must look different from silence (CONTEXT.md).
     var isAudioAlive = true

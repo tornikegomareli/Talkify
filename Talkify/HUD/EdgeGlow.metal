@@ -90,9 +90,7 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
     float4 shapeRect,   // x, y, width, height of the shape inside the view
     float cornerRadius,
     float time,
-    float level,
-    float alive,
-    float pulseAge   // seconds since the last syllable onset; large = none
+    float alive
 ) {
     float2 p = position - shapeRect.xy;
     float w = shapeRect.z;
@@ -121,26 +119,14 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
     float tail = exp(ds / 0.16) * step(0.0, -ds);
     float profile = max(front, tail);
 
-    // Voice is the main act: the whole outline swells with the level (squared
-    // so silence stays calm and speech pops), and the comet rides on top as
-    // the motion carrier. Silence keeps just enough light to read alive.
-    float voice = level * level;
-    float brightness = 0.25 + 0.75 * level;
-    float base = 0.03 + 0.65 * voice;
-    float intensity = base + profile * brightness;
+    // Deliberately static: the glow signals listening, the draft text is the
+    // feedback channel. A quiet resting outline with the comet on top.
+    float intensity = 0.07 + profile * 0.55;
 
-    // Two-scale bloom: white-hot core, wide halo. Both widen as you speak.
-    float core = (1.0 + 2.5 * voice) / (d * d);
-    float halo = (0.14 + 0.55 * voice) / d;
-    float glow = intensity * min(core + halo, 3.5);
-
-    // Syllable pulse: the whole border flashes and a soft ring of light
-    // ripples outward from it, both dying within ~half a second.
-    float flash = exp(-pulseAge * 6.0);
-    glow *= 1.0 + 1.4 * flash;
-    float ringRadius = 3.0 + pulseAge * 110.0;
-    float ring = exp(-pow(pt.dist - ringRadius, 2.0) / 40.0) * exp(-pulseAge * 4.0);
-    glow += ring * 0.45 * (0.4 + 0.6 * level);
+    // Two-scale bloom: white-hot core, wide halo.
+    float core = 1.1 / (d * d);
+    float halo = 0.18 / d;
+    float glow = intensity * min(core + halo, 3.0);
 
     // Silver treatment: the hot core is pure white, the falloff cools into a
     // faint blue-violet fringe like light bleeding on glass.
