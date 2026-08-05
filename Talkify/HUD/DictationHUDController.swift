@@ -51,9 +51,15 @@ final class DictationHUDController {
     }
 
     /// Debug-only hook for auditioning the candidate sound sets from the
-    /// menu; goes away when the pick is made.
+    /// menu; the future Settings UI replaces it.
     func useSounds(_ set: DictationSoundSet) {
         sounds.set = set
+    }
+
+    /// Played when finalized text lands in the target. M1.3 wires this to
+    /// text insertion; until then only the debug demo calls it.
+    func playPasteSound() {
+        sounds.playPaste()
     }
 
     func showMessage(_ text: String) {

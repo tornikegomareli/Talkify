@@ -62,6 +62,8 @@ final class StatusItemController: NSObject {
             hudController.showFinalizing()
             try? await Task.sleep(for: .seconds(1))
             hudController.hide()
+            try? await Task.sleep(for: .milliseconds(500))
+            hudController.playPasteSound()
             hudController.showMessage("Demo finished")
         }
     }

@@ -1,8 +1,9 @@
 import AppKit
 
-/// The candidate sound pairs for the session bumps, kept side by side while
-/// the pick is judged by ear from the debug menu. Licensing differs per set —
-/// see Resources/Sounds/LICENSE-SOUNDS.txt before shipping either.
+/// The candidate sound sets, selectable from the debug menu today and from
+/// Settings later — the selection persists under `Keys.soundSet` so the
+/// future Settings UI reads and writes the same value. Licensing differs per
+/// set — see Resources/Sounds/LICENSE-SOUNDS.txt before shipping.
 enum DictationSoundSet: String, CaseIterable {
     /// Plunger pop (freesound #321807, CC-BY-NC — placeholder, not shippable).
     case pop = "Pop"
@@ -17,20 +18,33 @@ enum DictationSoundSet: String, CaseIterable {
     /// Synthesized single woody tock, tick-then-tock out, in the style of the
     /// reference app's v7 pair. Original asset.
     case synth7 = "Synth7"
+    /// Synthesized rising thump-blip-body gesture in, falling body-thump out,
+    /// in the style of the reference app's synth8 trio. Original asset.
+    case synth8 = "Synth8"
 }
 
-/// The two bumps that bracket a Direct Dictation session: one when listening
-/// starts, a lower-pitched sibling when the session ends.
+/// The sounds that bracket a Direct Dictation session: begin when listening
+/// starts, end when the session closes, paste when text lands in the target.
 @MainActor
 final class DictationHUDSounds {
-    var set = DictationSoundSet.pop {
-        didSet { load() }
+    private enum Keys {
+        static let soundSet = "dictationSoundSet"
+    }
+
+    var set: DictationSoundSet {
+        didSet {
+            UserDefaults.standard.set(set.rawValue, forKey: Keys.soundSet)
+            load()
+        }
     }
 
     private var begin: NSSound?
     private var end: NSSound?
+    private var paste: NSSound?
 
     init() {
+        let stored = UserDefaults.standard.string(forKey: Keys.soundSet)
+        set = stored.flatMap(DictationSoundSet.init(rawValue:)) ?? .pop
         load()
     }
 
@@ -42,9 +56,14 @@ final class DictationHUDSounds {
         play(end)
     }
 
+    func playPaste() {
+        play(paste)
+    }
+
     private func load() {
         begin = NSSound.bundled("\(set.rawValue)Begin")
         end = NSSound.bundled("\(set.rawValue)End")
+        paste = NSSound.bundled("\(set.rawValue)Paste")
     }
 
     private func play(_ sound: NSSound?) {
