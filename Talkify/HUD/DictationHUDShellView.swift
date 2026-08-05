@@ -263,3 +263,25 @@ struct DictationHUDShellView: View {
         }
     }
 }
+
+// Live previews in-file so edits to the shell re-render in place; the
+// harness (HUDPreviews.swift) drives synthesized speech-like levels.
+
+#Preview("Edge Glow") {
+    HUDShellPreviewHarness(visual: .glow)
+}
+
+#Preview("Waveform") {
+    HUDShellPreviewHarness(visual: .waveform)
+}
+
+#Preview("Draft · grow down") {
+    HUDShellPreviewHarness(
+        text: "A long draft that outgrows a single line wraps and grows the "
+            + "shape downward, capped at four lines, so the newest words stay visible"
+    )
+}
+
+#Preview("Message · simulated notch") {
+    HUDShellPreviewHarness(screen: HUDPreviewScreen.external, text: "Secure field")
+}
