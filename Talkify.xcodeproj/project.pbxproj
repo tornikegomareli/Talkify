@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA10000000000000000000A1 /* Aurora in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A3 /* Aurora */; };
+		AA10000000000000000000A1 /* Beam in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A3 /* Beam */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,7 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA10000000000000000000A1 /* Aurora in Frameworks */,
+				AA10000000000000000000A1 /* Beam in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,7 +95,7 @@
 			);
 			name = Talkify;
 			packageProductDependencies = (
-				AA10000000000000000000A3 /* Aurora */,
+				AA10000000000000000000A3 /* Beam */,
 			);
 			productName = Talkify;
 			productReference = 9E87DA66302384C5007A1A70 /* Talkify.app */;
@@ -153,7 +153,7 @@
 			mainGroup = 9E87DA5D302384C5007A1A70;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */,
+				AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "beam" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E87DA67302384C5007A1A70 /* Products */;
@@ -491,21 +491,21 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */ = {
+		AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "beam" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tornikegomareli/Aurora.git";
+			repositoryURL = "https://github.com/tornikegomareli/beam.git";
 			requirement = {
-				branch = "macos-support";
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AA10000000000000000000A3 /* Aurora */ = {
+		AA10000000000000000000A3 /* Beam */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */;
-			productName = Aurora;
+			package = AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "beam" */;
+			productName = Beam;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

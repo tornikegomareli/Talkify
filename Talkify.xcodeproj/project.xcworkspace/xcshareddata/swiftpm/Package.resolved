@@ -1,13 +1,13 @@
 {
-  "originHash" : "090befb7699dc6ed202d78517357fb6e81beac0eb233bbc79f92c37adfa45358",
+  "originHash" : "bb4a7eacb589e866648f223740500be6b1586034e22aa79cd9900066007f17d2",
   "pins" : [
     {
-      "identity" : "aurora",
+      "identity" : "beam",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tornikegomareli/Aurora.git",
+      "location" : "https://github.com/tornikegomareli/beam.git",
       "state" : {
-        "branch" : "macos-support",
-        "revision" : "b480af242f06055ea6ac46fcca2ebb7440b20a44"
+        "revision" : "96eb0e2973326d2bce7bc3d4da3950b2fdfbf437",
+        "version" : "0.1.0"
       }
     }
   ],

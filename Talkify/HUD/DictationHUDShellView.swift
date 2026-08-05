@@ -1,4 +1,4 @@
-import Aurora
+import Beam
 import SwiftUI
 
 /// What the HUD currently says. `@Observable` so the AppKit controller can
@@ -204,34 +204,26 @@ struct DictationHUDShellView: View {
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
     }
 
-    /// The edge-glow voice visual: Aurora's Apple-Intelligence glow hugging
-    /// the shape's border, thickness and reach following the voice, draft
-    /// text untouched in the middle. A dead microphone swaps the palette to a
-    /// static amber; silence keeps the glow's own quiet baseline.
+    /// The edge-glow voice visual: Beam's thin traveling border line in the
+    /// mono (white/silver) palette, its intensity following the voice, draft
+    /// text untouched in the middle. A dead microphone swaps to the warm
+    /// sunset palette at a fixed dim strength; silence keeps a faint floor.
     @ViewBuilder
     private var edgeGlow: some View {
         if content.showsVoiceVisual, !reduceMotion, content.voiceVisualStyle == .glow {
-            let level = content.audioLevel
-            AuroraGlow(.standard)
-                .palette(content.isAudioAlive ? .appleIntelligence : Self.deadMicPalette)
-                .cornerRadius(HUDNotchGeometry.bottomCornerRadius)
-                .borderWidth(2.5 + 5 * level)
-                .glowSize(14 + 30 * level)
-                .clipShape(housingShape)
+            Color.clear
+                .beam(
+                    .medium,
+                    palette: content.isAudioAlive ? .mono : .sunset,
+                    theme: .dark,
+                    shape: .roundedRect(cornerRadius: HUDNotchGeometry.bottomCornerRadius),
+                    strength: content.isAudioAlive
+                        ? 0.35 + 0.65 * content.audioLevel
+                        : 0.4
+                )
+                .allowsHitTesting(false)
         }
     }
-
-    /// Amber tones for the dead-microphone state (CONTEXT.md: a dead mic
-    /// must not look like silence).
-    private static let deadMicPalette = AuroraGlow.Palette(
-        base: SIMD3(0.35, 0.2, 0.02),
-        anchors: [
-            SIMD3(1.0, 0.62, 0.18),
-            SIMD3(0.9, 0.5, 0.1),
-            SIMD3(1.0, 0.7, 0.3),
-            SIMD3(0.8, 0.45, 0.1),
-        ]
-    )
 
     /// Sits alongside the body rather than inside it. Absent on a display with
     /// no notch: the flare exists to meet a housing (ADR-0001).
