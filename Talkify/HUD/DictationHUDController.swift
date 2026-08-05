@@ -62,11 +62,16 @@ final class DictationHUDController {
            let style = HUDVoiceVisualStyle(rawValue: stored) {
             content.voiceVisualStyle = style
         }
+        if let stored = UserDefaults.standard.string(forKey: Self.waveformStyleKey),
+           let style = HUDWaveformStyle(rawValue: stored) {
+            content.waveformStyle = style
+        }
     }
 
     private static let revealStyleKey = "hudRevealStyle"
     private static let longDraftStyleKey = "hudLongDraftStyle"
     private static let voiceVisualStyleKey = "hudVoiceVisual"
+    private static let waveformStyleKey = "hudWaveformStyle"
 
     /// Debug-only hook for auditioning reveal styles from the menu; the
     /// future Settings UI replaces it. Persists like the sound set.
@@ -85,6 +90,12 @@ final class DictationHUDController {
     func useVoiceVisual(_ style: HUDVoiceVisualStyle) {
         content.voiceVisualStyle = style
         UserDefaults.standard.set(style.rawValue, forKey: Self.voiceVisualStyleKey)
+    }
+
+    /// Debug-only hook for auditioning waveform styles; same pattern.
+    func useWaveformStyle(_ style: HUDWaveformStyle) {
+        content.waveformStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: Self.waveformStyleKey)
     }
 
     /// Live microphone level, 0–1, ~46 Hz while listening. Smoothed with a

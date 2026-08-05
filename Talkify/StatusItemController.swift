@@ -88,6 +88,22 @@ final class StatusItemController: NSObject {
         }
         visualItem.submenu = visualMenu
         menu.addItem(visualItem)
+
+        // And the waveform look itself, one item per reference style.
+        let waveformItem = NSMenuItem(title: "Debug: HUD Waveform", action: nil, keyEquivalent: "")
+        let waveformMenu = NSMenu()
+        for style in HUDWaveformStyle.allCases {
+            let styleItem = NSMenuItem(
+                title: style.rawValue,
+                action: #selector(runHUDDemoWithWaveform(_:)),
+                keyEquivalent: ""
+            )
+            styleItem.target = self
+            styleItem.representedObject = style.rawValue
+            waveformMenu.addItem(styleItem)
+        }
+        waveformItem.submenu = waveformMenu
+        menu.addItem(waveformItem)
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -111,6 +127,15 @@ final class StatusItemController: NSObject {
 
     @objc private func toggleDictationItem() {
         toggleDictation()
+    }
+
+    @objc private func runHUDDemoWithWaveform(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String,
+           let style = HUDWaveformStyle(rawValue: raw) {
+            hudController.useWaveformStyle(style)
+        }
+        hudController.useVoiceVisual(.waveform)
+        runHUDDemo()
     }
 
     @objc private func runHUDDemoWithVisual(_ sender: NSMenuItem) {

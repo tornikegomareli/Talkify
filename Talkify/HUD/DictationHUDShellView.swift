@@ -13,6 +13,7 @@ final class DictationHUDContent {
     /// Grow Down is the chosen default; the others stay for the Settings picker.
     var longDraftStyle = HUDLongDraftStyle.growDown
     var voiceVisualStyle = HUDVoiceVisualStyle.waveform
+    var waveformStyle = HUDWaveformStyle.silver
     /// True only while listening — the visuals react to the microphone, so
     /// they leave when it stops.
     var showsVoiceVisual = false

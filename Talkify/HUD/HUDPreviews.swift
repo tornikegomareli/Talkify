@@ -38,6 +38,7 @@ struct HUDShellPreviewHarness: View {
     var text = "Draft text arrives and keeps updating while you speak"
     /// nil = no voice visual (plain message/draft state).
     var visual: HUDVoiceVisualStyle?
+    var waveformStyle = HUDWaveformStyle.silver
     var longDraft = HUDLongDraftStyle.growDown
     /// false previews the dead-microphone state.
     var micAlive = true
@@ -54,6 +55,7 @@ struct HUDShellPreviewHarness: View {
                 content.isRevealed = true
                 guard let visual else { return }
                 content.voiceVisualStyle = visual
+                content.waveformStyle = waveformStyle
                 content.showsVoiceVisual = true
                 content.isAudioAlive = micAlive
                 guard micAlive else { return }
