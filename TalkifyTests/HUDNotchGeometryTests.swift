@@ -55,11 +55,18 @@ struct HUDNotchGeometryTests {
     @Test func windowFrameIsTopCenterWithShadowSlack() {
         let frame = HUDNotchGeometry.windowFrame(for: notched)
         let expectedWidth: CGFloat = 540 + 44 * 2
-        let expectedHeight = HUDNotchGeometry.contentSize(for: notched).height + 44
+        let expectedHeight: CGFloat = 32 + HUDNotchGeometry.maxTextBandHeight + 44
         #expect(frame.width == expectedWidth)
         #expect(frame.height == expectedHeight)
         #expect(frame.midX == notched.frame.midX)
         #expect(frame.maxY == notched.frame.maxY)
+    }
+
+    @Test func windowFitsTheTallestTextBand() {
+        #expect(HUDNotchGeometry.maxTextBandHeight > HUDNotchGeometry.textBandHeight)
+        let frame = HUDNotchGeometry.windowFrame(for: notched)
+        let tallestShape = 32 + HUDNotchGeometry.maxTextBandHeight
+        #expect(frame.height >= tallestShape + HUDNotchGeometry.shadowPadding)
     }
 
     @Test func windowFrameClampsToNarrowScreen() {

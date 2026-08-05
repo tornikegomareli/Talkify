@@ -10,6 +10,7 @@ final class DictationHUDContent {
     var isRevealed = false
     /// Slide is the chosen default; the others stay for the Settings picker.
     var revealStyle = HUDRevealStyle.slide
+    var longDraftStyle = HUDLongDraftStyle.tailOnly
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
@@ -44,9 +45,20 @@ struct DictationHUDShellView: View {
     }
 
     var body: some View {
-        textBand
-            .frame(width: size.width, height: size.height, alignment: .bottom)
-            .background { housing }
+        VStack(spacing: 0) {
+            // Strip level with the housing: kept empty so text never collides
+            // with the camera.
+            Color.clear
+                .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
+            textBand
+        }
+        .frame(width: size.width)
+        .frame(minHeight: size.height, alignment: .top)
+        .animation(
+            content.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
+            value: content.text
+        )
+        .background { housing }
             .overlay(alignment: .topLeading) { fillet(.leading) }
             .overlay(alignment: .topTrailing) { fillet(.trailing) }
             .opacity(revealOpacity)
@@ -111,19 +123,37 @@ struct DictationHUDShellView: View {
         }
     }
 
-    /// Draft text lives in the band below the housing so it never collides
-    /// with the camera on a display with a real notch.
+    /// Draft text lives in the band below the housing.
     private var textBand: some View {
-        Text(content.text)
+        draftText
             .font(.system(size: 15, weight: .medium))
             .foregroundStyle(.white)
-            .lineLimit(1)
-            // Tail-only truncation: long drafts show the newest words
-            // (CONTEXT.md flags long-draft behavior as undecided; this is the
-            // current variant).
-            .truncationMode(.head)
             .padding(.horizontal, 24)
-            .frame(height: HUDNotchGeometry.textBandHeight)
+            .padding(.vertical, 9)
+            .frame(minHeight: HUDNotchGeometry.textBandHeight)
+    }
+
+    /// The single-line variants truncate the head — the newest words are what
+    /// the speaker checks. Grow Down cannot: head truncation forces
+    /// single-line rendering, so it wraps and truncates the tail only when
+    /// the line cap is hit.
+    @ViewBuilder
+    private var draftText: some View {
+        switch content.longDraftStyle {
+        case .tailOnly:
+            Text(content.text)
+                .lineLimit(1)
+                .truncationMode(.head)
+        case .growDown:
+            Text(content.text)
+                .lineLimit(4)
+                .multilineTextAlignment(.center)
+        case .shrinkToFit:
+            Text(content.text)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .minimumScaleFactor(0.55)
+        }
     }
 
     private var housing: some View {

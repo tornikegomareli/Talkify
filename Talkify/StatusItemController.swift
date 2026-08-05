@@ -55,6 +55,22 @@ final class StatusItemController: NSObject {
         }
         animationItem.submenu = animationMenu
         menu.addItem(animationItem)
+
+        // And for the flagged long-draft variants (CONTEXT.md): pick, see the demo.
+        let draftItem = NSMenuItem(title: "Debug: HUD Long Drafts", action: nil, keyEquivalent: "")
+        let draftMenu = NSMenu()
+        for style in HUDLongDraftStyle.allCases {
+            let styleItem = NSMenuItem(
+                title: style.rawValue,
+                action: #selector(runHUDDemoWithDraftStyle(_:)),
+                keyEquivalent: ""
+            )
+            styleItem.target = self
+            styleItem.representedObject = style.rawValue
+            draftMenu.addItem(styleItem)
+        }
+        draftItem.submenu = draftMenu
+        menu.addItem(draftItem)
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -78,6 +94,14 @@ final class StatusItemController: NSObject {
 
     @objc private func toggleDictationItem() {
         toggleDictation()
+    }
+
+    @objc private func runHUDDemoWithDraftStyle(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String,
+           let style = HUDLongDraftStyle(rawValue: raw) {
+            hudController.useLongDraftStyle(style)
+        }
+        runHUDDemo()
     }
 
     @objc private func runHUDDemoWithStyle(_ sender: NSMenuItem) {
@@ -105,6 +129,12 @@ final class StatusItemController: NSObject {
             try? await Task.sleep(for: .seconds(1))
             hudController.showLiveText("Draft text arrives and keeps updating while you speak")
             try? await Task.sleep(for: .seconds(1))
+            hudController.showLiveText(
+                "Draft text arrives and keeps updating while you speak, and when a draft "
+                + "runs long enough to outgrow a single line the selected long-draft "
+                + "variant decides whether it truncates, wraps and grows, or shrinks to fit"
+            )
+            try? await Task.sleep(for: .seconds(2))
             hudController.showLatched()
             try? await Task.sleep(for: .seconds(1))
             hudController.showFinalizing()

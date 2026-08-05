@@ -16,6 +16,11 @@ enum HUDNotchGeometry {
     /// out of the housing band so text never collides with the camera.
     static let textBandHeight: CGFloat = 36
 
+    /// The tallest the text band ever gets: the downward-growing long-draft
+    /// variant caps at a few wrapped lines. The host window is sized for this
+    /// so growth never needs a window resize.
+    static let maxTextBandHeight: CGFloat = 120
+
     /// Slack on the left, right, and bottom so the shell's drawn shadow is not
     /// clipped by the fixed window frame. Nothing is added at the top: that
     /// edge is the top of the screen and the shape is flush against it.
@@ -75,7 +80,7 @@ enum HUDNotchGeometry {
     /// pinned to the top, clamped to the screen width.
     static func windowFrame(for screen: HUDScreenSnapshot) -> CGRect {
         let width = min(contentWidth + shadowPadding * 2, screen.frame.width)
-        let height = closedSize(for: screen).height + textBandHeight + shadowPadding
+        let height = closedSize(for: screen).height + maxTextBandHeight + shadowPadding
 
         return CGRect(
             x: screen.frame.midX - width / 2,
