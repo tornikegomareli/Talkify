@@ -12,5 +12,9 @@ ClickBegin.wav / ClickEnd.wav
   https://freesound.org/people/cabled_mess/sounds/370962/
   License: CC0 (public domain) — cleared for any use.
 
-Each End variant is its Begin recording pitched down 22% by header
-resampling.
+ChimeBegin.wav / ChimeEnd.wav
+  Synthesized in-repo (sine + harmonics, two-note fifth up/down).
+  Original Talkify asset — no external license.
+
+Pop/Click End variants are their Begin recording pitched down 22% by
+header resampling.

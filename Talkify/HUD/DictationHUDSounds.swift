@@ -8,6 +8,9 @@ enum DictationSoundSet: String, CaseIterable {
     case pop = "Pop"
     /// Minimal 7ms UI click (freesound #370962, CC0).
     case click = "Click"
+    /// Our own synthesized two-note pluck: rising fifth in, falling fifth
+    /// out. Original asset, no license constraints.
+    case chime = "Chime"
 }
 
 /// The two bumps that bracket a Direct Dictation session: one when listening
