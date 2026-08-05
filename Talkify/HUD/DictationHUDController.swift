@@ -48,6 +48,19 @@ final class DictationHUDController {
             contentRect: CGRect(origin: .zero, size: CGSize(width: 1, height: 1)),
             contentView: hostingView
         )
+        if let stored = UserDefaults.standard.string(forKey: Self.revealStyleKey),
+           let style = HUDRevealStyle(rawValue: stored) {
+            content.revealStyle = style
+        }
+    }
+
+    private static let revealStyleKey = "hudRevealStyle"
+
+    /// Debug-only hook for auditioning reveal styles from the menu; the
+    /// future Settings UI replaces it. Persists like the sound set.
+    func useRevealStyle(_ style: HUDRevealStyle) {
+        content.revealStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: Self.revealStyleKey)
     }
 
     /// Debug-only hook for auditioning the candidate sound sets from the

@@ -6,9 +6,9 @@ import SwiftUI
 @Observable
 final class DictationHUDContent {
     var text = ""
-    /// Drives the descend/retract animation: the shape sits above the screen
-    /// edge until revealed, and slides back out when hidden.
+    /// Drives the reveal/dismiss animation.
     var isRevealed = false
+    var revealStyle = HUDRevealStyle.unfurl
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
@@ -17,14 +17,8 @@ final class DictationHUDContent {
 /// window never resizes, so the shell top-aligns itself inside whatever frame
 /// it is given.
 struct DictationHUDShellView: View {
-    /// The descend gets a soft overshoot so the shape settles like it landed
-    /// (spring presets and bounce tuning per WWDC23 "Animate with springs").
-    /// The retract is quicker and bounce-free: an exit that overshoots reads
-    /// as hesitation.
-    private static let reveal = Animation.spring(duration: 0.45, bounce: 0.25)
-    private static let dismiss = Animation.spring(duration: 0.3, bounce: 0)
-    /// With Reduce Motion the slide is replaced by a quiet fade (CONTEXT.md:
-    /// the HUD skips expand/collapse animation).
+    /// With Reduce Motion every style is replaced by a quiet fade
+    /// (CONTEXT.md: the HUD skips expand/collapse animation).
     private static let reducedMotionFade = Animation.easeOut(duration: 0.12)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -55,31 +49,65 @@ struct DictationHUDShellView: View {
             .overlay(alignment: .topLeading) { fillet(.leading) }
             .overlay(alignment: .topTrailing) { fillet(.trailing) }
             .opacity(revealOpacity)
+            .scaleEffect(x: revealScale.x, y: revealScale.y, anchor: .top)
             .offset(y: revealOffset)
             .animation(revealAnimation, value: content.isRevealed)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    /// Hidden means parked above the window's top edge — which is the top of
-    /// the screen — so the reveal reads as descending from outside. The extra
-    /// slack clears the drawn shadow's reach below the shape.
+    private var isParked: Bool {
+        !content.isRevealed && !reduceMotion
+    }
+
+    /// Where position moves at all, hidden means at or above the window's top
+    /// edge — never below — so no style can open a gap against the screen edge.
     private var revealOffset: CGFloat {
-        if reduceMotion || content.isRevealed {
-            return 0
+        guard isParked else { return 0 }
+        switch content.revealStyle {
+        case .slide: return -(size.height + 20)
+        case .unfurl, .bloom: return 0
+        case .drift: return -14
         }
-        return -(size.height + 20)
+    }
+
+    private var revealScale: (x: CGFloat, y: CGFloat) {
+        guard isParked else { return (1, 1) }
+        switch content.revealStyle {
+        case .slide, .drift: return (1, 1)
+        case .unfurl: return (1, 0.001)
+        case .bloom: return (0.55, 0.55)
+        }
     }
 
     private var revealOpacity: Double {
-        guard reduceMotion else { return 1 }
-        return content.isRevealed ? 1 : 0
+        if reduceMotion {
+            return content.isRevealed ? 1 : 0
+        }
+        switch content.revealStyle {
+        case .slide, .unfurl: return 1
+        case .bloom, .drift: return content.isRevealed ? 1 : 0
+        }
     }
 
+    /// Bounce lives only in top-anchored scale (unfurl, bloom); the styles
+    /// that move position (slide, drift) stay bounce-free, because a position
+    /// overshoot would detach the shape from the screen edge.
     private var revealAnimation: Animation {
         if reduceMotion {
             return Self.reducedMotionFade
         }
-        return content.isRevealed ? Self.reveal : Self.dismiss
+        if content.isRevealed {
+            switch content.revealStyle {
+            case .slide: return .spring(duration: 0.4, bounce: 0)
+            case .unfurl: return .spring(duration: 0.45, bounce: 0.3)
+            case .bloom: return .spring(duration: 0.4, bounce: 0.25)
+            case .drift: return .easeOut(duration: 0.24)
+            }
+        }
+        switch content.revealStyle {
+        case .slide, .unfurl, .bloom: return .spring(duration: 0.28, bounce: 0)
+        case .drift: return .easeIn(duration: 0.18)
+        }
     }
 
     /// Draft text lives in the band below the housing so it never collides

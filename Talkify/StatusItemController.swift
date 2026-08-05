@@ -30,6 +30,22 @@ final class StatusItemController: NSObject {
             demoItem.representedObject = set.rawValue
             menu.addItem(demoItem)
         }
+
+        // Same idea for the reveal animation: pick a style, see the demo.
+        let animationItem = NSMenuItem(title: "Debug: HUD Animation", action: nil, keyEquivalent: "")
+        let animationMenu = NSMenu()
+        for style in HUDRevealStyle.allCases {
+            let styleItem = NSMenuItem(
+                title: style.rawValue,
+                action: #selector(runHUDDemoWithStyle(_:)),
+                keyEquivalent: ""
+            )
+            styleItem.target = self
+            styleItem.representedObject = style.rawValue
+            animationMenu.addItem(styleItem)
+        }
+        animationItem.submenu = animationMenu
+        menu.addItem(animationItem)
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -38,6 +54,14 @@ final class StatusItemController: NSObject {
             keyEquivalent: "q"
         ))
         statusItem.menu = menu
+    }
+
+    @objc private func runHUDDemoWithStyle(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String,
+           let style = HUDRevealStyle(rawValue: raw) {
+            hudController.useRevealStyle(style)
+        }
+        runHUDDemo()
     }
 
     @objc private func runHUDDemoItem(_ sender: NSMenuItem) {
