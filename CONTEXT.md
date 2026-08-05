@@ -126,5 +126,5 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 ## Flagged ambiguities
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
-- HUD behavior for long drafts is undecided. Three variants will be prototyped and judged by feel: tail-only truncation, a downward-growing panel, and shrink-to-fit. Current code implements tail-only.
+- HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.
 - The voice-reactive visual is undecided. Two variants will be prototyped and judged by feel: a Metal shader waveform, and an Apple-Intelligence-style glow around the notch edge with draft text in the middle. Both must deliver a strong first impression.

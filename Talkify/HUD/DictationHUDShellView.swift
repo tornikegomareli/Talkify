@@ -10,7 +10,8 @@ final class DictationHUDContent {
     var isRevealed = false
     /// Slide is the chosen default; the others stay for the Settings picker.
     var revealStyle = HUDRevealStyle.slide
-    var longDraftStyle = HUDLongDraftStyle.tailOnly
+    /// Grow Down is the chosen default; the others stay for the Settings picker.
+    var longDraftStyle = HUDLongDraftStyle.growDown
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
