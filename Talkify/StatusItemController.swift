@@ -36,7 +36,7 @@ final class StatusItemController: NSObject {
         statusItem.menu = menu
     }
 
-    @objc private func runHUDDemo() {
+    @objc func runHUDDemo() {
         demoTask?.cancel()
         demoTask = Task { [hudController] in
             hudController.showListening(on: nil, isLatched: false)

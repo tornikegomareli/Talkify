@@ -3,13 +3,19 @@ import Testing
 @testable import Talkify
 
 struct HUDPlacementTests {
-    private let main = HUDPlacement.Display(
+    private let main = HUDScreenSnapshot(
         id: 1,
-        frame: CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        frame: CGRect(x: 0, y: 0, width: 1728, height: 1117),
+        safeAreaTop: 32,
+        auxiliaryTopLeftArea: nil,
+        auxiliaryTopRightArea: nil
     )
-    private let external = HUDPlacement.Display(
+    private let external = HUDScreenSnapshot(
         id: 2,
-        frame: CGRect(x: 1728, y: 200, width: 2560, height: 1440)
+        frame: CGRect(x: 1728, y: 200, width: 2560, height: 1440),
+        safeAreaTop: 0,
+        auxiliaryTopLeftArea: nil,
+        auxiliaryTopRightArea: nil
     )
 
     @Test func selectsDisplayOfKnownTarget() {
@@ -64,21 +70,5 @@ struct HUDPlacementTests {
             pointerLocation: .zero
         )
         #expect(selected == nil)
-    }
-
-    @Test func panelFrameIsTopCenterOfDisplay() {
-        let frame = HUDPlacement.panelFrame(
-            on: main,
-            panelSize: CGSize(width: 400, height: 80)
-        )
-        #expect(frame == CGRect(x: 664, y: 1037, width: 400, height: 80))
-    }
-
-    @Test func panelFrameRespectsDisplayOrigin() {
-        let frame = HUDPlacement.panelFrame(
-            on: external,
-            panelSize: CGSize(width: 400, height: 80)
-        )
-        #expect(frame == CGRect(x: 2808, y: 1560, width: 400, height: 80))
     }
 }

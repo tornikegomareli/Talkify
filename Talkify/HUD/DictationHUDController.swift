@@ -1,11 +1,13 @@
 import AppKit
+import SwiftUI
 
-/// The Direct Dictation HUD surface. Milestone 1 scope: behavior, not looks —
-/// a non-activating, click-through panel at the top center of the selected
-/// display. Notch geometry, animation, and the voice-reactive visual come later.
+/// The Direct Dictation HUD surface: a NotchIsland-style shape that descends
+/// from the top center of the selected display. Non-activating and
+/// click-through; the host window is sized once per display and only its
+/// origin moves. The voice-reactive visual and long-draft variants stay open
+/// (CONTEXT.md flagged ambiguities).
 @MainActor
 final class DictationHUDController {
-    private static let panelSize = CGSize(width: 420, height: 56)
     private static let messageDuration = Duration.seconds(2)
     private static let latchedText = "Listening (latched)"
 
@@ -15,48 +17,31 @@ final class DictationHUDController {
         case message
     }
 
-    private let panel: NSPanel
-    private let label: NSTextField
+    private let panel: DictationHUDPanel
+    private let hostingView: NSHostingView<DictationHUDShellView>
+    private let content = DictationHUDContent()
     private var mode = Mode.hidden
     private var messageDismissTask: Task<Void, Never>?
 
     init() {
-        panel = NSPanel(
-            contentRect: CGRect(origin: .zero, size: Self.panelSize),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+        let placeholder = HUDScreenSnapshot(
+            id: 0,
+            frame: .zero,
+            safeAreaTop: 0,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil
         )
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        panel.ignoresMouseEvents = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-
-        let background = NSView()
-        background.wantsLayer = true
-        background.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
-        background.layer?.cornerRadius = 12
-
-        label = NSTextField(labelWithString: "")
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 15, weight: .medium)
-        label.alignment = .center
-        // Tail-only truncation: long drafts show the newest words (CONTEXT.md
-        // flags long-draft behavior as undecided; this is the current variant).
-        label.lineBreakMode = .byTruncatingHead
-        label.translatesAutoresizingMaskIntoConstraints = false
-        background.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
-            label.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -16),
-            label.centerYAnchor.constraint(equalTo: background.centerYAnchor),
-        ])
-
-        panel.contentView = background
+        hostingView = NSHostingView(
+            rootView: DictationHUDShellView(screen: placeholder, content: content)
+        )
+        // The window size is this controller's decision, not the content's;
+        // without this the hosting view imposes the shell's intrinsic size on
+        // the window and collapses the fixed frame.
+        hostingView.sizingOptions = []
+        panel = DictationHUDPanel(
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 1, height: 1)),
+            contentView: hostingView
+        )
     }
 
     func showMessage(_ text: String) {
@@ -64,32 +49,32 @@ final class DictationHUDController {
     }
 
     func showMessage(_ text: String, on displayID: CGDirectDisplayID?) {
-        guard let display = selectDisplay(targetDisplayID: displayID) else { return }
+        guard let screen = selectScreen(targetDisplayID: displayID) else { return }
         mode = .message
-        present(text, on: display)
+        present(text, on: screen)
         scheduleMessageDismiss()
     }
 
     func showListening(on displayID: CGDirectDisplayID?, isLatched: Bool) {
-        guard let display = selectDisplay(targetDisplayID: displayID) else { return }
+        guard let screen = selectScreen(targetDisplayID: displayID) else { return }
         cancelMessageDismiss()
         mode = .session
-        present(isLatched ? Self.latchedText : "Listening…", on: display)
+        present(isLatched ? Self.latchedText : "Listening…", on: screen)
     }
 
     func showLatched() {
         guard case .session = mode else { return }
-        label.stringValue = Self.latchedText
+        content.text = Self.latchedText
     }
 
     func showLiveText(_ text: String) {
         guard case .session = mode, !text.isEmpty else { return }
-        label.stringValue = text
+        content.text = text
     }
 
     func showFinalizing() {
         guard case .session = mode else { return }
-        label.stringValue = "Finalizing…"
+        content.text = "Finalizing…"
     }
 
     func hide() {
@@ -98,24 +83,28 @@ final class DictationHUDController {
         panel.orderOut(nil)
     }
 
-    private func selectDisplay(targetDisplayID: CGDirectDisplayID?) -> HUDPlacement.Display? {
-        let displays = NSScreen.screens.compactMap { screen -> HUDPlacement.Display? in
+    private func selectScreen(targetDisplayID: CGDirectDisplayID?) -> HUDScreenSnapshot? {
+        let screens = NSScreen.screens.compactMap { screen -> HUDScreenSnapshot? in
             guard let id = screen.cgDirectDisplayID else { return nil }
-            return HUDPlacement.Display(id: id, frame: screen.frame)
+            return HUDScreenSnapshot(
+                id: id,
+                frame: screen.frame,
+                safeAreaTop: screen.safeAreaInsets.top,
+                auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+                auxiliaryTopRightArea: screen.auxiliaryTopRightArea
+            )
         }
         return HUDPlacement.selectDisplay(
-            from: displays,
+            from: screens,
             targetDisplayID: targetDisplayID,
             pointerLocation: NSEvent.mouseLocation
         )
     }
 
-    private func present(_ text: String, on display: HUDPlacement.Display) {
-        label.stringValue = text
-        panel.setFrame(
-            HUDPlacement.panelFrame(on: display, panelSize: Self.panelSize),
-            display: true
-        )
+    private func present(_ text: String, on screen: HUDScreenSnapshot) {
+        content.text = text
+        hostingView.rootView = DictationHUDShellView(screen: screen, content: content)
+        panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
         panel.orderFrontRegardless()
     }
 
