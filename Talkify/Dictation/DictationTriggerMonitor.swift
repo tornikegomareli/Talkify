@@ -1,6 +1,5 @@
 import ApplicationServices
 import Foundation
-import OSLog
 
 final class DictationTriggerMonitor: @unchecked Sendable {
     enum Event: Sendable {
@@ -12,7 +11,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     private static let functionKeyCode: Int64 = 63
 
     private let handler: @Sendable (Event) -> Void
-    private let logger = Logger(subsystem: "com.tgomareli.Talkify", category: "TriggerDiagnosis")
     private let stateLock = NSLock()
 
     private var eventTap: CFMachPort?
@@ -27,8 +25,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     @discardableResult
     func start() -> Bool {
         guard eventTap == nil else { return true }
-
-        logger.notice("[DEBUG-fn8b] start requested")
 
         let mask = eventMask(for: [
             .flagsChanged,
@@ -55,12 +51,10 @@ final class DictationTriggerMonitor: @unchecked Sendable {
             callback: callback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            logger.error("[DEBUG-fn8b] event tap creation failed")
             return false
         }
 
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0) else {
-            logger.error("[DEBUG-fn8b] run-loop source creation failed")
             CFMachPortInvalidate(eventTap)
             return false
         }
@@ -69,7 +63,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        logger.notice("[DEBUG-fn8b] event tap installed")
         return true
     }
 
@@ -103,7 +96,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         event: CGEvent
     ) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            logger.error("[DEBUG-fn8b] event tap disabled type=\(type.rawValue)")
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
@@ -112,9 +104,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
 
         if type == .flagsChanged {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            logger.notice(
-                "[DEBUG-fn8b] flags keyCode=\(keyCode) value=\(event.flags.rawValue)"
-            )
             guard keyCode == Self.functionKeyCode else {
                 return Unmanaged.passUnretained(event)
             }
@@ -129,7 +118,6 @@ final class DictationTriggerMonitor: @unchecked Sendable {
             }
 
             if let output {
-                logger.notice("[DEBUG-fn8b] trigger emitted")
                 handler(output)
             }
             return nil

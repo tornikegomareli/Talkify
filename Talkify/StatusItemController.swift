@@ -4,11 +4,15 @@ import AppKit
 final class StatusItemController: NSObject {
     private let statusItem: NSStatusItem
     private let hudController: DictationHUDController
+    private let toggleDictation: () -> Void
+    private let dictationItem: NSMenuItem
     private var demoTask: Task<Void, Never>?
 
-    init(hudController: DictationHUDController) {
+    init(hudController: DictationHUDController, toggleDictation: @escaping () -> Void) {
         self.hudController = hudController
+        self.toggleDictation = toggleDictation
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        dictationItem = NSMenuItem(title: "Start Dictation", action: nil, keyEquivalent: "")
         super.init()
 
         statusItem.button?.image = NSImage(
@@ -17,6 +21,11 @@ final class StatusItemController: NSObject {
         )
 
         let menu = NSMenu()
+
+        dictationItem.action = #selector(toggleDictationItem)
+        dictationItem.target = self
+        menu.addItem(dictationItem)
+        menu.addItem(.separator())
 
         // Temporary M1.2 demo of the HUD surface; ticket M1.3 removes it.
         // One item per candidate sound set so the pick can be judged by ear.
@@ -54,6 +63,21 @@ final class StatusItemController: NSObject {
             keyEquivalent: "q"
         ))
         statusItem.menu = menu
+    }
+
+    /// Mirrors the session state on the shell: filled red microphone and a
+    /// "Stop Dictation" item while recording.
+    func setRecording(_ isRecording: Bool) {
+        statusItem.button?.image = NSImage(
+            systemSymbolName: isRecording ? "microphone.fill" : "microphone",
+            accessibilityDescription: "Talkify"
+        )
+        statusItem.button?.contentTintColor = isRecording ? .systemRed : nil
+        dictationItem.title = isRecording ? "Stop Dictation" : "Start Dictation"
+    }
+
+    @objc private func toggleDictationItem() {
+        toggleDictation()
     }
 
     @objc private func runHUDDemoWithStyle(_ sender: NSMenuItem) {

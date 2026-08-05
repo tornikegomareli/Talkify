@@ -1,5 +1,4 @@
 import AppKit
-import OSLog
 
 @MainActor
 final class DirectDictationController {
@@ -27,9 +26,8 @@ final class DirectDictationController {
     private static let noSpeechTimeout = Duration.seconds(15)
 
     private let speechService = SpeechRecognitionService()
-    private let hudController = DictationHUDController()
+    private let hudController: DictationHUDController
     private let textInsertionService = TextInsertionService()
-    private let logger = Logger(subsystem: "com.tgomareli.Talkify", category: "TriggerDiagnosis")
 
     private var triggerMonitor: DictationTriggerMonitor?
     private var state = State.idle
@@ -43,7 +41,8 @@ final class DirectDictationController {
     private var isPrepared = false
     private var preparationFailureMessage: String?
 
-    init() {
+    init(hudController: DictationHUDController) {
+        self.hudController = hudController
         triggerMonitor = DictationTriggerMonitor { [weak self] event in
             Task { @MainActor [weak self] in
                 self?.handle(event)
@@ -111,9 +110,6 @@ final class DirectDictationController {
             }
 
             isPrepared = true
-            logger.notice(
-                "[DEBUG-fn8b] prepared accessibility=\(PermissionService.hasAccessibilityAccess) inputMonitoring=\(PermissionService.hasInputMonitoringAccess)"
-            )
             guard PermissionService.hasAccessibilityAccess else {
                 hudController.showMessage("Accessibility permission required")
                 return
@@ -294,6 +290,7 @@ final class DirectDictationController {
                 let text = try await speechService.finish()
                 hudController.hide()
                 await textInsertionService.insert(text, into: focusedTarget)
+                hudController.playPasteSound()
                 resetSession()
             } catch {
                 failSession(message: error.localizedDescription)
@@ -373,7 +370,6 @@ final class DirectDictationController {
 
     private func installTriggerMonitor() {
         let installed = triggerMonitor?.start() == true
-        logger.notice("[DEBUG-fn8b] install result=\(installed)")
         guard installed else {
             hudController.showMessage("Accessibility permission required")
             return

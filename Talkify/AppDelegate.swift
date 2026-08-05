@@ -5,6 +5,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var hudController: DictationHUDController?
+    private var dictationController: DirectDictationController?
 
     static func main() {
         let application = NSApplication.shared
@@ -15,13 +16,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let hudController = DictationHUDController()
+        let dictationController = DirectDictationController(hudController: hudController)
         self.hudController = hudController
-        statusItemController = StatusItemController(hudController: hudController)
+        self.dictationController = dictationController
 
-        // Temporary M1.2 demo hook for headless verification; M1.3 removes it
-        // together with the debug menu item.
-        if ProcessInfo.processInfo.arguments.contains("--hud-demo") {
-            statusItemController?.runHUDDemo()
+        let statusItemController = StatusItemController(hudController: hudController) {
+            dictationController.toggleFromMenu()
         }
+        self.statusItemController = statusItemController
+
+        dictationController.onRecordingStateChange = { [weak statusItemController] isRecording in
+            statusItemController?.setRecording(isRecording)
+        }
+
+        // Requests permissions and prepares the selected Speech Model
+        // shortly after launch (CONTEXT.md).
+        dictationController.start()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        dictationController?.stop()
     }
 }
