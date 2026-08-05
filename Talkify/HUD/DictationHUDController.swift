@@ -30,6 +30,8 @@ final class DictationHUDController {
     private var orderOutTask: Task<Void, Never>?
     private var lastLevelAt = ContinuousClock.now
     private var micWatchdogTask: Task<Void, Never>?
+    /// Slow-moving level average, the reference for onset detection.
+    private var slowLevel: Double = 0
 
     init() {
         let placeholder = HUDScreenSnapshot(
@@ -88,11 +90,23 @@ final class DictationHUDController {
     }
 
     /// Live microphone level, 0–1, ~46 Hz while listening. Smoothed with a
-    /// fast attack and slow release, and marks the microphone alive for the
-    /// dead-mic watchdog.
+    /// fast attack and slow release, appended raw to the waveform history,
+    /// and marks the microphone alive for the dead-mic watchdog. A level that
+    /// jumps well above the slow-moving average is a syllable onset, which
+    /// makes the glow pulse.
     func showAudioLevel(_ level: Float) {
         guard content.showsVoiceVisual else { return }
-        content.audioLevel = max(Double(level), content.audioLevel * 0.88)
+        let raw = Double(level)
+        content.audioLevel = max(raw, content.audioLevel * 0.88)
+        content.levelHistory.removeFirst()
+        content.levelHistory.append(level)
+
+        if raw > max(0.22, slowLevel * 1.6),
+           content.lastPulseAt.map({ Date().timeIntervalSince($0) > 0.22 }) ?? true {
+            content.lastPulseAt = Date()
+        }
+        slowLevel = slowLevel * 0.94 + raw * 0.06
+
         lastLevelAt = ContinuousClock.now
         content.isAudioAlive = true
     }
@@ -205,7 +219,10 @@ final class DictationHUDController {
     private func startVoiceVisual() {
         content.showsVoiceVisual = true
         content.audioLevel = 0
+        content.levelHistory = [Float](repeating: 0, count: HUDWaveformView.barCount)
+        content.lastPulseAt = nil
         content.isAudioAlive = true
+        slowLevel = 0
         lastLevelAt = ContinuousClock.now
 
         micWatchdogTask?.cancel()

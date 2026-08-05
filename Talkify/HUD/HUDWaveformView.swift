@@ -1,62 +1,73 @@
 import SwiftUI
 
-/// Hosts the Metal waveform (DictationWave.metal): a full-band voice visual
-/// that replaces the draft text while listening.
+/// The live waveform, built the way "Writing a High-Performance Audio Wave in
+/// SwiftUI" does it: levels reduced on the audio side (vDSP in
+/// MicrophoneInput) feed a plain Shape of vertical bars — no per-frame shader
+/// or canvas work, just a cheap path rebuild per level tick. Newest bar on
+/// the right, Voice Memos style. Replaces the draft text while listening.
 struct HUDWaveformView: View {
+    static let barCount = 56
+
     let content: DictationHUDContent
 
-    @State private var start = Date()
-
     var body: some View {
-        GeometryReader { proxy in
-            TimelineView(.animation) { context in
-                Rectangle()
-                    .colorEffect(
-                        ShaderLibrary.dictationWave(
-                            .float2(proxy.size),
-                            .float(Float(context.date.timeIntervalSince(start))),
-                            .float(Float(content.audioLevel)),
-                            .float(content.isAudioAlive ? 1 : 0)
-                        )
-                    )
-            }
+        AudioWaveShape(samples: content.levelHistory, spacing: 3)
+            .fill(fill)
+            .animation(.linear(duration: 0.05), value: content.levelHistory)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 6)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    /// Silver-white bars, brightest in the middle band where the newest
+    /// motion lives; a dead microphone turns the whole strip amber.
+    private var fill: some ShapeStyle {
+        content.isAudioAlive
+            ? AnyShapeStyle(LinearGradient(
+                colors: [.white.opacity(0.55), .white, .white.opacity(0.55)],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+            : AnyShapeStyle(Color.orange.opacity(0.55))
+    }
+}
+
+/// One rounded vertical bar per sample, centered on the midline, height
+/// perceptually scaled (square root) so quiet speech still moves the strip.
+struct AudioWaveShape: Shape {
+    let samples: [Float]
+    let spacing: CGFloat
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        guard !samples.isEmpty else { return Path() }
+        let count = CGFloat(samples.count)
+        let barWidth = max(1, (rect.width - spacing * (count - 1)) / count)
+
+        var path = Path()
+        var x = rect.minX
+        for sample in samples {
+            let scaled = CGFloat(sample).squareRoot()
+            let height = max(2, scaled * rect.height)
+            path.addRoundedRect(
+                in: CGRect(
+                    x: x,
+                    y: rect.midY - height / 2,
+                    width: barWidth,
+                    height: height
+                ),
+                cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
+            )
+            x += barWidth + spacing
         }
-        .padding(.horizontal, 24)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        return path
     }
 }
 
-/// Oversized canvas for tuning the shader's constants in isolation —
-/// amplitude, glow falloff, hue drift all live in DictationWave.metal.
-#Preview("Waveform shader · large") {
-    WaveformShaderPreview()
+#Preview("Waveform · live") {
+    HUDShellPreviewHarness(visual: .waveform)
 }
 
-#Preview("Waveform shader · dead mic") {
-    WaveformShaderPreview(micAlive: false)
-}
-
-private struct WaveformShaderPreview: View {
-    var micAlive = true
-
-    @State private var content = DictationHUDContent()
-
-    var body: some View {
-        HUDWaveformView(content: content)
-            .frame(width: 640, height: 160)
-            .background(.black)
-            .task {
-                content.isAudioAlive = micAlive
-                guard micAlive else { return }
-                var t = 0.0
-                while !Task.isCancelled {
-                    let burst = max(0, sin(t * 5.6))
-                    let raw = 0.05 + burst * (0.3 + 0.35 * Double.random(in: 0...1))
-                    content.audioLevel = max(raw, content.audioLevel * 0.88)
-                    t += 0.022
-                    try? await Task.sleep(for: .milliseconds(22))
-                }
-            }
-    }
+#Preview("Waveform · dead mic") {
+    HUDShellPreviewHarness(visual: .waveform, micAlive: false)
 }

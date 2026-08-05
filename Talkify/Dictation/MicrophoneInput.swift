@@ -1,3 +1,4 @@
+import Accelerate
 import AVFAudio
 import Speech
 
@@ -170,19 +171,18 @@ final class MicrophoneInput: @unchecked Sendable {
         return outputBuffer
     }
 
-    /// RMS of the first channel mapped to 0–1 over a 50 dB window, so a quiet
-    /// room sits near zero and speech fills most of the range.
+    /// RMS of the first channel (vDSP, so the audio thread barely notices)
+    /// mapped to 0–1 over a 50 dB window: a quiet room sits near zero and
+    /// speech fills most of the range.
     private func publishLevel(of buffer: AVAudioPCMBuffer) {
         guard let levelHandler,
               let samples = buffer.floatChannelData?[0],
               buffer.frameLength > 0
         else { return }
 
-        var sum: Float = 0
-        for i in 0..<Int(buffer.frameLength) {
-            sum += samples[i] * samples[i]
-        }
-        let rms = (sum / Float(buffer.frameLength)).squareRoot()
+        let rms = vDSP.rootMeanSquare(
+            UnsafeBufferPointer(start: samples, count: Int(buffer.frameLength))
+        )
         let db = 20 * log10(max(rms, .leastNormalMagnitude))
         levelHandler(min(1, max(0, (db + 50) / 50)))
     }
