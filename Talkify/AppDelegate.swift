@@ -4,6 +4,7 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
+    private var hudController: DictationHUDController?
 
     static func main() {
         let application = NSApplication.shared
@@ -13,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItemController = StatusItemController()
+        let hudController = DictationHUDController()
+        self.hudController = hudController
+        statusItemController = StatusItemController(hudController: hudController)
     }
 }
