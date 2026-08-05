@@ -1,8 +1,9 @@
 import AppKit
 
-/// The two bumps that bracket a Direct Dictation session: a rising one when
-/// listening starts, a falling one when the session ends. Kenney's Interface
-/// Sounds, CC0 (see Resources/Sounds/LICENSE-Kenney-CC0.txt).
+/// The two bumps that bracket a Direct Dictation session: a pop when
+/// listening starts, a lower pop when the session ends. Current assets are
+/// placeholders under a non-commercial license — see
+/// Resources/Sounds/LICENSE-SOUNDS.txt before shipping.
 @MainActor
 final class DictationHUDSounds {
     private let begin = NSSound.bundled("DictationBegin")

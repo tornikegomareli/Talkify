@@ -1,0 +1,11 @@
+DictationBegin.wav / DictationEnd.wav
+
+PLACEHOLDER — NOT CLEARED FOR SHIPPING.
+
+Source: "Plunger pop 1" by lloydevans09
+https://freesound.org/people/lloydevans09/sounds/321807/
+License: CC-BY-NC 4.0 (Attribution NonCommercial).
+DictationEnd.wav is the same recording pitched down by header resampling.
+
+The NonCommercial clause forbids use in a commercial or App Store build.
+Replace both files with cleared assets (CC0 or licensed) before any release.
