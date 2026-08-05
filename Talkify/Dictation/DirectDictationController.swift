@@ -212,6 +212,11 @@ final class DirectDictationController {
                         Task { @MainActor [weak self] in
                             self?.failSession(message: message)
                         }
+                    },
+                    levelHandler: { [weak self] level in
+                        Task { @MainActor [weak self] in
+                            self?.hudController.showAudioLevel(level)
+                        }
                     }
                 )
                 guard !Task.isCancelled else {

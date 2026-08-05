@@ -61,7 +61,8 @@ actor SpeechRecognitionService {
 
     func start(
         updateHandler: @escaping @Sendable (Update) -> Void,
-        failureHandler: @escaping @Sendable (String) -> Void
+        failureHandler: @escaping @Sendable (String) -> Void,
+        levelHandler: (@Sendable (Float) -> Void)? = nil
     ) async throws {
         guard activeSession == nil else {
             throw RecognitionError.sessionAlreadyActive
@@ -94,7 +95,8 @@ actor SpeechRecognitionService {
             analyzerContinuation: continuation,
             failureHandler: { error in
                 failureHandler(error.localizedDescription)
-            }
+            },
+            levelHandler: levelHandler
         )
 
         activeSession = ActiveSession(

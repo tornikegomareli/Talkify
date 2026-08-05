@@ -58,6 +58,9 @@ final class MicrophoneInput: @unchecked Sendable {
     private let audioEngine = AVAudioEngine()
     private let analyzerContinuation: AsyncStream<AnalyzerInput>.Continuation
     private let failureHandler: @Sendable (InputError) -> Void
+    /// Normalized microphone level (0–1) per tap buffer, for the HUD's
+    /// voice-reactive visual. Called on the audio thread.
+    private let levelHandler: (@Sendable (Float) -> Void)?
     private let stateLock = NSLock()
 
     private var running = false
@@ -65,10 +68,12 @@ final class MicrophoneInput: @unchecked Sendable {
 
     init(
         analyzerContinuation: AsyncStream<AnalyzerInput>.Continuation,
-        failureHandler: @escaping @Sendable (InputError) -> Void
+        failureHandler: @escaping @Sendable (InputError) -> Void,
+        levelHandler: (@Sendable (Float) -> Void)? = nil
     ) {
         self.analyzerContinuation = analyzerContinuation
         self.failureHandler = failureHandler
+        self.levelHandler = levelHandler
     }
 
     func start(outputFormat: AVAudioFormat) throws {
@@ -116,6 +121,7 @@ final class MicrophoneInput: @unchecked Sendable {
     }
 
     private func receive(_ buffer: AVAudioPCMBuffer, converterBox: ConverterBox) {
+        publishLevel(of: buffer)
         do {
             let convertedBuffer = try convert(buffer, using: converterBox)
             let result = analyzerContinuation.yield(AnalyzerInput(buffer: convertedBuffer))
@@ -162,6 +168,23 @@ final class MicrophoneInput: @unchecked Sendable {
         }
 
         return outputBuffer
+    }
+
+    /// RMS of the first channel mapped to 0–1 over a 50 dB window, so a quiet
+    /// room sits near zero and speech fills most of the range.
+    private func publishLevel(of buffer: AVAudioPCMBuffer) {
+        guard let levelHandler,
+              let samples = buffer.floatChannelData?[0],
+              buffer.frameLength > 0
+        else { return }
+
+        var sum: Float = 0
+        for i in 0..<Int(buffer.frameLength) {
+            sum += samples[i] * samples[i]
+        }
+        let rms = (sum / Float(buffer.frameLength)).squareRoot()
+        let db = 20 * log10(max(rms, .leastNormalMagnitude))
+        levelHandler(min(1, max(0, (db + 50) / 50)))
     }
 
     private func reportFailure(_ error: InputError) {
