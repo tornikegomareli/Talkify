@@ -1,4 +1,3 @@
-import Beam
 import SwiftUI
 
 /// What the HUD currently says. `@Observable` so the AppKit controller can
@@ -204,51 +203,14 @@ struct DictationHUDShellView: View {
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
     }
 
-    /// How far the glow sits outside the shape's border.
-    private static let glowOutset: CGFloat = 4
-
-    /// The edge-glow voice visual: Beam's thin traveling line in the mono
-    /// (white/silver) palette, riding just outside the shape's border, its
-    /// intensity following the voice, draft text untouched in the middle.
-    /// Beam also paints an inner wash; the stroke-band mask keeps only the
-    /// light that hugs the border. A dead microphone swaps to the warm
-    /// sunset palette at a fixed dim strength.
+    /// The edge-glow voice visual: a white/silver comet sweeping the open
+    /// silhouette — corner to notch and back, never across the hidden top
+    /// edge — with brightness following the voice (HUDEdgeGlowView).
     @ViewBuilder
     private var edgeGlow: some View {
         if content.showsVoiceVisual, !reduceMotion, content.voiceVisualStyle == .glow {
-            let radius = HUDNotchGeometry.bottomCornerRadius + Self.glowOutset
-            // Two stacked passes: a sharp line plus a blurred copy for bloom.
-            // One pass reads too faint — mono halves its own opacity.
-            ZStack {
-                beamLine(radius: radius)
-                beamLine(radius: radius)
-                    .blur(radius: 3)
-            }
-            .mask {
-                UnevenRoundedRectangle(
-                    bottomLeadingRadius: radius,
-                    bottomTrailingRadius: radius,
-                    style: .continuous
-                )
-                .stroke(lineWidth: 24)
-                .blur(radius: 4)
-            }
-            .padding(-Self.glowOutset)
-            .allowsHitTesting(false)
+            HUDEdgeGlowView(content: content)
         }
-    }
-
-    private func beamLine(radius: CGFloat) -> some View {
-        Color.clear
-            .beam(
-                .medium,
-                palette: content.isAudioAlive ? .mono : .sunset,
-                theme: .dark,
-                shape: .roundedRect(cornerRadius: radius),
-                strength: content.isAudioAlive
-                    ? 0.7 + 0.3 * content.audioLevel
-                    : 0.4
-            )
     }
 
     /// Sits alongside the body rather than inside it. Absent on a display with
