@@ -91,7 +91,8 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
     float cornerRadius,
     float time,
     float level,
-    float alive
+    float alive,
+    float pulseAge   // seconds since the last syllable onset; large = none
 ) {
     float2 p = position - shapeRect.xy;
     float w = shapeRect.z;
@@ -132,6 +133,14 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
     float core = (1.0 + 2.5 * voice) / (d * d);
     float halo = (0.14 + 0.55 * voice) / d;
     float glow = intensity * min(core + halo, 3.5);
+
+    // Syllable pulse: the whole border flashes and a soft ring of light
+    // ripples outward from it, both dying within ~half a second.
+    float flash = exp(-pulseAge * 6.0);
+    glow *= 1.0 + 1.4 * flash;
+    float ringRadius = 3.0 + pulseAge * 110.0;
+    float ring = exp(-pow(pt.dist - ringRadius, 2.0) / 40.0) * exp(-pulseAge * 4.0);
+    glow += ring * 0.45 * (0.4 + 0.6 * level);
 
     // Silver treatment: the hot core is pure white, the falloff cools into a
     // faint blue-violet fringe like light bleeding on glass.

@@ -29,7 +29,12 @@ struct HUDEdgeGlowView: View {
                             .float(HUDNotchGeometry.bottomCornerRadius),
                             .float(Float(context.date.timeIntervalSince(start))),
                             .float(Float(content.audioLevel)),
-                            .float(content.isAudioAlive ? 1 : 0)
+                            .float(content.isAudioAlive ? 1 : 0),
+                            .float(Float(
+                                content.lastPulseAt.map {
+                                    context.date.timeIntervalSince($0)
+                                } ?? 99
+                            ))
                         )
                     )
             }
