@@ -192,7 +192,10 @@ actor SpeechRecognitionService {
         let transcriber = SpeechTranscriber(
             locale: locale,
             transcriptionOptions: [],
-            reportingOptions: [.volatileResults],
+            // fastResults biases the transcriber towards responsiveness so
+            // the live draft streams while the user is still speaking,
+            // instead of appearing only at pauses.
+            reportingOptions: [.volatileResults, .fastResults],
             attributeOptions: []
         )
 
