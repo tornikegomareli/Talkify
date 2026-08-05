@@ -1,11 +1,16 @@
-DictationBegin.wav / DictationEnd.wav
+Session sound candidates, selectable from the debug menu.
 
-PLACEHOLDER — NOT CLEARED FOR SHIPPING.
+PopBegin.wav / PopEnd.wav
+  Source: "Plunger pop 1" by lloydevans09
+  https://freesound.org/people/lloydevans09/sounds/321807/
+  License: CC-BY-NC 4.0 (Attribution NonCommercial).
+  PLACEHOLDER — the NonCommercial clause forbids use in a commercial or
+  App Store build. Must be replaced or dropped before any release.
 
-Source: "Plunger pop 1" by lloydevans09
-https://freesound.org/people/lloydevans09/sounds/321807/
-License: CC-BY-NC 4.0 (Attribution NonCommercial).
-DictationEnd.wav is the same recording pitched down by header resampling.
+ClickBegin.wav / ClickEnd.wav
+  Source: "Click 01 (Minimal UI Sounds)" by cabled_mess
+  https://freesound.org/people/cabled_mess/sounds/370962/
+  License: CC0 (public domain) — cleared for any use.
 
-The NonCommercial clause forbids use in a commercial or App Store build.
-Replace both files with cleared assets (CC0 or licensed) before any release.
+Each End variant is its Begin recording pitched down 22% by header
+resampling.

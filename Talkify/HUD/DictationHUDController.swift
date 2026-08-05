@@ -50,6 +50,12 @@ final class DictationHUDController {
         )
     }
 
+    /// Debug-only hook for auditioning the candidate sound sets from the
+    /// menu; goes away when the pick is made.
+    func useSounds(_ set: DictationSoundSet) {
+        sounds.set = set
+    }
+
     func showMessage(_ text: String) {
         showMessage(text, on: nil)
     }

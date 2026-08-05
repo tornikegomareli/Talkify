@@ -1,13 +1,29 @@
 import AppKit
 
-/// The two bumps that bracket a Direct Dictation session: a pop when
-/// listening starts, a lower pop when the session ends. Current assets are
-/// placeholders under a non-commercial license — see
-/// Resources/Sounds/LICENSE-SOUNDS.txt before shipping.
+/// The candidate sound pairs for the session bumps, kept side by side while
+/// the pick is judged by ear from the debug menu. Licensing differs per set —
+/// see Resources/Sounds/LICENSE-SOUNDS.txt before shipping either.
+enum DictationSoundSet: String, CaseIterable {
+    /// Plunger pop (freesound #321807, CC-BY-NC — placeholder, not shippable).
+    case pop = "Pop"
+    /// Minimal 7ms UI click (freesound #370962, CC0).
+    case click = "Click"
+}
+
+/// The two bumps that bracket a Direct Dictation session: one when listening
+/// starts, a lower-pitched sibling when the session ends.
 @MainActor
 final class DictationHUDSounds {
-    private let begin = NSSound.bundled("DictationBegin")
-    private let end = NSSound.bundled("DictationEnd")
+    var set = DictationSoundSet.pop {
+        didSet { load() }
+    }
+
+    private var begin: NSSound?
+    private var end: NSSound?
+
+    init() {
+        load()
+    }
 
     func playBegin() {
         play(begin)
@@ -15,6 +31,11 @@ final class DictationHUDSounds {
 
     func playEnd() {
         play(end)
+    }
+
+    private func load() {
+        begin = NSSound.bundled("\(set.rawValue)Begin")
+        end = NSSound.bundled("\(set.rawValue)End")
     }
 
     private func play(_ sound: NSSound?) {

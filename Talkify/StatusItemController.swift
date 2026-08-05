@@ -19,13 +19,17 @@ final class StatusItemController: NSObject {
         let menu = NSMenu()
 
         // Temporary M1.2 demo of the HUD surface; ticket M1.3 removes it.
-        let demoItem = NSMenuItem(
-            title: "Debug: HUD Demo",
-            action: #selector(runHUDDemo),
-            keyEquivalent: ""
-        )
-        demoItem.target = self
-        menu.addItem(demoItem)
+        // One item per candidate sound set so the pick can be judged by ear.
+        for set in DictationSoundSet.allCases {
+            let demoItem = NSMenuItem(
+                title: "Debug: HUD Demo (\(set.rawValue))",
+                action: #selector(runHUDDemoItem(_:)),
+                keyEquivalent: ""
+            )
+            demoItem.target = self
+            demoItem.representedObject = set.rawValue
+            menu.addItem(demoItem)
+        }
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -34,6 +38,14 @@ final class StatusItemController: NSObject {
             keyEquivalent: "q"
         ))
         statusItem.menu = menu
+    }
+
+    @objc private func runHUDDemoItem(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String,
+           let set = DictationSoundSet(rawValue: raw) {
+            hudController.useSounds(set)
+        }
+        runHUDDemo()
     }
 
     @objc func runHUDDemo() {
