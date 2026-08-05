@@ -87,15 +87,12 @@ final class DictationHUDController {
         UserDefaults.standard.set(style.rawValue, forKey: Self.voiceVisualStyleKey)
     }
 
-    /// Live microphone level, 0–1, ~46 Hz while listening. Smooths the meter
-    /// and glow (fast attack, slow release), feeds the waveform history raw,
-    /// and marks the microphone alive for the dead-mic watchdog.
+    /// Live microphone level, 0–1, ~46 Hz while listening. Smoothed with a
+    /// fast attack and slow release, and marks the microphone alive for the
+    /// dead-mic watchdog.
     func showAudioLevel(_ level: Float) {
         guard content.showsVoiceVisual else { return }
-        let raw = Double(level)
-        content.audioLevel = max(raw, content.audioLevel * 0.88)
-        content.levelHistory.removeFirst()
-        content.levelHistory.append(raw)
+        content.audioLevel = max(Double(level), content.audioLevel * 0.88)
         lastLevelAt = ContinuousClock.now
         content.isAudioAlive = true
     }
@@ -208,7 +205,6 @@ final class DictationHUDController {
     private func startVoiceVisual() {
         content.showsVoiceVisual = true
         content.audioLevel = 0
-        content.levelHistory = [Double](repeating: 0, count: HUDVoiceVisualView.barCount)
         content.isAudioAlive = true
         lastLevelAt = ContinuousClock.now
 

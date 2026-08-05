@@ -21,10 +21,13 @@ enum HUDNotchGeometry {
     /// so growth never needs a window resize.
     static let maxTextBandHeight: CGFloat = 120
 
-    /// Height of the voice-reactive strip between the housing and the text
-    /// band. Present for the waveform and level-meter visuals; the edge-glow
-    /// visual draws on the shape itself and needs no band.
+    /// Height of the quiet level-meter strip (the Reduce Motion visual),
+    /// shown between the housing and the text band.
     static let visualBandHeight: CGFloat = 24
+
+    /// Height of the waveform band. The waveform variant replaces the draft
+    /// text entirely, so it gets room to breathe.
+    static let waveBandHeight: CGFloat = 64
 
     /// Slack on the left, right, and bottom so the shell's drawn shadow is not
     /// clipped by the fixed window frame. Nothing is added at the top: that
@@ -65,18 +68,19 @@ enum HUDNotchGeometry {
         measuredClosedSize(for: screen) != nil
     }
 
-    /// The HUD shape's size: the housing band, the voice-visual band when the
-    /// selected visual uses one, and the text band, clamped so a narrow
-    /// display never gets a shape wider than its window.
+    /// The HUD shape's size: the housing band, whatever voice-visual band the
+    /// selected visual uses, and the text band unless the visual replaces it,
+    /// clamped so a narrow display never gets a shape wider than its window.
     static func contentSize(
         for screen: HUDScreenSnapshot,
-        includesVisualBand: Bool
+        visualBandHeight: CGFloat,
+        includesTextBand: Bool
     ) -> CGSize {
         CGSize(
             width: min(contentWidth, windowFrame(for: screen).width),
             height: closedSize(for: screen).height
-                + (includesVisualBand ? visualBandHeight : 0)
-                + textBandHeight
+                + visualBandHeight
+                + (includesTextBand ? textBandHeight : 0)
         )
     }
 
@@ -92,8 +96,7 @@ enum HUDNotchGeometry {
     static func windowFrame(for screen: HUDScreenSnapshot) -> CGRect {
         let width = min(contentWidth + shadowPadding * 2, screen.frame.width)
         let height = closedSize(for: screen).height
-            + visualBandHeight
-            + maxTextBandHeight
+            + max(waveBandHeight, visualBandHeight + maxTextBandHeight)
             + shadowPadding
 
         return CGRect(

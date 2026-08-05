@@ -1,0 +1,15 @@
+{
+  "originHash" : "090befb7699dc6ed202d78517357fb6e81beac0eb233bbc79f92c37adfa45358",
+  "pins" : [
+    {
+      "identity" : "aurora",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tornikegomareli/Aurora.git",
+      "state" : {
+        "branch" : "macos-support",
+        "revision" : "b480af242f06055ea6ac46fcca2ebb7440b20a44"
+      }
+    }
+  ],
+  "version" : 3
+}

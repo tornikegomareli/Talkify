@@ -1,3 +1,4 @@
+import Aurora
 import SwiftUI
 
 /// What the HUD currently says. `@Observable` so the AppKit controller can
@@ -18,8 +19,6 @@ final class DictationHUDContent {
     var showsVoiceVisual = false
     /// Smoothed microphone level, 0–1.
     var audioLevel: Double = 0
-    /// Raw recent levels, newest last, sized for the waveform's bars.
-    var levelHistory = [Double](repeating: 0, count: HUDVoiceVisualView.barCount)
     /// False once levels stop arriving while listening: a dead microphone
     /// must look different from silence (CONTEXT.md).
     var isAudioAlive = true
@@ -41,14 +40,24 @@ struct DictationHUDShellView: View {
     let content: DictationHUDContent
 
     private var size: CGSize {
-        HUDNotchGeometry.contentSize(for: screen, includesVisualBand: showsVisualBand)
+        HUDNotchGeometry.contentSize(
+            for: screen,
+            visualBandHeight: visualBandHeight,
+            includesTextBand: showsTextBand
+        )
     }
 
-    /// Reduce Motion always shows the quiet level meter, which needs the
-    /// band; otherwise only the waveform does.
-    private var showsVisualBand: Bool {
-        content.showsVoiceVisual
-            && (reduceMotion || content.voiceVisualStyle.usesVisualBand)
+    /// Reduce Motion always shows the quiet level meter in its slim band;
+    /// otherwise the waveform gets its tall band and the glow needs none.
+    private var visualBandHeight: CGFloat {
+        guard content.showsVoiceVisual else { return 0 }
+        if reduceMotion { return HUDNotchGeometry.visualBandHeight }
+        return content.voiceVisualStyle == .waveform ? HUDNotchGeometry.waveBandHeight : 0
+    }
+
+    /// The waveform replaces the draft text entirely while listening.
+    private var showsTextBand: Bool {
+        !(content.showsVoiceVisual && !reduceMotion && content.voiceVisualStyle == .waveform)
     }
 
     private var filletSize: CGFloat {
@@ -69,11 +78,19 @@ struct DictationHUDShellView: View {
             // with the camera.
             Color.clear
                 .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
-            if showsVisualBand {
-                HUDVoiceVisualView(content: content, showsMeter: reduceMotion)
-                    .frame(height: HUDNotchGeometry.visualBandHeight)
+            if visualBandHeight > 0 {
+                Group {
+                    if reduceMotion {
+                        HUDLevelMeterView(content: content)
+                    } else {
+                        HUDWaveformView(content: content)
+                    }
+                }
+                .frame(height: visualBandHeight)
             }
-            textBand
+            if showsTextBand {
+                textBand
+            }
         }
         .frame(width: size.width)
         .frame(minHeight: size.height, alignment: .top)
@@ -81,7 +98,7 @@ struct DictationHUDShellView: View {
             content.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
         )
-        .animation(.spring(duration: 0.25, bounce: 0), value: showsVisualBand)
+        .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
         .background { housing }
         .overlay { edgeGlow }
             .overlay(alignment: .topLeading) { fillet(.leading) }
@@ -187,29 +204,34 @@ struct DictationHUDShellView: View {
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
     }
 
-    /// The edge-glow voice visual: an Apple-Intelligence-style gradient
-    /// hugging the shape's border, intensity following the voice, draft text
-    /// untouched in the middle. A dead microphone freezes it to a dim amber
-    /// ring; silence keeps a faint colored floor.
+    /// The edge-glow voice visual: Aurora's Apple-Intelligence glow hugging
+    /// the shape's border, thickness and reach following the voice, draft
+    /// text untouched in the middle. A dead microphone swaps the palette to a
+    /// static amber; silence keeps the glow's own quiet baseline.
     @ViewBuilder
     private var edgeGlow: some View {
         if content.showsVoiceVisual, !reduceMotion, content.voiceVisualStyle == .glow {
             let level = content.audioLevel
-            housingShape
-                .strokeBorder(
-                    content.isAudioAlive
-                        ? AnyShapeStyle(AngularGradient(
-                            colors: [.blue, .purple, .pink, .orange, .blue],
-                            center: .center
-                        ))
-                        : AnyShapeStyle(Color.orange),
-                    lineWidth: content.isAudioAlive ? 2.5 + 6 * level : 2
-                )
-                .blur(radius: 5)
-                .opacity(content.isAudioAlive ? 0.35 + 0.65 * level : 0.4)
-                .allowsHitTesting(false)
+            AuroraGlow(.standard)
+                .palette(content.isAudioAlive ? .appleIntelligence : Self.deadMicPalette)
+                .cornerRadius(HUDNotchGeometry.bottomCornerRadius)
+                .borderWidth(2.5 + 5 * level)
+                .glowSize(14 + 30 * level)
+                .clipShape(housingShape)
         }
     }
+
+    /// Amber tones for the dead-microphone state (CONTEXT.md: a dead mic
+    /// must not look like silence).
+    private static let deadMicPalette = AuroraGlow.Palette(
+        base: SIMD3(0.35, 0.2, 0.02),
+        anchors: [
+            SIMD3(1.0, 0.62, 0.18),
+            SIMD3(0.9, 0.5, 0.1),
+            SIMD3(1.0, 0.7, 0.3),
+            SIMD3(0.8, 0.45, 0.1),
+        ]
+    )
 
     /// Sits alongside the body rather than inside it. Absent on a display with
     /// no notch: the flare exists to meet a housing (ADR-0001).
