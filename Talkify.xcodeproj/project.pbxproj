@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA10000000000000000000A1 /* Aurora in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A3 /* Aurora */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9E87DA74302384C5007A1A70 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA10000000000000000000A1 /* Aurora in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 			);
 			name = Talkify;
 			packageProductDependencies = (
+				AA10000000000000000000A3 /* Aurora */,
 			);
 			productName = Talkify;
 			productReference = 9E87DA66302384C5007A1A70 /* Talkify.app */;
@@ -146,6 +152,9 @@
 			);
 			mainGroup = 9E87DA5D302384C5007A1A70;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E87DA67302384C5007A1A70 /* Products */;
 			projectDirPath = "";
@@ -480,6 +489,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tornikegomareli/Aurora.git";
+			requirement = {
+				branch = "macos-support";
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA10000000000000000000A3 /* Aurora */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA10000000000000000000A2 /* XCRemoteSwiftPackageReference "Aurora" */;
+			productName = Aurora;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9E87DA5E302384C5007A1A70 /* Project object */;
 }
