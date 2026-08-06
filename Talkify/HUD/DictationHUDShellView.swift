@@ -45,16 +45,19 @@ struct DictationHUDShellView: View {
     }
 
     /// Reduce Motion always shows the quiet level meter in its slim band;
-    /// otherwise the waveform gets its tall band and the glow needs none.
+    /// otherwise both animated visuals get the tall band — the waveform fills
+    /// it, the glow keeps it as an empty stage so the silhouette has flanks
+    /// for the light to wrap.
     private var visualBandHeight: CGFloat {
         guard content.showsVoiceVisual else { return 0 }
         if reduceMotion { return HUDNotchGeometry.visualBandHeight }
-        return settings.voiceVisual == .waveform ? HUDNotchGeometry.waveBandHeight : 0
+        return HUDNotchGeometry.waveBandHeight
     }
 
-    /// The waveform replaces the draft text entirely while listening.
+    /// Any animated visual replaces the draft text entirely while listening;
+    /// with Reduce Motion the draft text always shows.
     private var showsTextBand: Bool {
-        !(content.showsVoiceVisual && !reduceMotion && settings.voiceVisual == .waveform)
+        !(content.showsVoiceVisual && !reduceMotion)
     }
 
     private var filletSize: CGFloat {
@@ -79,8 +82,12 @@ struct DictationHUDShellView: View {
                 Group {
                     if reduceMotion {
                         HUDLevelMeterView(content: content)
-                    } else {
+                    } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
+                    } else {
+                        // The glow lives on the silhouette (edgeGlow overlay);
+                        // its band is an empty stage.
+                        Color.clear
                     }
                 }
                 .frame(height: visualBandHeight)
@@ -201,12 +208,14 @@ struct DictationHUDShellView: View {
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
     }
 
-    /// The edge-glow voice visual: a white/silver comet sweeping the open
-    /// silhouette — corner to notch and back, never across the hidden top
-    /// edge — with brightness following the voice (HUDEdgeGlowView).
+    /// The edge-glow voice visual: an origin glow blooming from the notch
+    /// housing along the open silhouette, breathing with the voice
+    /// (HUDEdgeGlowView). Mounted whenever the variant is selected — not only
+    /// while listening — so the drain-out ramp can render after the session
+    /// ends; the view disables its shader once the ramp reaches zero.
     @ViewBuilder
     private var edgeGlow: some View {
-        if content.showsVoiceVisual, !reduceMotion, settings.voiceVisual == .glow {
+        if !reduceMotion, settings.voiceVisual == .glow {
             HUDEdgeGlowView(content: content)
         }
     }

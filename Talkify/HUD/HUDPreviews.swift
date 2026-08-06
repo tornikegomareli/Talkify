@@ -43,6 +43,9 @@ struct HUDShellPreviewHarness: View {
     var longDraft = HUDLongDraftStyle.growDown
     /// false previews the dead-microphone state.
     var micAlive = true
+    /// true toggles the session on and off every ~3 seconds so the canvas
+    /// exercises the bloom-in/drain-out ramps and the text band's return.
+    var simulatesSessionCycle = false
 
     @State private var settings = AppSettings.previewStore()
     @State private var content = DictationHUDContent()
@@ -65,6 +68,9 @@ struct HUDShellPreviewHarness: View {
                 // Syllable bursts over a quiet noise floor.
                 var t = 0.0
                 while !Task.isCancelled {
+                    if simulatesSessionCycle {
+                        content.showsVoiceVisual = Int(t / 3.0).isMultiple(of: 2)
+                    }
                     let burst = max(0, sin(t * 5.6))
                     let raw = 0.05 + burst * (0.3 + 0.35 * Double.random(in: 0...1))
                     content.audioLevel = max(raw, content.audioLevel * 0.88)

@@ -53,7 +53,7 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 - Releasing a held **Dictation Trigger** ends **Direct Dictation** and inserts its text
 - Releasing the **Dictation Trigger** before 250 milliseconds counts as a quick tap
 - A quick tap leaves **Direct Dictation** active until the next trigger press
-- The **Direct Dictation** HUD shows live draft text while speech continues
+- The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
 - The HUD renders volatile recognition results immediately
 - **Direct Dictation** inserts only finalized recognition results
 - The **Direct Dictation** HUD expands from the physical notch on the focused input's display
@@ -128,4 +128,4 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
 - HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.
-- The voice-reactive visual — resolved: both prototyped variants ship, user-selectable from Settings. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) replaces draft text while listening; the edge glow (a static silver comet sweeping the shape's open silhouette) keeps draft text in the middle.
+- The voice-reactive visual — resolved: both prototyped variants ship, user-selectable from Settings, and both replace draft text while listening. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) fills the visual band; the edge glow is an origin glow that blooms out of the notch housing along the shape's open silhouette on session start, breathes with the voice, and drains back when the session ends.

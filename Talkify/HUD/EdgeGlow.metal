@@ -1,14 +1,18 @@
 #include <metal_stdlib>
 using namespace metal;
 
-/// Premium edge glow: a comet with a hot silver head and a long fading tail
-/// traveling the HUD's open silhouette (down the left flank, across the
-/// bottom, up to the notch — never the hidden top edge).
+/// Premium edge glow: an origin glow that blooms out of the notch housing and
+/// spreads along the HUD's open silhouette (down the left flank, across the
+/// bottom, up to the notch — never the hidden top edge), then drains back when
+/// the session ends.
 ///
 /// Rendered as a signed-distance glow: every pixel finds its distance to the
-/// path and its position along it (arc length), the comet profile shapes
-/// brightness along the path, and two inverse-power falloffs make the bloom —
-/// a tight white-hot core and a wide cool halo, like light on glass.
+/// path and its position along it (arc length). The origin-glow formula
+/// (smoothstep(progress) · exp(-d²) · amplitude) shapes brightness along the
+/// arc from the origin outward, and two inverse-power falloffs make the bloom
+/// perpendicular to the path — a tight white-hot core and a wide cool halo,
+/// like light on glass. `progress` is the session ramp (0→1 on start, 1→0 on
+/// end) and `amplitude` follows the live microphone level.
 ///
 /// `shapeRect` is the shape's frame inside the (larger) view so the halo has
 /// room to spill outside the border. `alive` = 0 renders a static amber
@@ -89,7 +93,9 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
     float2 size,
     float4 shapeRect,   // x, y, width, height of the shape inside the view
     float cornerRadius,
-    float time,
+    float originS,      // arc position of the glow origin, 0.5 = bottom-center
+    float progress,     // session ramp, 0…1
+    float amplitude,    // voice-driven intensity
     float alive
 ) {
     float2 p = position - shapeRect.xy;
@@ -107,26 +113,23 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
         return half4(half3(1.0, 0.6, 0.16) * half(glow * 0.6), half(glow * 0.65));
     }
 
-    // The head ping-pongs corner → notch → corner, easing at the turnarounds.
-    float phase = fmod(time / 2.6, 2.0);
-    float lin = phase < 1.0 ? phase : 2.0 - phase;
-    float head = lin * lin * (3.0 - 2.0 * lin);   // smoothstep easing
-    float dir = phase < 1.0 ? 1.0 : -1.0;         // travel direction
+    // Arc distance from the origin: 0 at the origin (bottom-center of the
+    // housing), 1 at the flank tips beside the notch.
+    float dAlong = abs(pt.s - originS) * 2.0;
 
-    // Comet profile along the path: sharp front, long exponential tail.
-    float ds = (pt.s - head) * dir;               // + ahead of the head
-    float front = exp(-ds * ds / 0.0006) * step(0.0, ds);
-    float tail = exp(ds / 0.16) * step(0.0, -ds);
-    float profile = max(front, tail);
+    // The origin-glow formula runs along the arc: brightness falls off with
+    // arc distance, ramps with the session, and breathes with the voice. The
+    // second smoothstep spreads the reach outward as progress grows, so the
+    // light visibly travels from the origin around the rim.
+    float spread = smoothstep(0.0, 1.0, progress)
+        * exp(-dAlong * dAlong)
+        * amplitude;
+    spread *= smoothstep(0.0, 1.0, 1.0 - dAlong / max(progress, 1e-3));
 
-    // Deliberately static: the glow signals listening, the draft text is the
-    // feedback channel. A quiet resting outline with the comet on top.
-    float intensity = 0.07 + profile * 0.55;
-
-    // Two-scale bloom: white-hot core, wide halo.
+    // Two-scale bloom perpendicular to the path: white-hot core, wide halo.
     float core = 1.1 / (d * d);
     float halo = 0.18 / d;
-    float glow = intensity * min(core + halo, 3.0);
+    float glow = spread * min(core + halo, 3.0);
 
     // Silver treatment: the hot core is pure white, the falloff cools into a
     // faint blue-violet fringe like light bleeding on glass.

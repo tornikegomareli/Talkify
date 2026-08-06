@@ -66,6 +66,18 @@ struct HUDNotchGeometryTests {
         #expect(size.height == expected)
     }
 
+    @Test func glowListeningLayoutFitsTheFixedWindow() {
+        // Both animated visuals use the tall band with no text band while
+        // listening; that layout must fit the window without a resize.
+        let content = HUDNotchGeometry.contentSize(
+            for: notched,
+            visualBandHeight: HUDNotchGeometry.waveBandHeight,
+            includesTextBand: false
+        )
+        let window = HUDNotchGeometry.windowFrame(for: notched)
+        #expect(content.height <= window.height - HUDNotchGeometry.shadowPadding)
+    }
+
     @Test func waveOnlyContentSizeDropsTextBand() {
         let size = HUDNotchGeometry.contentSize(
             for: notched,
