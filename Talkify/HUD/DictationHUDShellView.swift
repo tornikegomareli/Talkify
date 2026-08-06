@@ -246,7 +246,7 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var particleCloud: some View {
         if !reduceMotion, settings.voiceVisual == .glow {
-            HUDParticleCloudView(content: content)
+            HUDParticleCloudView(content: content, settings: settings)
                 .clipShape(housingShape)
         }
     }
@@ -259,7 +259,7 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var edgeGlow: some View {
         if !reduceMotion, settings.voiceVisual == .glow {
-            HUDEdgeGlowView(content: content)
+            HUDEdgeGlowView(content: content, settings: settings)
         }
     }
 

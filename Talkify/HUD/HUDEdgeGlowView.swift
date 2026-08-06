@@ -31,6 +31,7 @@ struct HUDEdgeGlowView: View {
     nonisolated static let sweepDuration: TimeInterval = 4.0
 
     let content: DictationHUDContent
+    let settings: AppSettings
 
     /// Reset on every session start so the sweep begins at bottom-center,
     /// directly under the housing.
@@ -45,9 +46,21 @@ struct HUDEdgeGlowView: View {
                 // timeline frame, so they stay fresh.
                 let size = proxy.size
                 let alive = content.isAudioAlive
+                let level = content.audioLevel
+                // Glow Lab (prototype): the voice mappings under test, each
+                // behind its Settings toggle. Delete with the lab (#12).
                 // Resting brightness stays near the gist's constant 3.0 so
                 // the halo never starves; the voice adds the flare on top.
-                let amplitude = alive ? 1.8 + 1.2 * content.audioLevel : 1.5
+                let amplitude = alive
+                    ? (settings.glowVoiceBrightness ? 1.8 + 1.2 * level : 2.4)
+                    : 1.5
+                let lineWidth = settings.glowVoiceThickness
+                    ? Self.lineWidth * (1 + level)
+                    : Self.lineWidth
+                let blurRadius = settings.glowVoiceThickness
+                    ? Self.blurRadius * (1 + 0.5 * level)
+                    : Self.blurRadius
+                let reach = settings.glowVoiceReach ? 0.7 + 1.1 * level : 1.0
                 let origin = Self.sweepOrigin(
                     at: context.date.timeIntervalSince(sweepStart),
                     in: size
@@ -57,9 +70,9 @@ struct HUDEdgeGlowView: View {
                     inset: Self.spill
                 )
                 .glow(
-                    fill: alive ? AnyShapeStyle(.palette) : AnyShapeStyle(.amber),
-                    lineWidth: Self.lineWidth,
-                    blurRadius: Self.blurRadius
+                    fill: alive ? settings.glowPalette.stroke : AnyShapeStyle(.amber),
+                    lineWidth: lineWidth,
+                    blurRadius: blurRadius
                 )
                 .keyframeAnimator(
                     initialValue: 0.0,
@@ -70,7 +83,8 @@ struct HUDEdgeGlowView: View {
                             .float2(origin),
                             .float2(size),
                             .float(amplitude),
-                            .float(progress)
+                            .float(progress),
+                            .float(reach)
                         ),
                         isEnabled: progress > 0 || listening
                     )
@@ -221,26 +235,6 @@ private extension Shape {
                     .fill(fill)
                     .blur(radius: blurRadius / 2)
             }
-    }
-}
-
-private extension ShapeStyle where Self == AngularGradient {
-    /// The gist's palette.
-    static var palette: AngularGradient {
-        .angularGradient(
-            stops: [
-                .init(color: .blue, location: 0.0),
-                .init(color: .purple, location: 0.2),
-                .init(color: .red, location: 0.4),
-                .init(color: .mint, location: 0.5),
-                .init(color: .indigo, location: 0.7),
-                .init(color: .pink, location: 0.9),
-                .init(color: .blue, location: 1.0),
-            ],
-            center: .center,
-            startAngle: Angle(radians: .zero),
-            endAngle: Angle(radians: .pi * 2)
-        )
     }
 }
 

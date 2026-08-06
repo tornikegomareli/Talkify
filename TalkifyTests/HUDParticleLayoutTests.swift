@@ -15,8 +15,11 @@ struct HUDParticleLayoutTests {
     }
 
     @Test func cloudInfoMatchesTheMetalLayout() {
-        #expect(MemoryLayout<ParticleRenderer.CloudInfo>.stride == 16)
+        #expect(MemoryLayout<ParticleRenderer.CloudInfo>.stride == 24)
         #expect(MemoryLayout<ParticleRenderer.CloudInfo>.offset(of: \.center) == 0)
         #expect(MemoryLayout<ParticleRenderer.CloudInfo>.offset(of: \.progress) == 8)
+        #expect(MemoryLayout<ParticleRenderer.CloudInfo>.offset(of: \.activeCount) == 12)
+        #expect(MemoryLayout<ParticleRenderer.CloudInfo>.offset(of: \.birthScale) == 16)
+        #expect(MemoryLayout<ParticleRenderer.CloudInfo>.offset(of: \.burstRadius) == 20)
     }
 }

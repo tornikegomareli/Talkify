@@ -10,6 +10,7 @@ import SwiftUI
 /// may remain (CONTEXT.md: dead microphone ≠ silence).
 struct HUDParticleCloudView: View {
     let content: DictationHUDContent
+    let settings: AppSettings
 
     /// Reset on every session start, in the same runloop turn as the glow
     /// view's, so both sweeps stay in phase.
@@ -24,6 +25,19 @@ struct HUDParticleCloudView: View {
                 // they stay fresh.
                 let size = proxy.size
                 let alive = content.isAudioAlive
+                let level = Float(content.audioLevel)
+                // Glow Lab (prototype): the voice mappings under test, each
+                // behind its Settings toggle. Delete with the lab (#12).
+                let activeCount = settings.glowVoiceParticleCount
+                    ? 6 + level * Float(ParticleRenderer.particleCount - 6)
+                    : Float(ParticleRenderer.particleCount)
+                let birthScale = settings.glowVoiceParticleSize
+                    ? 0.5 + level * 1.2
+                    : 1.0
+                let burstRadius = settings.glowSyllableBursts && level > 0.35
+                    ? 60 + level * 80
+                    : Float(0)
+                let palette = settings.glowPalette
                 let target = HUDGlowSilhouetteShape.point(
                     atArcFraction: HUDEdgeGlowView.sweepFraction(
                         at: context.date.timeIntervalSince(sweepStart)
@@ -44,7 +58,11 @@ struct HUDParticleCloudView: View {
                         view.overlay {
                             ParticleCloudSurface(
                                 progress: Float(progress) * (alive ? 1 : 0),
-                                center: center
+                                center: center,
+                                activeCount: activeCount,
+                                birthScale: birthScale,
+                                burstRadius: burstRadius,
+                                palette: palette
                             )
                         }
                     } keyframes: { _ in
@@ -70,10 +88,25 @@ struct HUDParticleCloudView: View {
 private struct ParticleCloudSurface: NSViewRepresentable {
     let progress: Float
     let center: CGPoint
+    let activeCount: Float
+    let birthScale: Float
+    let burstRadius: Float
+    let palette: HUDGlowPalette
 
-    nonisolated init(progress: Float, center: CGPoint) {
+    nonisolated init(
+        progress: Float,
+        center: CGPoint,
+        activeCount: Float,
+        birthScale: Float,
+        burstRadius: Float,
+        palette: HUDGlowPalette
+    ) {
         self.progress = progress
         self.center = center
+        self.activeCount = activeCount
+        self.birthScale = birthScale
+        self.burstRadius = burstRadius
+        self.palette = palette
     }
 
     func makeCoordinator() -> ParticleRenderer {
@@ -105,6 +138,10 @@ private struct ParticleCloudSurface: NSViewRepresentable {
     private func push(to view: MTKView, coordinator: ParticleRenderer) {
         coordinator.progress = progress
         coordinator.center = center
+        coordinator.activeCount = activeCount
+        coordinator.birthScale = birthScale
+        coordinator.burstRadius = burstRadius
+        coordinator.applyPalette(palette)
         if progress == 0 {
             if !view.isPaused {
                 view.isPaused = true
@@ -135,19 +172,20 @@ final class ParticleRenderer: NSObject {
     struct CloudInfo {
         var center: SIMD2<Float>
         var progress: Float
+        var activeCount: Float
+        var birthScale: Float
+        var burstRadius: Float
     }
 
     nonisolated static let particleCount = 32
 
-    /// The silver language the glow speaks: fringe blue-violet to white.
-    private static let colors: [SIMD4<Float>] = [
-        SIMD4(0.62, 0.72, 1.0, 1.0),
-        SIMD4(0.85, 0.90, 1.0, 1.0),
-        SIMD4(1.0, 1.0, 1.0, 1.0),
-    ]
-
     var progress: Float = 0
     var center = CGPoint(x: 0.5, y: 0.5)
+    // Glow Lab (prototype) knobs; delete with the lab (#12).
+    var activeCount = Float(ParticleRenderer.particleCount)
+    var birthScale: Float = 1
+    var burstRadius: Float = 0
+    private var appliedPalette = HUDGlowPalette.spectrum
 
     let device: MTLDevice?
     private let pipeline: Pipeline?
@@ -181,6 +219,7 @@ final class ParticleRenderer: NSObject {
 
         // Zeroed positions make the kernel's respawn branch scatter the
         // cloud on its first frame.
+        let colors = HUDGlowPalette.spectrum.particleColors
         let particles = (0..<particleCount).map { index in
             Particle(
                 color: colors[index % colors.count],
@@ -203,6 +242,20 @@ final class ParticleRenderer: NSObject {
             drawState: drawState,
             particleBuffer: particleBuffer
         )
+    }
+
+    /// Glow Lab (prototype): recolors the live buffer when the palette pick
+    /// changes; delete with the lab (#12).
+    func applyPalette(_ palette: HUDGlowPalette) {
+        guard palette != appliedPalette, let pipeline else { return }
+        appliedPalette = palette
+
+        let colors = palette.particleColors
+        let particles = pipeline.particleBuffer.contents()
+            .bindMemory(to: Particle.self, capacity: Self.particleCount)
+        for index in 0..<Self.particleCount {
+            particles[index].color = colors[index % colors.count]
+        }
     }
 }
 
@@ -232,7 +285,10 @@ extension ParticleRenderer: MTKViewDelegate {
         encoder.setBuffer(pipeline.particleBuffer, offset: 0, index: 0)
         var info = CloudInfo(
             center: SIMD2(Float(center.x), Float(center.y)),
-            progress: progress
+            progress: progress,
+            activeCount: activeCount,
+            birthScale: birthScale,
+            burstRadius: burstRadius
         )
         encoder.setBytes(&info, length: MemoryLayout<CloudInfo>.stride, index: 1)
         encoder.dispatchThreads(
