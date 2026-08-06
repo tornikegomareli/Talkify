@@ -34,19 +34,27 @@ struct HUDWaveformView: View {
     @State private var start = Date()
 
     var body: some View {
-        TimelineView(.animation) { context in
-            styledWave
-                // WWDC26-style finish over the drawn pixels: chromatic edge
-                // fringing, a metallic specular sweep, and soft bloom
-                // (WaveformSheen.metal), breathing with the voice.
-                .layerEffect(
-                    ShaderLibrary.waveformSheen(
-                        .float2(waveSize),
-                        .float(Float(context.date.timeIntervalSince(start))),
-                        .float(Float(content.audioLevel))
-                    ),
-                    maxSampleOffset: CGSize(width: 8, height: 8)
-                )
+        Group {
+            if content.waveformStyle == .chartLine {
+                // The line carries its own treatment (layered glow, drifting
+                // gradient); the sheen's bloom only muddied its crisp core.
+                styledWave
+            } else {
+                TimelineView(.animation) { context in
+                    styledWave
+                        // WWDC26-style finish over the drawn pixels:
+                        // chromatic edge fringing, a metallic specular sweep,
+                        // and soft bloom (WaveformSheen.metal).
+                        .layerEffect(
+                            ShaderLibrary.waveformSheen(
+                                .float2(waveSize),
+                                .float(Float(context.date.timeIntervalSince(start))),
+                                .float(Float(content.audioLevel))
+                            ),
+                            maxSampleOffset: CGSize(width: 8, height: 8)
+                        )
+                }
+            }
         }
         .onGeometryChange(for: CGSize.self, of: \.size) { waveSize = $0 }
         .animation(.linear(duration: 0.05), value: content.levelHistory)
@@ -140,8 +148,12 @@ struct HUDWaveformView: View {
 /// The Chart Line look rendered as a conveyor instead of a chart: each level
 /// tick shifts the buffer one slot, so the shape interpolates the scroll
 /// offset against the tick clock and the points glide left continuously —
-/// no per-tick jump, no Swift Charts re-render. The line itself is a
-/// midpoint-smoothed curve stroked with the silver gradient.
+/// no per-tick jump, no Swift Charts re-render.
+///
+/// The treatment is its own: a crisp core over two glow passes (wide soft
+/// halo, tight bloom) so the line stays sharp instead of blurry, a
+/// cyan→violet→magenta gradient whose hues drift continuously, and the
+/// voice driving stroke weight, glow reach, and brightness.
 private struct SmoothLineWave: View {
     let content: DictationHUDContent
 
@@ -153,21 +165,55 @@ private struct SmoothLineWave: View {
     var body: some View {
         TimelineView(.animation) { context in
             let progress = min(1, max(0, context.date.timeIntervalSince(lastTick) / tickInterval))
-            SmoothLineShape(samples: samples, scrollProgress: progress)
-                .stroke(
-                    content.isAudioAlive
-                        ? AnyShapeStyle(LinearGradient(
-                            colors: [
-                                Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.8),
-                                .white,
-                                Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.8),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        : AnyShapeStyle(Color.orange.opacity(0.55)),
-                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
-                )
+            let level = content.audioLevel
+            let shape = SmoothLineShape(samples: samples, scrollProgress: progress)
+
+            if content.isAudioAlive {
+                ZStack {
+                    // Wide halo: breathes hard with the voice.
+                    shape
+                        .stroke(
+                            Self.flow,
+                            style: StrokeStyle(
+                                lineWidth: 4 + 10 * level,
+                                lineCap: .round,
+                                lineJoin: .round
+                            )
+                        )
+                        .blur(radius: 9)
+                        .opacity(0.25 + 0.75 * level)
+                    // Tight bloom hugging the core.
+                    shape
+                        .stroke(
+                            Self.flow,
+                            style: StrokeStyle(
+                                lineWidth: 2.5 + 3 * level,
+                                lineCap: .round,
+                                lineJoin: .round
+                            )
+                        )
+                        .blur(radius: 2.5)
+                        .opacity(0.85)
+                    // Crisp white-hot core — never blurred.
+                    shape
+                        .stroke(
+                            .white.opacity(0.75 + 0.25 * level),
+                            style: StrokeStyle(lineWidth: 1.7, lineCap: .round, lineJoin: .round)
+                        )
+                }
+                // The "changing colors": the gradient's hues drift through a
+                // full cycle every ~13 seconds.
+                .hueRotation(.degrees(
+                    context.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: 1000) * 28
+                ))
+            } else {
+                shape
+                    .stroke(
+                        Color.orange.opacity(0.55),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                    )
+            }
         }
         .clipped()
         .onChange(of: content.levelHistory) { _, new in
@@ -180,6 +226,19 @@ private struct SmoothLineWave: View {
             lastTick = now
         }
     }
+
+    /// The flowing base gradient the hue rotation drifts through.
+    private static let flow = LinearGradient(
+        colors: [
+            Color(red: 0.25, green: 0.8, blue: 1.0),
+            Color(red: 0.6, green: 0.45, blue: 1.0),
+            Color(red: 1.0, green: 0.4, blue: 0.8),
+            Color(red: 0.6, green: 0.45, blue: 1.0),
+            Color(red: 0.25, green: 0.8, blue: 1.0),
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 }
 
 /// An open, smoothed line through the samples, shifted left by
