@@ -12,11 +12,16 @@ struct HUDWaveformView: View {
 
     @State private var start = Date()
 
+    /// Chart Line and Siri Wave carry their own treatment (layered glow and
+    /// gradient; the source's three-color blend) — the sheen shader and the
+    /// bar styles' side margins would only muddy them.
+    private var carriesOwnTreatment: Bool {
+        settings.waveformStyle == .chartLine || settings.waveformStyle == .siriWave
+    }
+
     var body: some View {
         Group {
-            if settings.waveformStyle == .chartLine {
-                // The line carries its own treatment (layered glow, drifting
-                // gradient); the sheen's bloom only muddied its crisp core.
+            if carriesOwnTreatment {
                 styledWave
             } else {
                 TimelineView(.animation) { context in
@@ -37,8 +42,8 @@ struct HUDWaveformView: View {
         }
         .onGeometryChange(for: CGSize.self, of: \.size) { waveSize = $0 }
         .animation(.linear(duration: 0.05), value: content.levelHistory)
-        // The line runs edge to edge; the bar-based styles keep side margins.
-        .padding(.horizontal, settings.waveformStyle == .chartLine ? 0 : 28)
+        // Full-width styles run edge to edge; the bar styles keep margins.
+        .padding(.horizontal, carriesOwnTreatment ? 0 : 28)
         .padding(.vertical, 6)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -71,6 +76,8 @@ struct HUDWaveformView: View {
             case .filled:
                 FilledWaveShape(samples: content.levelHistory)
                     .fill(silver)
+            case .siriWave:
+                HUDSiriWaveView(content: content)
             }
         }
     }

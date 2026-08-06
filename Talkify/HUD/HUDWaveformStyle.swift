@@ -7,6 +7,8 @@
 ///   types (Chart Line carries its own conveyor renderer and treatment).
 /// - Dots / Curve: lkora/WaveformScrubber's DotDrawer and BezierCurveDrawer.
 /// - Filled: AudioKit/Waveform's min/max region.
+/// - Siri Wave: alfianlosari/SiriWaveView's classic Siri 9 multi-wave (MIT,
+///   © 2019 Noah Chalifour; carries its own colors and treatment).
 ///
 /// rawValue is the UserDefaults value existing picks are stored under —
 /// renaming a case silently resets that preference.
@@ -19,4 +21,5 @@ enum HUDWaveformStyle: String, CaseIterable {
     case dots = "Dots"
     case curve = "Curve"
     case filled = "Filled"
+    case siriWave = "Siri Wave"
 }
