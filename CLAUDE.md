@@ -4,45 +4,37 @@ Menu-bar-only macOS 26 dictation app (Apple Silicon only). Read `CONTEXT.md` fir
 
 ## State of the repo
 
-The old Tuist project was deleted on purpose. The app is being rebuilt from scratch as a plain committed `Talkify.xcodeproj` (no Tuist, no generation). Nothing buildable exists yet.
+Buildable and working end to end: hold Fn, speak, release — text lands in the previously focused control. Milestone 1 (shell + Direct Dictation) and the HUD prototyping phase are shipped; all decided-by-feel picks (reveal animation, long-draft behavior, both voice visuals) live as `AppSettings` preferences behind the Settings window.
 
 ## Stack decisions (already made, do not relitigate)
 
-- Plain `Talkify.xcodeproj`, Swift 6, strict concurrency complete
+- Plain committed `Talkify.xcodeproj` (no Tuist, no generation), Swift 6, strict concurrency complete
 - AppKit is the shell: lifecycle, status item, non-activating panels
-- SwiftUI for windowed UI (settings, onboarding), hosted in the AppKit shell
+- SwiftUI for windowed UI (Settings, onboarding), hosted in the AppKit shell
 - Apple Speech only (`SpeechAnalyzer`/`SpeechTranscriber`), no Whisper, no third-party dependencies
-- Scaffolding values (bundle ID, entitlements, signing, Info.plist keys): `CarryOver/ProjectSettings.md`
+- Scaffolding values (bundle ID, entitlements, signing, Info.plist keys): `docs/ProjectSettings.md`
 
-## CarryOver/
+## Layout
 
-`CarryOver/` holds the six proven components from the previous implementation plus helpers. They encode hard-won behavior (session prewarming, gesture latching, per-app insertion routes, clipboard restore). Move them into the new project as-is; do not rewrite them:
+- `Talkify/Dictation/` — the six proven components carried over from the previous implementation (session prewarming, gesture latching, per-app insertion routes, clipboard restore). Treat as settled; `DirectDictationController` is the session state machine (idle/starting/recording/finishing/cancelling, held vs latched).
+- `Talkify/HUD/` — the NotchIsland-style HUD: pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested), the shell view, the voice visuals (waveform styles + edge glow, Metal shaders), style enums. Canvas previews live next to the views; the preview harness uses a volatile defaults suite.
+- `Talkify/AppSettings.swift` — every user preference, one observable UserDefaults-backed store. The key strings and enum rawValues are load-bearing (stored picks; sound-asset name prefixes) — do not rename.
+- `Talkify/Settings/` — the Settings window (SwiftUI Form in an `NSHostingController`).
+- `Talkify/Resources/Sounds/` — sound sets. **Pop is CC-BY-NC and must be replaced or dropped before any release**; see `LICENSE-SOUNDS.txt`.
 
-- `SpeechRecognitionService.swift` — actor around SpeechAnalyzer; prewarms sessions
-- `MicrophoneInput.swift` — AVAudioEngine tap → AsyncStream<AnalyzerInput>
-- `TextInsertionService.swift` — AX insertion first, paste fallback, route memory
-- `DictationTriggerMonitor.swift` — CGEventTap for Fn (keycode 63) and Escape
-- `DirectDictationController.swift` — the session state machine (idle/starting/recording/finishing/cancelling, held vs latched)
-- `PermissionService.swift`, `NSScreen+DisplayID.swift`
+## HUD rules that keep biting
 
-Known cleanup when integrating: strip the `[DEBUG-fn8b]` OSLog lines (leftover Fn-key diagnosis). `DirectDictationController` references `DictationHUDController`, which was deliberately not carried over — the HUD is being rebuilt (see below).
+- Fixed-size host window: origin moves, never resizes (`HUDNotchGeometry.windowFrame` is sized for the tallest layout).
+- Fillets only against a real housing; simulated notch (185×32) elsewhere. `NSWindow.Level.mainMenu + 3`, no private APIs.
+- Reveal bounce lives only in top-anchored scale, never position — a position overshoot opens a gap against the screen edge.
+- Silence and a dead microphone must look different (watchdog flips visuals to a static amber state).
 
-## The HUD rebuild
+## Roadmap
 
-The old bottom-fallback HUD is superseded. Per CONTEXT.md and ADR-0001: the HUD always descends from the top center; non-notch displays get a simulated notch. The reference implementation to lift patterns from is Tilebar's NotchIsland module:
-
-`/Users/tgomareli/Development/work/Tilebar-dev/Tilebar/Tilebar/Tilebar/Modules/NotchIsland/`
-
-Reading order: `Domain/NotchGeometry.swift` → `Domain/NotchIslandMetrics.swift` → `UI/NotchIslandShellView.swift`. Key patterns: fixed-size host window (origin moves, never resizes), measured-vs-simulated notch split, fillets only on a real housing, interactive-rects hit testing, `NSWindow.Level.mainMenu + 3` (no private APIs).
-
-Two HUD decisions are deliberately open and must be prototyped, not decided in code review (see CONTEXT.md flagged ambiguities): long-draft behavior (3 variants) and the voice-reactive visual (Metal shader waveform vs notch-edge glow).
-
-## Roadmap order
-
-1. Scaffold xcodeproj + shell (status item, app delegate) and wire in CarryOver files
-2. NotchIsland-style HUD surface
-3. Prototype the two flagged HUD variants, pick by feel
-4. Insertion latency benchmark — CONTEXT.md gates all other features on it
+1. ~~Scaffold + wire CarryOver~~ done
+2. ~~NotchIsland-style HUD surface~~ done
+3. ~~Prototype the flagged HUD variants~~ done — all variants ship as Settings options
+4. **Insertion latency benchmark — next; CONTEXT.md gates all other features on it**
 
 ## Agent skills
 
