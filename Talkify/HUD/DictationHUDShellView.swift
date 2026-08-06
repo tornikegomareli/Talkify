@@ -88,13 +88,9 @@ struct DictationHUDShellView: View {
                         HUDLevelMeterView(content: content)
                     } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
-                    } else if settings.glowCenter == .siriOrb {
-                        // Edge Glow with the orb center: the orb takes the
-                        // band the particles would otherwise roam.
-                        HUDSiriOrbView(content: content)
                     } else {
-                        // Edge Glow with the particle center: the cloud is a
-                        // shape-wide overlay, so the band is an empty stage.
+                        // Edge Glow: both centers (particles, orb) are
+                        // shape-wide overlays, so the band is an empty stage.
                         Color.clear
                     }
                 }
@@ -113,6 +109,7 @@ struct DictationHUDShellView: View {
         .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
         .background { housing }
         .overlay { particleCloud }
+        .overlay { siriOrb }
         .overlay { edgeGlow }
             .overlay(alignment: .topLeading) { fillet(.leading) }
             .overlay(alignment: .topTrailing) { fillet(.trailing) }
@@ -252,6 +249,20 @@ struct DictationHUDShellView: View {
         if !reduceMotion, settings.voiceVisual == .glow, settings.glowCenter == .particles {
             HUDParticleCloudView(content: content, settings: settings)
                 .clipShape(housingShape)
+        }
+    }
+
+    /// The Edge Glow's orb center: centered on the whole notch island rather
+    /// than tucked in the band, sized just short of the island's height.
+    /// Gated on the listening state — as an overlay it no longer disappears
+    /// with the band, so it must gate itself.
+    @ViewBuilder
+    private var siriOrb: some View {
+        if !reduceMotion,
+           settings.voiceVisual == .glow,
+           settings.glowCenter == .siriOrb,
+           content.showsVoiceVisual {
+            HUDSiriOrbView(content: content, side: size.height - 8)
         }
     }
 

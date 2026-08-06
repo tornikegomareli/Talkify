@@ -17,6 +17,8 @@ struct HUDSiriOrbView: View {
     private static let artworkSide: CGFloat = 503.6
 
     let content: DictationHUDContent
+    /// The orb's rendered diameter; the shell sizes it to the notch island.
+    let side: CGFloat
 
     @State private var isRotating = false
     @State private var spin = SpinIntegrator()
@@ -25,20 +27,16 @@ struct HUDSiriOrbView: View {
         TimelineView(.animation) { context in
             let alive = content.isAudioAlive
             let level = alive ? content.audioLevel : 0
-            // The orb breathes with the voice on top of its fit-to-band
-            // scale, flares brighter and more saturated while talking, and
-            // spins faster — the integrator keeps speed changes smooth.
-            let scale = HUDNotchGeometry.waveBandHeight / Self.artworkSide
-                * (1 + 0.3 * level)
+            // The orb breathes with the voice on top of its fit scale,
+            // flares brighter and more saturated while talking, and spins
+            // faster — the integrator keeps speed changes smooth.
+            let scale = side / Self.artworkSide * (1 + 0.3 * level)
             let angle = spin.advance(to: context.date, level: level)
             orb(alive: alive, scale: scale, spinAngle: angle)
                 .brightness(0.3 * level)
                 .saturation(alive ? 1 + 0.6 * level : 0)
         }
-        .frame(
-            width: HUDNotchGeometry.waveBandHeight,
-            height: HUDNotchGeometry.waveBandHeight
-        )
+        .frame(width: side, height: side)
         .accessibilityHidden(true)
     }
 
