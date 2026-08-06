@@ -46,6 +46,11 @@ struct SettingsView: View {
                             Text(palette.rawValue).tag(palette)
                         }
                     }
+                    Picker("Glow center", selection: $settings.glowCenter) {
+                        ForEach(HUDGlowCenterStyle.allCases, id: \.self) { center in
+                            Text(center.rawValue).tag(center)
+                        }
+                    }
                 }
             }
         }

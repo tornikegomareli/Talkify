@@ -126,7 +126,7 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 
 ## Flagged ambiguities
 
-- A third voice visual is prototyped and under feel test: the rotating Siri orb (artwork copied from GetStream's purposeful-ios-animations, which publishes no license and imitates Apple's Siri orb — see LICENSE-ARTWORK.txt). Unresolved: whether it stays a Settings option; it cannot ship with this artwork.
+- The edge glow's center content is a Settings pick under feel test: the particle cloud or the rotating Siri orb (artwork copied from GetStream's purposeful-ios-animations, which publishes no license and imitates Apple's Siri orb — see LICENSE-ARTWORK.txt). Unresolved: whether the orb stays; it cannot ship with this artwork.
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
 - HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.

@@ -88,11 +88,13 @@ struct DictationHUDShellView: View {
                         HUDLevelMeterView(content: content)
                     } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
-                    } else if settings.voiceVisual == .siriOrb {
+                    } else if settings.glowCenter == .siriOrb {
+                        // Edge Glow with the orb center: the orb takes the
+                        // band the particles would otherwise roam.
                         HUDSiriOrbView(content: content)
                     } else {
-                        // The glow lives on the silhouette (edgeGlow overlay);
-                        // its band is an empty stage.
+                        // Edge Glow with the particle center: the cloud is a
+                        // shape-wide overlay, so the band is an empty stage.
                         Color.clear
                     }
                 }
@@ -247,7 +249,7 @@ struct DictationHUDShellView: View {
     /// so its drain-out ramp can render too.
     @ViewBuilder
     private var particleCloud: some View {
-        if !reduceMotion, settings.voiceVisual == .glow {
+        if !reduceMotion, settings.voiceVisual == .glow, settings.glowCenter == .particles {
             HUDParticleCloudView(content: content, settings: settings)
                 .clipShape(housingShape)
         }

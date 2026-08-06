@@ -6,9 +6,7 @@ enum HUDVoiceVisualStyle: String, CaseIterable {
     case waveform = "Waveform"
     /// An origin glow hugging the shape's edge: it blooms out of the notch
     /// housing on session start, breathes with the voice, and drains back
-    /// when the session ends.
+    /// when the session ends. Its center content is a separate pick
+    /// (HUDGlowCenterStyle).
     case glow = "Edge Glow"
-    /// Prototype under feel test: the rotating Siri orb (GetStream artwork,
-    /// unlicensed — see LICENSE-ARTWORK.txt) breathing with the voice.
-    case siriOrb = "Siri Orb"
 }

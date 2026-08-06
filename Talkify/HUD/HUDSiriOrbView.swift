@@ -116,9 +116,9 @@ struct HUDSiriOrbView: View {
 }
 
 #Preview("Siri orb · live") {
-    HUDShellPreviewHarness(visual: .siriOrb)
+    HUDShellPreviewHarness(visual: .glow, glowCenter: .siriOrb)
 }
 
 #Preview("Siri orb · dead mic") {
-    HUDShellPreviewHarness(visual: .siriOrb, micAlive: false)
+    HUDShellPreviewHarness(visual: .glow, glowCenter: .siriOrb, micAlive: false)
 }

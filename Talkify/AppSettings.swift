@@ -18,6 +18,7 @@ final class AppSettings {
         static let revealStyle = "hudRevealStyle"
         static let longDraftStyle = "hudLongDraftStyle"
         static let glowPalette = "hudGlowPalette"
+        static let glowCenter = "hudGlowCenter"
     }
 
     @ObservationIgnored
@@ -47,6 +48,10 @@ final class AppSettings {
         didSet { defaults.set(glowPalette.rawValue, forKey: Keys.glowPalette) }
     }
 
+    var glowCenter: HUDGlowCenterStyle {
+        didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         soundSet = Self.stored(in: defaults, key: Keys.soundSet) ?? .synth8
@@ -55,6 +60,7 @@ final class AppSettings {
         revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
         longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
         glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
+        glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
     }
 
     private static func stored<Value: RawRepresentable<String>>(
