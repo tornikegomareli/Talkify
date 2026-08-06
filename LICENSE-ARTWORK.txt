@@ -1,9 +1,0 @@
-Prototype artwork that must be replaced or cleared before any release
-======================================================================
-
-Talkify/Assets.xcassets/Siri/ (the siri-* imagesets)
-
-Source: GetStream/purposeful-ios-animations (ListeningSiriAnimation),
-copied for the Siri-orb voice-visual prototype. The source repository
-publishes NO license, and the artwork imitates Apple's Siri orb.
-Prototype/feel-testing use only — do not ship.
