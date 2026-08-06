@@ -97,6 +97,7 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
 - Talkify persists only application settings; macOS manages permission state
+- Settings lets the user choose the session sounds, the voice-reactive visual, and the waveform style
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
 - **Live Captions** consume exactly one **Caption Source** and never microphone audio
 - A **Live Captions** session starts only after the user confirms its **Caption Source**
@@ -127,4 +128,4 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
 - HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.
-- The voice-reactive visual is undecided. Two variants will be prototyped and judged by feel: a Metal shader waveform, and an Apple-Intelligence-style glow around the notch edge with draft text in the middle. Both must deliver a strong first impression.
+- The voice-reactive visual — resolved: both prototyped variants ship, user-selectable from Settings. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) replaces draft text while listening; the edge glow (a static silver comet sweeping the shape's open silhouette) keeps draft text in the middle.
