@@ -9,10 +9,11 @@ using namespace metal;
 /// Rendered as a signed-distance glow: every pixel finds its distance to the
 /// path and its position along it (arc length). The origin-glow formula
 /// (smoothstep(progress) · exp(-d²) · amplitude) shapes brightness along the
-/// arc from the origin outward, and two inverse-power falloffs make the bloom
-/// perpendicular to the path — a tight white-hot core and a wide cool halo,
-/// like light on glass. `progress` is the session ramp (0→1 on start, 1→0 on
-/// end) and `amplitude` follows the live microphone level.
+/// arc from the origin outward, and two gaussians make the beam perpendicular
+/// to the path — a hot ~3pt core inside a wide ~16pt halo, the profile of the
+/// article's stroked-and-blurred border rather than a hairline. `progress` is
+/// the session ramp (0→1 on start, 1→0 on end) and `amplitude` follows the
+/// live microphone level.
 ///
 /// `shapeRect` is the shape's frame inside the (larger) view so the halo has
 /// room to spill outside the border. `alive` = 0 renders a static amber
@@ -126,10 +127,12 @@ static PathPoint nearestOnU(float2 p, float w, float h, float r) {
         * amplitude;
     spread *= smoothstep(0.0, 1.0, 1.0 - dAlong / max(progress, 1e-3));
 
-    // Two-scale bloom perpendicular to the path: white-hot core, wide halo.
-    float core = 1.1 / (d * d);
-    float halo = 0.18 / d;
-    float glow = spread * min(core + halo, 3.0);
+    // The beam perpendicular to the path: a blurred-stroke profile, not a
+    // hairline. A hot gaussian core (σ ≈ 3pt) rides inside a wide soft halo
+    // (σ ≈ 16pt) that spills to both sides of the border.
+    float core = exp(-d * d / 18.0);
+    float halo = 0.45 * exp(-d * d / 260.0);
+    float glow = spread * (core + halo) * 1.6;
 
     // Silver treatment: the hot core is pure white, the falloff cools into a
     // faint blue-violet fringe like light bleeding on glass.
