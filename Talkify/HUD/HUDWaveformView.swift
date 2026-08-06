@@ -170,22 +170,23 @@ private struct SmoothLineWave: View {
 
             if content.isAudioAlive {
                 ZStack {
-                    // Wide halo: breathes hard with the voice.
+                    // Wide halo: breathes with the voice. Cool silver, so the
+                    // bloom reads as light on glass rather than color.
                     shape
                         .stroke(
-                            Self.flow,
+                            Self.silver,
                             style: StrokeStyle(
-                                lineWidth: 4 + 10 * level,
+                                lineWidth: 4 + 8 * level,
                                 lineCap: .round,
                                 lineJoin: .round
                             )
                         )
                         .blur(radius: 9)
-                        .opacity(0.25 + 0.75 * level)
+                        .opacity(0.2 + 0.6 * level)
                     // Tight bloom hugging the core.
                     shape
                         .stroke(
-                            Self.flow,
+                            Self.silver,
                             style: StrokeStyle(
                                 lineWidth: 2.5 + 3 * level,
                                 lineCap: .round,
@@ -193,20 +194,23 @@ private struct SmoothLineWave: View {
                             )
                         )
                         .blur(radius: 2.5)
-                        .opacity(0.85)
+                        .opacity(0.8)
                     // Crisp white-hot core — never blurred.
                     shape
                         .stroke(
                             .white.opacity(0.75 + 0.25 * level),
                             style: StrokeStyle(lineWidth: 1.7, lineCap: .round, lineJoin: .round)
                         )
+                    // Metallic specular: a soft band of extra light sweeping
+                    // along the line, the classic glass/metal sheen.
+                    shape
+                        .stroke(
+                            .white,
+                            style: StrokeStyle(lineWidth: 2.6, lineCap: .round, lineJoin: .round)
+                        )
+                        .blur(radius: 0.8)
+                        .mask(specularBand(at: context.date))
                 }
-                // The "changing colors": the gradient's hues drift through a
-                // full cycle every ~13 seconds.
-                .hueRotation(.degrees(
-                    context.date.timeIntervalSinceReferenceDate
-                        .truncatingRemainder(dividingBy: 1000) * 28
-                ))
             } else {
                 shape
                     .stroke(
@@ -227,18 +231,40 @@ private struct SmoothLineWave: View {
         }
     }
 
-    /// The flowing base gradient the hue rotation drifts through.
-    private static let flow = LinearGradient(
+    /// Metallic silver: white body cooling into a faint blue-gray at the
+    /// ends — the edge glow's palette, no saturated hues.
+    private static let silver = LinearGradient(
         colors: [
-            Color(red: 0.25, green: 0.8, blue: 1.0),
-            Color(red: 0.6, green: 0.45, blue: 1.0),
-            Color(red: 1.0, green: 0.4, blue: 0.8),
-            Color(red: 0.6, green: 0.45, blue: 1.0),
-            Color(red: 0.25, green: 0.8, blue: 1.0),
+            Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
+            .white,
+            Color(red: 0.82, green: 0.86, blue: 0.95),
+            .white,
+            Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
         ],
         startPoint: .leading,
         endPoint: .trailing
     )
+
+    /// A soft bright band ping-ponging across the strip; masking the extra
+    /// specular stroke with it makes the light travel along the line.
+    private func specularBand(at date: Date) -> some View {
+        GeometryReader { proxy in
+            let phase = date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 1000) / 3.2
+            let cycle = phase.truncatingRemainder(dividingBy: 2)
+            let lin = cycle < 1 ? cycle : 2 - cycle
+            let eased = lin * lin * (3 - 2 * lin)
+            let bandWidth = proxy.size.width * 0.3
+
+            LinearGradient(
+                colors: [.clear, .white, .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: bandWidth)
+            .offset(x: eased * (proxy.size.width + bandWidth) - bandWidth)
+        }
+    }
 }
 
 /// An open, smoothed line through the samples, shifted left by
