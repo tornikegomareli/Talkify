@@ -105,7 +105,10 @@ final class DictationHUDController {
         guard content.showsVoiceVisual else { return }
         content.audioLevel = max(Double(level), content.audioLevel * 0.88)
         content.levelHistory.removeFirst()
-        content.levelHistory.append(level)
+        // Light EMA against the previous bar calms per-tick jitter without
+        // dulling the speech rhythm.
+        let lastBar = content.levelHistory.last ?? 0
+        content.levelHistory.append(0.6 * level + 0.4 * lastBar)
         lastLevelAt = ContinuousClock.now
         content.isAudioAlive = true
     }

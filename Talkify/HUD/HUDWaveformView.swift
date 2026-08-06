@@ -71,9 +71,9 @@ struct HUDWaveformView: View {
             case .capsules:
                 capsules
             case .chartLine:
-                chart(line: true)
+                SmoothLineWave(content: content)
             case .chartArea:
-                chart(line: false)
+                areaChart
             case .dots:
                 DotWaveShape(samples: content.levelHistory, dotRadius: 1.6)
                     .fill(silver)
@@ -124,22 +124,92 @@ struct HUDWaveformView: View {
         }
     }
 
-    /// AudioWaveform's line/area modes, straight from Swift Charts.
-    private func chart(line: Bool) -> some View {
+    /// AudioWaveform's area mode, straight from Swift Charts.
+    private var areaChart: some View {
         Chart(Array(content.levelHistory.enumerated()), id: \.offset) { index, value in
-            if line {
-                LineMark(x: .value("t", index), y: .value("level", value))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(silver)
-            } else {
-                AreaMark(x: .value("t", index), y: .value("level", value))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(silver)
-            }
+            AreaMark(x: .value("t", index), y: .value("level", value))
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(silver)
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: 0...1)
+    }
+}
+
+/// The Chart Line look rendered as a conveyor instead of a chart: each level
+/// tick shifts the buffer one slot, so the shape interpolates the scroll
+/// offset against the tick clock and the points glide left continuously —
+/// no per-tick jump, no Swift Charts re-render. The line itself is a
+/// midpoint-smoothed curve stroked with the silver gradient.
+private struct SmoothLineWave: View {
+    let content: DictationHUDContent
+
+    @State private var samples: [Float] = []
+    @State private var lastTick = Date.distantPast
+    /// Measured time between level ticks, smoothed; scroll speed follows it.
+    @State private var tickInterval: Double = 0.022
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let progress = min(1, max(0, context.date.timeIntervalSince(lastTick) / tickInterval))
+            SmoothLineShape(samples: samples, scrollProgress: progress)
+                .stroke(
+                    content.isAudioAlive
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [
+                                Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.8),
+                                .white,
+                                Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.8),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                        : AnyShapeStyle(Color.orange.opacity(0.55)),
+                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                )
+        }
+        .clipped()
+        .onChange(of: content.levelHistory) { _, new in
+            let now = Date()
+            let gap = now.timeIntervalSince(lastTick)
+            if gap < 0.1 {
+                tickInterval = tickInterval * 0.8 + gap * 0.2
+            }
+            samples = new
+            lastTick = now
+        }
+    }
+}
+
+/// An open, smoothed line through the samples, shifted left by
+/// `scrollProgress` of one slot so consecutive buffers connect seamlessly.
+private struct SmoothLineShape: Shape {
+    let samples: [Float]
+    let scrollProgress: Double
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        guard samples.count > 2 else { return Path() }
+        let step = rect.width / CGFloat(samples.count - 2)
+        let offset = CGFloat(scrollProgress) * step
+
+        let points = samples.enumerated().map { index, sample in
+            CGPoint(
+                x: rect.minX + CGFloat(index) * step - offset,
+                y: rect.midY - max(0.75, CGFloat(sample) * rect.height / 2)
+            )
+        }
+
+        var path = Path()
+        path.move(to: points[0])
+        for i in 1..<points.count {
+            let previous = points[i - 1]
+            let current = points[i]
+            let mid = CGPoint(x: (previous.x + current.x) / 2, y: (previous.y + current.y) / 2)
+            path.addQuadCurve(to: mid, control: previous)
+        }
+        path.addLine(to: points[points.count - 1])
+        return path
     }
 }
 
