@@ -17,8 +17,12 @@ struct HUDEdgeGlowView: View {
     nonisolated static let spill: CGFloat = 28
     /// Duration of the bloom-in and drain-out ramps.
     nonisolated static let rampDuration: TimeInterval = 0.4
-    /// The gist's stroke width: crisp line at half this, blurs at full.
-    nonisolated static let lineWidth: Double = 4
+    /// Stroke width: crisp line at half this, blurred copies at full. The
+    /// gist uses 4 on a 240pt capsule; our shape is wider and the mask eats
+    /// brightness, so the strokes need more body to read as a beam.
+    nonisolated static let lineWidth: Double = 6
+    /// Blur of the outer halo stroke (the inner copy runs at half).
+    nonisolated static let blurRadius: Double = 12
 
     let content: DictationHUDContent
     /// Height of the notch housing band; the glow origin sits at its
@@ -33,14 +37,17 @@ struct HUDEdgeGlowView: View {
             let origin = CGPoint(x: size.width / 2, y: housingHeight)
             let listening = content.showsVoiceVisual
             let alive = content.isAudioAlive
-            let amplitude = alive ? 0.6 + 2.4 * content.audioLevel : 1.5
+            // Resting brightness stays near the gist's constant 3.0 so the
+            // halo never starves; the voice adds the flare on top.
+            let amplitude = alive ? 1.8 + 1.2 * content.audioLevel : 1.5
             HUDGlowSilhouetteShape(
                 cornerRadius: HUDNotchGeometry.bottomCornerRadius,
                 inset: Self.spill
             )
             .glow(
                 fill: alive ? AnyShapeStyle(.palette) : AnyShapeStyle(.amber),
-                lineWidth: Self.lineWidth
+                lineWidth: Self.lineWidth,
+                blurRadius: Self.blurRadius
             )
             .keyframeAnimator(
                 initialValue: 0.0,
