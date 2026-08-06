@@ -4,10 +4,15 @@ import AppKit
 final class StatusItemController: NSObject {
     private let statusItem: NSStatusItem
     private let toggleDictation: () -> Void
+    private let openSettings: () -> Void
     private let dictationItem: NSMenuItem
 
-    init(toggleDictation: @escaping () -> Void) {
+    init(
+        toggleDictation: @escaping () -> Void,
+        openSettings: @escaping () -> Void
+    ) {
         self.toggleDictation = toggleDictation
+        self.openSettings = openSettings
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         dictationItem = NSMenuItem(title: "Start Dictation", action: nil, keyEquivalent: "")
         super.init()
@@ -23,6 +28,14 @@ final class StatusItemController: NSObject {
         dictationItem.target = self
         menu.addItem(dictationItem)
         menu.addItem(.separator())
+
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(openSettingsItem),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem(
             title: "Quit Talkify",
@@ -45,5 +58,9 @@ final class StatusItemController: NSObject {
 
     @objc private func toggleDictationItem() {
         toggleDictation()
+    }
+
+    @objc private func openSettingsItem() {
+        openSettings()
     }
 }

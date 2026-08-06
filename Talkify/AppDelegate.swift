@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var hudController: DictationHUDController?
     private var dictationController: DirectDictationController?
+    private var settingsWindowController: SettingsWindowController?
 
     static func main() {
         let application = NSApplication.shared
@@ -23,9 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.hudController = hudController
         self.dictationController = dictationController
 
-        let statusItemController = StatusItemController {
-            dictationController.toggleFromMenu()
-        }
+        let statusItemController = StatusItemController(
+            toggleDictation: { dictationController.toggleFromMenu() },
+            openSettings: { [weak self] in self?.showSettings() }
+        )
         self.statusItemController = statusItemController
 
         dictationController.onRecordingStateChange = { [weak statusItemController] isRecording in
@@ -39,5 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         dictationController?.stop()
+    }
+
+    private func showSettings() {
+        guard let settings else { return }
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController(
+                settings: settings,
+                sounds: DictationHUDSounds(settings: settings)
+            )
+        }
+        settingsWindowController?.show()
     }
 }

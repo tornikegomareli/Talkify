@@ -1,0 +1,55 @@
+import SwiftUI
+
+/// The Settings form: sounds, the voice visual, and the waveform style.
+/// Bound straight to AppSettings, so every change persists immediately and
+/// the next Direct Dictation session uses it.
+struct SettingsView: View {
+    @Bindable var settings: AppSettings
+    let sounds: DictationHUDSounds
+
+    var body: some View {
+        Form {
+            Section("Sounds") {
+                Picker("Session sounds", selection: $settings.soundSet) {
+                    ForEach(DictationSoundSet.allCases, id: \.self) { set in
+                        Text(set.rawValue).tag(set)
+                    }
+                }
+                Button("Preview") {
+                    Task { @MainActor in
+                        sounds.playBegin()
+                        try? await Task.sleep(for: .milliseconds(600))
+                        sounds.playEnd()
+                    }
+                }
+            }
+
+            Section("Voice visual") {
+                Picker("While listening", selection: $settings.voiceVisual) {
+                    ForEach(HUDVoiceVisualStyle.allCases, id: \.self) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if settings.voiceVisual == .waveform {
+                    Picker("Waveform style", selection: $settings.waveformStyle) {
+                        ForEach(HUDWaveformStyle.allCases, id: \.self) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 380)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+#Preview {
+    SettingsView(
+        settings: AppSettings.previewStore(),
+        sounds: DictationHUDSounds(settings: AppSettings.previewStore())
+    )
+}
