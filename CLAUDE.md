@@ -21,6 +21,7 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 - `Talkify/AppSettings.swift` — every user preference, one observable UserDefaults-backed store. The key strings and enum rawValues are load-bearing (stored picks; sound-asset name prefixes) — do not rename.
 - `Talkify/Settings/` — the Settings window (SwiftUI Form in an `NSHostingController`).
 - `Talkify/Resources/Sounds/` — sound sets. **Pop is CC-BY-NC and must be replaced or dropped before any release**; see `LICENSE-SOUNDS.txt`.
+- `Talkify/Assets.xcassets/Siri/` — the Siri-orb prototype artwork (voice visual under feel test). **Unlicensed, imitates Apple's Siri orb, must be replaced or dropped before any release**; see `LICENSE-ARTWORK.txt`.
 
 ## HUD rules that keep biting
 

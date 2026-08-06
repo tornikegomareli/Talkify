@@ -8,4 +8,7 @@ enum HUDVoiceVisualStyle: String, CaseIterable {
     /// housing on session start, breathes with the voice, and drains back
     /// when the session ends.
     case glow = "Edge Glow"
+    /// Prototype under feel test: the rotating Siri orb (GetStream artwork,
+    /// unlicensed — see LICENSE-ARTWORK.txt) breathing with the voice.
+    case siriOrb = "Siri Orb"
 }

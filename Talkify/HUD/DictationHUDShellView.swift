@@ -88,6 +88,8 @@ struct DictationHUDShellView: View {
                         HUDLevelMeterView(content: content)
                     } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
+                    } else if settings.voiceVisual == .siriOrb {
+                        HUDSiriOrbView(content: content)
                     } else {
                         // The glow lives on the silhouette (edgeGlow overlay);
                         // its band is an empty stage.

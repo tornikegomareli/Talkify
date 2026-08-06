@@ -126,6 +126,8 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 
 ## Flagged ambiguities
 
+- A third voice visual is prototyped and under feel test: the rotating Siri orb (artwork copied from GetStream's purposeful-ios-animations, which publishes no license and imitates Apple's Siri orb — see LICENSE-ARTWORK.txt). Unresolved: whether it stays a Settings option; it cannot ship with this artwork.
+
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
 - HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.
 - The voice-reactive visual — resolved: both prototyped variants ship, user-selectable from Settings, and both replace draft text while listening. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) fills the visual band; the edge glow is a three-part animation — a palette-gradient beam whose bright region blooms in from under the housing on session start, sweeps the shape's open silhouette while listening, follows the voice in brightness and stroke thickness (the feel-test pick over reach, particle count, particle size, and syllable bursts), and drains back when the session ends, a one-shot ripple wave rolling across the housing at session start, and a particle cloud in the palette's colors chasing the beam's sweeping origin. The palette (Spectrum, Silver, Aurora, Sunset, Ocean, Mono) is a Settings pick coloring beam and particles together.
