@@ -6,4 +6,7 @@ enum HUDGlowCenterStyle: String, CaseIterable {
     /// Prototype under feel test: the rotating Siri orb (GetStream artwork,
     /// unlicensed — see LICENSE-ARTWORK.txt) breathing with the voice.
     case siriOrb = "Siri Orb"
+    /// Prototype under feel test: the Siri Wave waveform style rendered in
+    /// the band inside the sweeping beam.
+    case siriWave = "Siri Wave"
 }

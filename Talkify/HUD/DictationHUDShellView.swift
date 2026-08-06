@@ -88,8 +88,13 @@ struct DictationHUDShellView: View {
                         HUDLevelMeterView(content: content)
                     } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
+                    } else if settings.glowCenter == .siriWave {
+                        // Edge Glow with the Siri wave center: the wave
+                        // takes the band inside the sweeping beam.
+                        HUDSiriWaveView(content: content)
+                            .padding(.vertical, 6)
                     } else {
-                        // Edge Glow: both centers (particles, orb) are
+                        // Edge Glow: the other centers (particles, orb) are
                         // shape-wide overlays, so the band is an empty stage.
                         Color.clear
                     }
