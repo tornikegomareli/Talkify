@@ -31,7 +31,35 @@ struct HUDWaveformView: View {
 
     let content: DictationHUDContent
 
+    @State private var start = Date()
+
     var body: some View {
+        TimelineView(.animation) { context in
+            styledWave
+                // WWDC26-style finish over the drawn pixels: chromatic edge
+                // fringing, a metallic specular sweep, and soft bloom
+                // (WaveformSheen.metal), breathing with the voice.
+                .layerEffect(
+                    ShaderLibrary.waveformSheen(
+                        .float2(waveSize),
+                        .float(Float(context.date.timeIntervalSince(start))),
+                        .float(Float(content.audioLevel))
+                    ),
+                    maxSampleOffset: CGSize(width: 8, height: 8)
+                )
+        }
+        .onGeometryChange(for: CGSize.self, of: \.size) { waveSize = $0 }
+        .animation(.linear(duration: 0.05), value: content.levelHistory)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 6)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @State private var waveSize = CGSize(width: 1, height: 1)
+
+    @ViewBuilder
+    private var styledWave: some View {
         Group {
             switch content.waveformStyle {
             case .article:
@@ -57,11 +85,6 @@ struct HUDWaveformView: View {
                     .fill(silver)
             }
         }
-        .animation(.linear(duration: 0.05), value: content.levelHistory)
-        .padding(.horizontal, 28)
-        .padding(.vertical, 6)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 
     /// One color language for every style: the edge glow's white/silver —
