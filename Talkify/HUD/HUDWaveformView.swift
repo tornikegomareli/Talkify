@@ -36,16 +36,10 @@ struct HUDWaveformView: View {
             switch content.waveformStyle {
             case .article:
                 AudioWaveShape(samples: content.levelHistory, spacing: 2, rounded: false, perceptual: false)
-                    .fill(tint(.orange))
+                    .fill(silver)
             case .silver:
                 AudioWaveShape(samples: content.levelHistory, spacing: 3, rounded: true, perceptual: true)
-                    .fill(content.isAudioAlive
-                        ? AnyShapeStyle(LinearGradient(
-                            colors: [.white.opacity(0.55), .white, .white.opacity(0.55)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        : AnyShapeStyle(Color.orange.opacity(0.55)))
+                    .fill(silver)
             case .capsules:
                 capsules
             case .chartLine:
@@ -54,13 +48,13 @@ struct HUDWaveformView: View {
                 chart(line: false)
             case .dots:
                 DotWaveShape(samples: content.levelHistory, dotRadius: 1.6)
-                    .fill(tint(.white.opacity(0.9)))
+                    .fill(silver)
             case .curve:
                 CurveWaveShape(samples: content.levelHistory)
-                    .fill(tint(.white.opacity(0.85)))
+                    .fill(silver)
             case .filled:
                 FilledWaveShape(samples: content.levelHistory)
-                    .fill(tint(Color(red: 0.35, green: 0.8, blue: 0.95).opacity(0.9)))
+                    .fill(silver)
             }
         }
         .animation(.linear(duration: 0.05), value: content.levelHistory)
@@ -70,9 +64,21 @@ struct HUDWaveformView: View {
         .accessibilityHidden(true)
     }
 
-    /// Every style goes amber when the microphone dies (CONTEXT.md).
-    private func tint(_ color: Color) -> Color {
-        content.isAudioAlive ? color : .orange.opacity(0.55)
+    /// One color language for every style: the edge glow's white/silver —
+    /// a hot white body cooling at the extremes, faint blue-violet fringe.
+    /// Amber when the microphone dies (CONTEXT.md).
+    private var silver: AnyShapeStyle {
+        content.isAudioAlive
+            ? AnyShapeStyle(LinearGradient(
+                colors: [
+                    Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.75),
+                    .white,
+                    Color(red: 0.62, green: 0.72, blue: 1.0).opacity(0.75),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+            : AnyShapeStyle(Color.orange.opacity(0.55))
     }
 
     /// AudioWaveform's capsule mode: dampened heights, width-derived bars.
@@ -84,7 +90,7 @@ struct HUDWaveformView: View {
             HStack(alignment: .center, spacing: step - barWidth) {
                 ForEach(Array(values.enumerated()), id: \.offset) { _, value in
                     Capsule()
-                        .fill(tint(.blue))
+                        .fill(silver)
                         .frame(
                             width: barWidth,
                             height: max(barWidth, CGFloat(value) * 0.75 * proxy.size.height)
@@ -101,11 +107,11 @@ struct HUDWaveformView: View {
             if line {
                 LineMark(x: .value("t", index), y: .value("level", value))
                     .interpolationMethod(.catmullRom)
-                    .foregroundStyle(tint(.blue))
+                    .foregroundStyle(silver)
             } else {
                 AreaMark(x: .value("t", index), y: .value("level", value))
                     .interpolationMethod(.catmullRom)
-                    .foregroundStyle(tint(.blue).opacity(0.8))
+                    .foregroundStyle(silver)
             }
         }
         .chartXAxis(.hidden)
