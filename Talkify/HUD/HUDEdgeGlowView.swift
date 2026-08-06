@@ -108,7 +108,12 @@ struct HUDEdgeGlowView: View {
         let phase = ((t / sweepDuration) + 0.5)
             .truncatingRemainder(dividingBy: 2.0)
         let linear = phase < 1.0 ? phase : 2.0 - phase
-        return linear * linear * (3.0 - 2.0 * linear)
+        // Mostly linear: full smoothstep easing parks the origin at each
+        // flank tip (zero velocity there), which reads as the glow stopping
+        // to wait for the particles. A light blend keeps constant travel
+        // with just a softened turnaround.
+        let eased = linear * linear * (3.0 - 2.0 * linear)
+        return linear + (eased - linear) * 0.3
     }
 
     /// Where the mask origin sits at time `t`, in this view's coordinates.
