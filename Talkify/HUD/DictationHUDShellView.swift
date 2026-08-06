@@ -108,6 +108,7 @@ struct DictationHUDShellView: View {
         )
         .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
         .background { housing }
+        .overlay { particleCloud }
         .overlay { edgeGlow }
             .overlay(alignment: .topLeading) { fillet(.leading) }
             .overlay(alignment: .topTrailing) { fillet(.trailing) }
@@ -237,6 +238,23 @@ struct DictationHUDShellView: View {
                 )
             }
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
+    }
+
+    /// The Edge Glow particle cloud, clipped to the housing so no mote leaks
+    /// past the silhouette. Mounted with the glow (not only while listening)
+    /// so its drain-out ramp can render too.
+    @ViewBuilder
+    private var particleCloud: some View {
+        if !reduceMotion, settings.voiceVisual == .glow {
+            HUDParticleCloudView(
+                content: content,
+                center: CGPoint(
+                    x: 0.5,
+                    y: HUDNotchGeometry.closedSize(for: screen).height / size.height
+                )
+            )
+            .clipShape(housingShape)
+        }
     }
 
     /// The edge-glow voice visual: an origin glow blooming from the notch
