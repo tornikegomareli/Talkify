@@ -1,28 +1,6 @@
 import Charts
 import SwiftUI
 
-/// The waveform looks under audition, each mimicking a reference
-/// implementation, all fed by the same live level history:
-/// - Article: "Writing a High-Performance Audio Wave in SwiftUI" — flat
-///   sharp rects, linear heights, warm amber.
-/// - Silver: our styling of the same bar architecture.
-/// - Capsules / Chart Line / Chart Area: jonathanjr3/AudioWaveform's chart
-///   types (Swift Charts and an HStack of capsules, their blue).
-/// - Dots / Curve: lkora/WaveformScrubber's DotDrawer and BezierCurveDrawer
-///   (mirrored dot pairs; smooth filled symmetric curve).
-/// - Filled: AudioKit/Waveform's Metal min/max region, as a symmetric
-///   filled path.
-enum HUDWaveformStyle: String, CaseIterable {
-    case article = "Article"
-    case silver = "Silver"
-    case capsules = "Capsules"
-    case chartLine = "Chart Line"
-    case chartArea = "Chart Area"
-    case dots = "Dots"
-    case curve = "Curve"
-    case filled = "Filled"
-}
-
 /// The live waveform strip: levels reduced on the audio side (vDSP in
 /// MicrophoneInput) drive whichever style is selected. Newest level on the
 /// right. Replaces the draft text while listening.
