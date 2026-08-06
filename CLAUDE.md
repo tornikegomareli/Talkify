@@ -17,7 +17,7 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 ## Layout
 
 - `Talkify/Dictation/` — the six proven components carried over from the previous implementation (session prewarming, gesture latching, per-app insertion routes, clipboard restore). Treat as settled; `DirectDictationController` is the session state machine (idle/starting/recording/finishing/cancelling, held vs latched).
-- `Talkify/HUD/` — the NotchIsland-style HUD: pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested), the shell view, the voice visuals (waveform styles + edge glow, Metal shaders), style enums. Canvas previews live next to the views; the preview harness uses a volatile defaults suite.
+- `Talkify/HUD/` — the NotchIsland-style HUD: pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested), the shell view, the voice visuals (waveform styles; the Edge Glow triptych of origin glow + ripple + MTKView particle cloud, see ADR-0002), style enums. Canvas previews live next to the views; the preview harness uses a volatile defaults suite.
 - `Talkify/AppSettings.swift` — every user preference, one observable UserDefaults-backed store. The key strings and enum rawValues are load-bearing (stored picks; sound-asset name prefixes) — do not rename.
 - `Talkify/Settings/` — the Settings window (SwiftUI Form in an `NSHostingController`).
 - `Talkify/Resources/Sounds/` — sound sets. **Pop is CC-BY-NC and must be replaced or dropped before any release**; see `LICENSE-SOUNDS.txt`.
