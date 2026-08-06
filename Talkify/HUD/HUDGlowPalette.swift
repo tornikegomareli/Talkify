@@ -1,11 +1,8 @@
 import SwiftUI
 
-// Glow Lab (prototype): everything in this file exists to feel-test the Edge
-// Glow variants from Settings and dies once the picks are made (#12). The
-// AppSettings keys are prefixed "glowLab" so real preferences never collide.
-
-/// Color subsets under test: each palette colors the beam's strokes and the
-/// particle cloud together so the whole visual speaks one language.
+/// The Edge Glow color palettes, a permanent Settings pick: each palette
+/// colors the beam's strokes and the particle cloud together so the whole
+/// visual speaks one language.
 enum HUDGlowPalette: String, CaseIterable {
     case spectrum = "Spectrum"
     case silver = "Silver"

@@ -13,13 +13,12 @@ using namespace metal;
     float2 origin,
     float2 size,
     float amplitude,    // voice-driven; the gist uses a constant 3.0
-    float progress,     // session ramp, 0…1
-    float reach         // falloff scale; 1.0 = the gist, >1 spreads farther
+    float progress      // session ramp, 0…1
 ) {
     float2 uvPosition = position / size;
     float2 uvOrigin = origin / size;
 
-    float distance = length(uvPosition - uvOrigin) / max(reach, 0.05);
+    float distance = length(uvPosition - uvOrigin);
 
     float intensity = smoothstep(0.0, 1.0, progress)
         * exp(-distance * distance)

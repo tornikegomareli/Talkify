@@ -47,20 +47,13 @@ struct HUDEdgeGlowView: View {
                 let size = proxy.size
                 let alive = content.isAudioAlive
                 let level = content.audioLevel
-                // Glow Lab (prototype): the voice mappings under test, each
-                // behind its Settings toggle. Delete with the lab (#12).
-                // Resting brightness stays near the gist's constant 3.0 so
-                // the halo never starves; the voice adds the flare on top.
-                let amplitude = alive
-                    ? (settings.glowVoiceBrightness ? 1.8 + 1.2 * level : 2.4)
-                    : 1.5
-                let lineWidth = settings.glowVoiceThickness
-                    ? Self.lineWidth * (1 + level)
-                    : Self.lineWidth
-                let blurRadius = settings.glowVoiceThickness
-                    ? Self.blurRadius * (1 + 0.5 * level)
-                    : Self.blurRadius
-                let reach = settings.glowVoiceReach ? 0.7 + 1.1 * level : 1.0
+                // The voice shows in two registers (the feel-test pick):
+                // brightness — resting near the gist's constant 3.0 so the
+                // halo never starves, flaring with speech — and body, the
+                // strokes swelling up to double.
+                let amplitude = alive ? 1.8 + 1.2 * level : 1.5
+                let lineWidth = Self.lineWidth * (1 + level)
+                let blurRadius = Self.blurRadius * (1 + 0.5 * level)
                 let origin = Self.sweepOrigin(
                     at: context.date.timeIntervalSince(sweepStart),
                     in: size
@@ -83,8 +76,7 @@ struct HUDEdgeGlowView: View {
                             .float2(origin),
                             .float2(size),
                             .float(amplitude),
-                            .float(progress),
-                            .float(reach)
+                            .float(progress)
                         ),
                         isEnabled: progress > 0 || listening
                     )

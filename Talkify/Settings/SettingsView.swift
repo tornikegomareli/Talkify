@@ -39,23 +39,13 @@ struct SettingsView: View {
                         }
                     }
                 }
-            }
 
-            // Glow Lab (prototype): feel-test knobs for the Edge Glow;
-            // delete this section with the lab once the picks are made (#12).
-            if settings.voiceVisual == .glow {
-                Section("Glow Lab (prototype)") {
-                    Picker("Palette", selection: $settings.glowPalette) {
+                if settings.voiceVisual == .glow {
+                    Picker("Glow palette", selection: $settings.glowPalette) {
                         ForEach(HUDGlowPalette.allCases, id: \.self) { palette in
                             Text(palette.rawValue).tag(palette)
                         }
                     }
-                    Toggle("Voice → brightness", isOn: $settings.glowVoiceBrightness)
-                    Toggle("Voice → beam thickness", isOn: $settings.glowVoiceThickness)
-                    Toggle("Voice → reach", isOn: $settings.glowVoiceReach)
-                    Toggle("Voice → particle count", isOn: $settings.glowVoiceParticleCount)
-                    Toggle("Voice → particle size", isOn: $settings.glowVoiceParticleSize)
-                    Toggle("Syllable bursts", isOn: $settings.glowSyllableBursts)
                 }
             }
         }

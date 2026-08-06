@@ -25,18 +25,6 @@ struct HUDParticleCloudView: View {
                 // they stay fresh.
                 let size = proxy.size
                 let alive = content.isAudioAlive
-                let level = Float(content.audioLevel)
-                // Glow Lab (prototype): the voice mappings under test, each
-                // behind its Settings toggle. Delete with the lab (#12).
-                let activeCount = settings.glowVoiceParticleCount
-                    ? 6 + level * Float(ParticleRenderer.particleCount - 6)
-                    : Float(ParticleRenderer.particleCount)
-                let birthScale = settings.glowVoiceParticleSize
-                    ? 0.5 + level * 1.2
-                    : 1.0
-                let burstRadius = settings.glowSyllableBursts && level > 0.35
-                    ? 60 + level * 80
-                    : Float(0)
                 let palette = settings.glowPalette
                 let target = HUDGlowSilhouetteShape.point(
                     atArcFraction: HUDEdgeGlowView.sweepFraction(
@@ -59,9 +47,6 @@ struct HUDParticleCloudView: View {
                             ParticleCloudSurface(
                                 progress: Float(progress) * (alive ? 1 : 0),
                                 center: center,
-                                activeCount: activeCount,
-                                birthScale: birthScale,
-                                burstRadius: burstRadius,
                                 palette: palette
                             )
                         }
@@ -88,24 +73,11 @@ struct HUDParticleCloudView: View {
 private struct ParticleCloudSurface: NSViewRepresentable {
     let progress: Float
     let center: CGPoint
-    let activeCount: Float
-    let birthScale: Float
-    let burstRadius: Float
     let palette: HUDGlowPalette
 
-    nonisolated init(
-        progress: Float,
-        center: CGPoint,
-        activeCount: Float,
-        birthScale: Float,
-        burstRadius: Float,
-        palette: HUDGlowPalette
-    ) {
+    nonisolated init(progress: Float, center: CGPoint, palette: HUDGlowPalette) {
         self.progress = progress
         self.center = center
-        self.activeCount = activeCount
-        self.birthScale = birthScale
-        self.burstRadius = burstRadius
         self.palette = palette
     }
 
@@ -138,9 +110,6 @@ private struct ParticleCloudSurface: NSViewRepresentable {
     private func push(to view: MTKView, coordinator: ParticleRenderer) {
         coordinator.progress = progress
         coordinator.center = center
-        coordinator.activeCount = activeCount
-        coordinator.birthScale = birthScale
-        coordinator.burstRadius = burstRadius
         coordinator.applyPalette(palette)
         if progress == 0 {
             if !view.isPaused {
@@ -172,19 +141,12 @@ final class ParticleRenderer: NSObject {
     struct CloudInfo {
         var center: SIMD2<Float>
         var progress: Float
-        var activeCount: Float
-        var birthScale: Float
-        var burstRadius: Float
     }
 
     nonisolated static let particleCount = 32
 
     var progress: Float = 0
     var center = CGPoint(x: 0.5, y: 0.5)
-    // Glow Lab (prototype) knobs; delete with the lab (#12).
-    var activeCount = Float(ParticleRenderer.particleCount)
-    var birthScale: Float = 1
-    var burstRadius: Float = 0
     private var appliedPalette = HUDGlowPalette.spectrum
 
     let device: MTLDevice?
@@ -244,8 +206,7 @@ final class ParticleRenderer: NSObject {
         )
     }
 
-    /// Glow Lab (prototype): recolors the live buffer when the palette pick
-    /// changes; delete with the lab (#12).
+    /// Recolors the live buffer when the palette pick changes.
     func applyPalette(_ palette: HUDGlowPalette) {
         guard palette != appliedPalette, let pipeline else { return }
         appliedPalette = palette
@@ -285,10 +246,7 @@ extension ParticleRenderer: MTKViewDelegate {
         encoder.setBuffer(pipeline.particleBuffer, offset: 0, index: 0)
         var info = CloudInfo(
             center: SIMD2(Float(center.x), Float(center.y)),
-            progress: progress,
-            activeCount: activeCount,
-            birthScale: birthScale,
-            burstRadius: burstRadius
+            progress: progress
         )
         encoder.setBytes(&info, length: MemoryLayout<CloudInfo>.stride, index: 1)
         encoder.dispatchThreads(

@@ -20,13 +20,8 @@ struct Particle {
 };
 
 struct ParticleCloudInfo {
-    float2 center;      // normalized 0…1
-    float progress;     // session ramp, 0…1
-    // Glow Lab (prototype) knobs, computed on the Swift side; delete with
-    // the lab (#12).
-    float activeCount;  // particles allowed to draw this frame
-    float birthScale;   // radius multiplier stamped at respawn
-    float burstRadius;  // >0: respawn near the center within this radius
+    float2 center;     // normalized 0…1
+    float progress;    // session ramp, 0…1
 };
 
 // Cheap 2D hash → 0…1. Inline so there is no third-party RNG dependency.
@@ -64,21 +59,7 @@ kernel void drawParticles(
         // Respawn somewhere new; the old position feeds the hash so a
         // particle never loops through the same spot twice.
         float2 seed = position + float2(id, lifespan);
-        if (info.burstRadius > 0.0) {
-            // Syllable burst: eject near the sweep point instead.
-            float angle = rand(seed) * 6.28318;
-            float radius = 16.0 + rand(seed.yx + 2.7) * info.burstRadius;
-            position = center + float2(cos(angle), sin(angle)) * radius;
-            position = clamp(
-                position,
-                float2(1.0),
-                float2(width - 1.0, height - 1.0)
-            );
-        } else {
-            position = float2(rand(seed) * width, rand(seed.yx + 1.37) * height);
-        }
-        // Stamp the birth size: base 3-12px scaled by the voice at birth.
-        particle.radius = (3.0 + rand(seed + 4.2) * 9.0) * info.birthScale;
+        position = float2(rand(seed) * width, rand(seed.yx + 1.37) * height);
         lifespan = 0.0;
     } else {
         float2 direction = normalize(center - position);
@@ -89,12 +70,6 @@ kernel void drawParticles(
     particle.lifespan = lifespan;
     particle.position = position;
     particles[id] = particle;
-
-    // Population gate: motes beyond the active count keep simulating but
-    // stay invisible, so the cloud thins without freezing.
-    if (float(id) >= info.activeCount) {
-        return;
-    }
 
     // Young particles fade in over their life; the session ramp scales the
     // whole cloud.
