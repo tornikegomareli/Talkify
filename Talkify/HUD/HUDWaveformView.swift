@@ -58,7 +58,8 @@ struct HUDWaveformView: View {
         }
         .onGeometryChange(for: CGSize.self, of: \.size) { waveSize = $0 }
         .animation(.linear(duration: 0.05), value: content.levelHistory)
-        .padding(.horizontal, 28)
+        // The line runs edge to edge; the bar-based styles keep side margins.
+        .padding(.horizontal, content.waveformStyle == .chartLine ? 0 : 28)
         .padding(.vertical, 6)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -170,6 +171,33 @@ private struct SmoothLineWave: View {
 
             if content.isAudioAlive {
                 ZStack {
+                    // Ambient under-glow: a wide soft pool of light beneath
+                    // the line, breathing with the voice.
+                    Ellipse()
+                        .fill(Self.silver)
+                        .frame(height: 26)
+                        .padding(.horizontal, 60)
+                        .blur(radius: 22)
+                        .opacity(0.08 + 0.22 * level)
+
+                    // Glass-floor reflection: the wave mirrored about its
+                    // rest line, soft and fading downward.
+                    shape
+                        .stroke(
+                            Self.silver,
+                            style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
+                        )
+                        .scaleEffect(y: -1)
+                        .blur(radius: 2.5)
+                        .opacity(0.16 + 0.22 * level)
+                        .mask(
+                            LinearGradient(
+                                colors: [.clear, .white.opacity(0.8), .clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+
                     // Wide halo: breathes with the voice. Cool silver, so the
                     // bloom reads as light on glass rather than color.
                     shape
@@ -211,12 +239,16 @@ private struct SmoothLineWave: View {
                         .blur(radius: 0.8)
                         .mask(specularBand(at: context.date))
                 }
+                // Lift the rest line toward the shape's visual center (the
+                // housing strip above makes the band's own middle read low).
+                .offset(y: -10)
             } else {
                 shape
                     .stroke(
                         Color.orange.opacity(0.55),
                         style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
                     )
+                    .offset(y: -10)
             }
         }
         .clipped()
