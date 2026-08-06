@@ -4,8 +4,7 @@ import SwiftUI
 /// The Direct Dictation HUD surface: a NotchIsland-style shape that descends
 /// from the top center of the selected display. Non-activating and
 /// click-through; the host window is sized once per display and only its
-/// origin moves. The voice-reactive visual and long-draft variants stay open
-/// (CONTEXT.md flagged ambiguities).
+/// origin moves. Appearance and sounds follow AppSettings.
 @MainActor
 final class DictationHUDController {
     private static let messageDuration = Duration.seconds(2)
@@ -21,17 +20,20 @@ final class DictationHUDController {
         case message
     }
 
+    private let settings: AppSettings
     private let panel: DictationHUDPanel
     private let hostingView: NSHostingView<DictationHUDShellView>
     private let content = DictationHUDContent()
-    private let sounds = DictationHUDSounds()
+    private let sounds: DictationHUDSounds
     private var mode = Mode.hidden
     private var messageDismissTask: Task<Void, Never>?
     private var orderOutTask: Task<Void, Never>?
     private var lastLevelAt = ContinuousClock.now
     private var micWatchdogTask: Task<Void, Never>?
 
-    init() {
+    init(settings: AppSettings) {
+        self.settings = settings
+        sounds = DictationHUDSounds(settings: settings)
         let placeholder = HUDScreenSnapshot(
             id: 0,
             frame: .zero,
@@ -40,7 +42,11 @@ final class DictationHUDController {
             auxiliaryTopRightArea: nil
         )
         hostingView = NSHostingView(
-            rootView: DictationHUDShellView(screen: placeholder, content: content)
+            rootView: DictationHUDShellView(
+                screen: placeholder,
+                settings: settings,
+                content: content
+            )
         )
         // The window size is this controller's decision, not the content's;
         // without this the hosting view imposes the shell's intrinsic size on
@@ -50,52 +56,6 @@ final class DictationHUDController {
             contentRect: CGRect(origin: .zero, size: CGSize(width: 1, height: 1)),
             contentView: hostingView
         )
-        if let stored = UserDefaults.standard.string(forKey: Self.revealStyleKey),
-           let style = HUDRevealStyle(rawValue: stored) {
-            content.revealStyle = style
-        }
-        if let stored = UserDefaults.standard.string(forKey: Self.longDraftStyleKey),
-           let style = HUDLongDraftStyle(rawValue: stored) {
-            content.longDraftStyle = style
-        }
-        if let stored = UserDefaults.standard.string(forKey: Self.voiceVisualStyleKey),
-           let style = HUDVoiceVisualStyle(rawValue: stored) {
-            content.voiceVisualStyle = style
-        }
-        if let stored = UserDefaults.standard.string(forKey: Self.waveformStyleKey),
-           let style = HUDWaveformStyle(rawValue: stored) {
-            content.waveformStyle = style
-        }
-    }
-
-    private static let revealStyleKey = "hudRevealStyle"
-    private static let longDraftStyleKey = "hudLongDraftStyle"
-    private static let voiceVisualStyleKey = "hudVoiceVisual"
-    private static let waveformStyleKey = "hudWaveformStyle"
-
-    /// Debug-only hook for auditioning reveal styles from the menu; the
-    /// future Settings UI replaces it. Persists like the sound set.
-    func useRevealStyle(_ style: HUDRevealStyle) {
-        content.revealStyle = style
-        UserDefaults.standard.set(style.rawValue, forKey: Self.revealStyleKey)
-    }
-
-    /// Debug-only hook for auditioning long-draft variants; same pattern.
-    func useLongDraftStyle(_ style: HUDLongDraftStyle) {
-        content.longDraftStyle = style
-        UserDefaults.standard.set(style.rawValue, forKey: Self.longDraftStyleKey)
-    }
-
-    /// Debug-only hook for auditioning voice visuals; same pattern.
-    func useVoiceVisual(_ style: HUDVoiceVisualStyle) {
-        content.voiceVisualStyle = style
-        UserDefaults.standard.set(style.rawValue, forKey: Self.voiceVisualStyleKey)
-    }
-
-    /// Debug-only hook for auditioning waveform styles; same pattern.
-    func useWaveformStyle(_ style: HUDWaveformStyle) {
-        content.waveformStyle = style
-        UserDefaults.standard.set(style.rawValue, forKey: Self.waveformStyleKey)
     }
 
     /// Live microphone level, 0–1, ~46 Hz while listening. Smoothed with a
@@ -113,14 +73,8 @@ final class DictationHUDController {
         content.isAudioAlive = true
     }
 
-    /// Debug-only hook for auditioning the candidate sound sets from the
-    /// menu; the future Settings UI replaces it.
-    func useSounds(_ set: DictationSoundSet) {
-        sounds.set = set
-    }
-
-    /// Played when finalized text lands in the target. M1.3 wires this to
-    /// text insertion; until then only the debug demo calls it.
+    /// Played when finalized text lands in the target, after a finished
+    /// session's insertion.
     func playPasteSound() {
         sounds.playPaste()
     }
@@ -201,7 +155,11 @@ final class DictationHUDController {
     private func present(_ text: String, on screen: HUDScreenSnapshot) {
         orderOutTask?.cancel()
         content.text = text
-        hostingView.rootView = DictationHUDShellView(screen: screen, content: content)
+        hostingView.rootView = DictationHUDShellView(
+            screen: screen,
+            settings: settings,
+            content: content
+        )
         panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
         panel.orderFrontRegardless()
 

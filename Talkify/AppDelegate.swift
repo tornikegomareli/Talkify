@@ -3,6 +3,7 @@ import AppKit
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var settings: AppSettings?
     private var statusItemController: StatusItemController?
     private var hudController: DictationHUDController?
     private var dictationController: DirectDictationController?
@@ -15,12 +16,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let hudController = DictationHUDController()
+        let settings = AppSettings()
+        self.settings = settings
+        let hudController = DictationHUDController(settings: settings)
         let dictationController = DirectDictationController(hudController: hudController)
         self.hudController = hudController
         self.dictationController = dictationController
 
-        let statusItemController = StatusItemController(hudController: hudController) {
+        let statusItemController = StatusItemController {
             dictationController.toggleFromMenu()
         }
         self.statusItemController = statusItemController
@@ -32,12 +35,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Requests permissions and prepares the selected Speech Model
         // shortly after launch (CONTEXT.md).
         dictationController.start()
-
-        // Debug hook for headless HUD verification; goes away with the debug
-        // menu items once the Settings picker exists.
-        if ProcessInfo.processInfo.arguments.contains("--hud-demo") {
-            statusItemController.runHUDDemo()
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

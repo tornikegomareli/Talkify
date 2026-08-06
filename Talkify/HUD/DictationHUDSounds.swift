@@ -1,9 +1,12 @@
 import AppKit
 
-/// The candidate sound sets, selectable from the debug menu today and from
-/// Settings later — the selection persists under `Keys.soundSet` so the
-/// future Settings UI reads and writes the same value. Licensing differs per
-/// set — see Resources/Sounds/LICENSE-SOUNDS.txt before shipping.
+/// The sound sets a session can use. Licensing differs per set — see
+/// Resources/Sounds/LICENSE-SOUNDS.txt before shipping (Pop is CC-BY-NC and
+/// must be replaced or dropped before release).
+///
+/// rawValue is load-bearing twice over: it is the UserDefaults value existing
+/// picks are stored under, and it prefixes the bundled asset names
+/// (`<rawValue>Begin/End/Paste.wav`). Renaming a case breaks both.
 enum DictationSoundSet: String, CaseIterable {
     /// Plunger pop (freesound #321807, CC-BY-NC — placeholder, not shippable).
     case pop = "Pop"
@@ -25,52 +28,48 @@ enum DictationSoundSet: String, CaseIterable {
 
 /// The sounds that bracket a Direct Dictation session: begin when listening
 /// starts, end when the session closes, paste when text lands in the target.
+/// Which set plays follows AppSettings; assets reload lazily when the
+/// selection changes.
 @MainActor
 final class DictationHUDSounds {
-    private enum Keys {
-        static let soundSet = "dictationSoundSet"
-    }
+    private let settings: AppSettings
 
-    var set: DictationSoundSet {
-        didSet {
-            UserDefaults.standard.set(set.rawValue, forKey: Keys.soundSet)
-            load()
-        }
-    }
-
+    private var loadedSet: DictationSoundSet?
     private var begin: NSSound?
     private var end: NSSound?
     private var paste: NSSound?
 
-    init() {
-        let stored = UserDefaults.standard.string(forKey: Keys.soundSet)
-        set = stored.flatMap(DictationSoundSet.init(rawValue:)) ?? .pop
-        load()
+    init(settings: AppSettings) {
+        self.settings = settings
     }
 
     func playBegin() {
-        play(begin)
+        play(\.begin)
     }
 
     func playEnd() {
-        play(end)
+        play(\.end)
     }
 
     func playPaste() {
-        play(paste)
+        play(\.paste)
     }
 
-    private func load() {
-        begin = NSSound.bundled("\(set.rawValue)Begin")
-        end = NSSound.bundled("\(set.rawValue)End")
-        paste = NSSound.bundled("\(set.rawValue)Paste")
-    }
-
-    private func play(_ sound: NSSound?) {
-        guard let sound else { return }
+    private func play(_ sound: KeyPath<DictationHUDSounds, NSSound?>) {
+        loadIfNeeded()
+        guard let sound = self[keyPath: sound] else { return }
         sound.stop()
         sound.volume = 0.5
         sound.play()
+    }
+
+    private func loadIfNeeded() {
+        let set = settings.soundSet
+        guard set != loadedSet else { return }
+        begin = NSSound.bundled("\(set.rawValue)Begin")
+        end = NSSound.bundled("\(set.rawValue)End")
+        paste = NSSound.bundled("\(set.rawValue)Paste")
+        loadedSet = set
     }
 }
 

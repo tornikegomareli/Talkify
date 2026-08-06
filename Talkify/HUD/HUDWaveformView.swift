@@ -29,13 +29,14 @@ enum HUDWaveformStyle: String, CaseIterable {
 struct HUDWaveformView: View {
     static let barCount = 56
 
+    let settings: AppSettings
     let content: DictationHUDContent
 
     @State private var start = Date()
 
     var body: some View {
         Group {
-            if content.waveformStyle == .chartLine {
+            if settings.waveformStyle == .chartLine {
                 // The line carries its own treatment (layered glow, drifting
                 // gradient); the sheen's bloom only muddied its crisp core.
                 styledWave
@@ -59,7 +60,7 @@ struct HUDWaveformView: View {
         .onGeometryChange(for: CGSize.self, of: \.size) { waveSize = $0 }
         .animation(.linear(duration: 0.05), value: content.levelHistory)
         // The line runs edge to edge; the bar-based styles keep side margins.
-        .padding(.horizontal, content.waveformStyle == .chartLine ? 0 : 28)
+        .padding(.horizontal, settings.waveformStyle == .chartLine ? 0 : 28)
         .padding(.vertical, 6)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -70,7 +71,7 @@ struct HUDWaveformView: View {
     @ViewBuilder
     private var styledWave: some View {
         Group {
-            switch content.waveformStyle {
+            switch settings.waveformStyle {
             case .article:
                 AudioWaveShape(samples: content.levelHistory, spacing: 2, rounded: false, perceptual: false)
                     .fill(silver)

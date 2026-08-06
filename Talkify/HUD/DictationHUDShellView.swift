@@ -8,12 +8,6 @@ final class DictationHUDContent {
     var text = ""
     /// Drives the reveal/dismiss animation.
     var isRevealed = false
-    /// Slide is the chosen default; the others stay for the Settings picker.
-    var revealStyle = HUDRevealStyle.slide
-    /// Grow Down is the chosen default; the others stay for the Settings picker.
-    var longDraftStyle = HUDLongDraftStyle.growDown
-    var voiceVisualStyle = HUDVoiceVisualStyle.waveform
-    var waveformStyle = HUDWaveformStyle.silver
     /// True only while listening — the visuals react to the microphone, so
     /// they leave when it stops.
     var showsVoiceVisual = false
@@ -39,6 +33,7 @@ struct DictationHUDShellView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let screen: HUDScreenSnapshot
+    let settings: AppSettings
     let content: DictationHUDContent
 
     private var size: CGSize {
@@ -54,12 +49,12 @@ struct DictationHUDShellView: View {
     private var visualBandHeight: CGFloat {
         guard content.showsVoiceVisual else { return 0 }
         if reduceMotion { return HUDNotchGeometry.visualBandHeight }
-        return content.voiceVisualStyle == .waveform ? HUDNotchGeometry.waveBandHeight : 0
+        return settings.voiceVisual == .waveform ? HUDNotchGeometry.waveBandHeight : 0
     }
 
     /// The waveform replaces the draft text entirely while listening.
     private var showsTextBand: Bool {
-        !(content.showsVoiceVisual && !reduceMotion && content.voiceVisualStyle == .waveform)
+        !(content.showsVoiceVisual && !reduceMotion && settings.voiceVisual == .waveform)
     }
 
     private var filletSize: CGFloat {
@@ -85,7 +80,7 @@ struct DictationHUDShellView: View {
                     if reduceMotion {
                         HUDLevelMeterView(content: content)
                     } else {
-                        HUDWaveformView(content: content)
+                        HUDWaveformView(settings: settings, content: content)
                     }
                 }
                 .frame(height: visualBandHeight)
@@ -97,7 +92,7 @@ struct DictationHUDShellView: View {
         .frame(width: size.width)
         .frame(minHeight: size.height, alignment: .top)
         .animation(
-            content.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
+            settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
         )
         .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
@@ -120,7 +115,7 @@ struct DictationHUDShellView: View {
     /// edge — never below — so no style can open a gap against the screen edge.
     private var revealOffset: CGFloat {
         guard isParked else { return 0 }
-        switch content.revealStyle {
+        switch settings.revealStyle {
         case .slide: return -(size.height + 20)
         case .unfurl, .bloom: return 0
         case .drift: return -14
@@ -129,7 +124,7 @@ struct DictationHUDShellView: View {
 
     private var revealScale: (x: CGFloat, y: CGFloat) {
         guard isParked else { return (1, 1) }
-        switch content.revealStyle {
+        switch settings.revealStyle {
         case .slide, .drift: return (1, 1)
         case .unfurl: return (1, 0.001)
         case .bloom: return (0.55, 0.55)
@@ -140,7 +135,7 @@ struct DictationHUDShellView: View {
         if reduceMotion {
             return content.isRevealed ? 1 : 0
         }
-        switch content.revealStyle {
+        switch settings.revealStyle {
         case .slide, .unfurl: return 1
         case .bloom, .drift: return content.isRevealed ? 1 : 0
         }
@@ -154,14 +149,14 @@ struct DictationHUDShellView: View {
             return Self.reducedMotionFade
         }
         if content.isRevealed {
-            switch content.revealStyle {
+            switch settings.revealStyle {
             case .slide: return .spring(duration: 0.4, bounce: 0)
             case .unfurl: return .spring(duration: 0.45, bounce: 0.3)
             case .bloom: return .spring(duration: 0.4, bounce: 0.25)
             case .drift: return .easeOut(duration: 0.24)
             }
         }
-        switch content.revealStyle {
+        switch settings.revealStyle {
         case .slide, .unfurl, .bloom: return .spring(duration: 0.28, bounce: 0)
         case .drift: return .easeIn(duration: 0.18)
         }
@@ -183,7 +178,7 @@ struct DictationHUDShellView: View {
     /// the line cap is hit.
     @ViewBuilder
     private var draftText: some View {
-        switch content.longDraftStyle {
+        switch settings.longDraftStyle {
         case .tailOnly:
             Text(content.text)
                 .lineLimit(1)
@@ -211,7 +206,7 @@ struct DictationHUDShellView: View {
     /// edge — with brightness following the voice (HUDEdgeGlowView).
     @ViewBuilder
     private var edgeGlow: some View {
-        if content.showsVoiceVisual, !reduceMotion, content.voiceVisualStyle == .glow {
+        if content.showsVoiceVisual, !reduceMotion, settings.voiceVisual == .glow {
             HUDEdgeGlowView(content: content)
         }
     }
