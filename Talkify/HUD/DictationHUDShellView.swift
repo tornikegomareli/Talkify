@@ -265,10 +265,7 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var edgeGlow: some View {
         if !reduceMotion, settings.voiceVisual == .glow {
-            HUDEdgeGlowView(
-                content: content,
-                housingHeight: HUDNotchGeometry.closedSize(for: screen).height
-            )
+            HUDEdgeGlowView(content: content)
         }
     }
 

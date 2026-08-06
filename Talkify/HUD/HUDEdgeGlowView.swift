@@ -4,8 +4,12 @@ import SwiftUI
 /// silhouette (down the left flank, across the bottom, up the right flank —
 /// never the hidden top edge) is stroked with an angular palette gradient
 /// three times — a crisp line and two blurred copies — and the shader
-/// (EdgeGlow.metal) masks that picture by distance from the origin. The mask
-/// blooms out of the notch housing on session start, breathes with the
+/// (EdgeGlow.metal) masks that picture by distance from the origin.
+///
+/// The article moves the origin with the user's finger; the HUD has no
+/// finger, so the origin sweeps the silhouette instead — corner to notch and
+/// back, eased at the turnarounds — starting from under the housing at each
+/// session start. The mask blooms in on session start, breathes with the
 /// microphone level, and drains back when the session ends. A dead microphone
 /// swaps the palette for a motionless amber (CONTEXT.md: dead ≠ silent).
 ///
@@ -23,52 +27,61 @@ struct HUDEdgeGlowView: View {
     nonisolated static let lineWidth: Double = 6
     /// Blur of the outer halo stroke (the inner copy runs at half).
     nonisolated static let blurRadius: Double = 12
+    /// Seconds for one end-to-end sweep of the silhouette.
+    nonisolated static let sweepDuration: TimeInterval = 2.6
 
     let content: DictationHUDContent
-    /// Height of the notch housing band; the glow origin sits at its
-    /// bottom-center, where the light story starts.
-    let housingHeight: CGFloat
+
+    /// Reset on every session start so the sweep begins at bottom-center,
+    /// directly under the housing.
+    @State private var sweepStart = Date()
 
     var body: some View {
         GeometryReader { proxy in
-            // Plain values for the @Sendable keyframeAnimator content closure;
-            // the body re-evaluates on every level tick, so they stay fresh.
-            let size = proxy.size
-            let origin = CGPoint(x: size.width / 2, y: housingHeight)
             let listening = content.showsVoiceVisual
-            let alive = content.isAudioAlive
-            // Resting brightness stays near the gist's constant 3.0 so the
-            // halo never starves; the voice adds the flare on top.
-            let amplitude = alive ? 1.8 + 1.2 * content.audioLevel : 1.5
-            HUDGlowSilhouetteShape(
-                cornerRadius: HUDNotchGeometry.bottomCornerRadius,
-                inset: Self.spill
-            )
-            .glow(
-                fill: alive ? AnyShapeStyle(.palette) : AnyShapeStyle(.amber),
-                lineWidth: Self.lineWidth,
-                blurRadius: Self.blurRadius
-            )
-            .keyframeAnimator(
-                initialValue: 0.0,
-                trigger: listening
-            ) { view, progress in
-                view.colorEffect(
-                    ShaderLibrary.edgeGlow(
-                        .float2(origin),
-                        .float2(size),
-                        .float(amplitude),
-                        .float(progress)
-                    ),
-                    isEnabled: progress > 0 || listening
+            TimelineView(.animation(paused: !listening)) { context in
+                // Plain values for the @Sendable keyframeAnimator content
+                // closure; the body re-evaluates on every level tick and
+                // timeline frame, so they stay fresh.
+                let size = proxy.size
+                let alive = content.isAudioAlive
+                // Resting brightness stays near the gist's constant 3.0 so
+                // the halo never starves; the voice adds the flare on top.
+                let amplitude = alive ? 1.8 + 1.2 * content.audioLevel : 1.5
+                let origin = Self.sweepOrigin(
+                    at: context.date.timeIntervalSince(sweepStart),
+                    in: size
                 )
-            } keyframes: { _ in
-                // No MoveKeyframe: the track starts from the current value,
-                // so a session ending mid-bloom reverses smoothly.
-                if listening {
-                    LinearKeyframe(1.0, duration: Self.rampDuration)
-                } else {
-                    LinearKeyframe(0.0, duration: Self.rampDuration)
+                HUDGlowSilhouetteShape(
+                    cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+                    inset: Self.spill
+                )
+                .glow(
+                    fill: alive ? AnyShapeStyle(.palette) : AnyShapeStyle(.amber),
+                    lineWidth: Self.lineWidth,
+                    blurRadius: Self.blurRadius
+                )
+                .keyframeAnimator(
+                    initialValue: 0.0,
+                    trigger: listening
+                ) { view, progress in
+                    view.colorEffect(
+                        ShaderLibrary.edgeGlow(
+                            .float2(origin),
+                            .float2(size),
+                            .float(amplitude),
+                            .float(progress)
+                        ),
+                        isEnabled: progress > 0 || listening
+                    )
+                } keyframes: { _ in
+                    // No MoveKeyframe: the track starts from the current
+                    // value, so a session ending mid-bloom reverses smoothly.
+                    if listening {
+                        LinearKeyframe(1.0, duration: Self.rampDuration)
+                    } else {
+                        LinearKeyframe(0.0, duration: Self.rampDuration)
+                    }
                 }
             }
         }
@@ -76,6 +89,28 @@ struct HUDEdgeGlowView: View {
         .padding(.bottom, -Self.spill)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .onChange(of: content.sessionEpoch) {
+            sweepStart = .now
+        }
+    }
+
+    /// Where the mask origin sits at time `t`: an eased ping-pong along the
+    /// silhouette (left tip → bottom → right tip → back), phase-shifted so
+    /// t = 0 lands at bottom-center.
+    nonisolated private static func sweepOrigin(
+        at t: TimeInterval,
+        in size: CGSize
+    ) -> CGPoint {
+        let phase = ((t / sweepDuration) + 0.5)
+            .truncatingRemainder(dividingBy: 2.0)
+        let linear = phase < 1.0 ? phase : 2.0 - phase
+        let eased = linear * linear * (3.0 - 2.0 * linear)
+        return HUDGlowSilhouetteShape.point(
+            atArcFraction: eased,
+            cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+            inset: spill,
+            in: size
+        )
     }
 }
 
@@ -110,6 +145,54 @@ struct HUDGlowSilhouetteShape: Shape {
         )
         path.addLine(to: CGPoint(x: right, y: rect.minY))
         return path
+    }
+
+    /// The point at `fraction` (0…1) of the silhouette's arc length, from the
+    /// left flank's tip to the right flank's tip. Mirrors `path(in:)`.
+    nonisolated static func point(
+        atArcFraction fraction: Double,
+        cornerRadius: CGFloat,
+        inset: CGFloat,
+        in size: CGSize
+    ) -> CGPoint {
+        let left = inset
+        let right = size.width - inset
+        let bottom = size.height - inset
+        let radius = min(cornerRadius, bottom / 2)
+
+        let flank = bottom - radius
+        let corner = Double.pi * radius / 2
+        let run = (right - left) - 2 * radius
+        let total = 2 * flank + 2 * corner + run
+        let distance = fraction.clamped(to: 0...1) * total
+
+        if distance < flank {
+            return CGPoint(x: left, y: distance)
+        }
+        if distance < flank + corner {
+            let angle = Double.pi - (distance - flank) / radius
+            return CGPoint(
+                x: left + radius + radius * cos(angle),
+                y: bottom - radius + radius * sin(angle)
+            )
+        }
+        if distance < flank + corner + run {
+            return CGPoint(x: left + radius + (distance - flank - corner), y: bottom)
+        }
+        if distance < flank + 2 * corner + run {
+            let angle = Double.pi / 2 - (distance - flank - corner - run) / radius
+            return CGPoint(
+                x: right - radius + radius * cos(angle),
+                y: bottom - radius + radius * sin(angle)
+            )
+        }
+        return CGPoint(x: right, y: flank - (distance - flank - 2 * corner - run))
+    }
+}
+
+private extension Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
 
