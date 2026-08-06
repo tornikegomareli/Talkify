@@ -28,7 +28,7 @@ struct HUDEdgeGlowView: View {
     /// Blur of the outer halo stroke (the inner copy runs at half).
     nonisolated static let blurRadius: Double = 12
     /// Seconds for one end-to-end sweep of the silhouette.
-    nonisolated static let sweepDuration: TimeInterval = 2.6
+    nonisolated static let sweepDuration: TimeInterval = 4.0
 
     let content: DictationHUDContent
 
@@ -94,19 +94,24 @@ struct HUDEdgeGlowView: View {
         }
     }
 
-    /// Where the mask origin sits at time `t`: an eased ping-pong along the
-    /// silhouette (left tip → bottom → right tip → back), phase-shifted so
-    /// t = 0 lands at bottom-center.
+    /// The eased ping-pong position along the silhouette at time `t` (left
+    /// tip → bottom → right tip → back), phase-shifted so t = 0 lands at
+    /// bottom-center. Shared with the particle cloud so the motes chase the
+    /// same point the beam highlights.
+    nonisolated static func sweepFraction(at t: TimeInterval) -> Double {
+        let phase = ((t / sweepDuration) + 0.5)
+            .truncatingRemainder(dividingBy: 2.0)
+        let linear = phase < 1.0 ? phase : 2.0 - phase
+        return linear * linear * (3.0 - 2.0 * linear)
+    }
+
+    /// Where the mask origin sits at time `t`, in this view's coordinates.
     nonisolated private static func sweepOrigin(
         at t: TimeInterval,
         in size: CGSize
     ) -> CGPoint {
-        let phase = ((t / sweepDuration) + 0.5)
-            .truncatingRemainder(dividingBy: 2.0)
-        let linear = phase < 1.0 ? phase : 2.0 - phase
-        let eased = linear * linear * (3.0 - 2.0 * linear)
-        return HUDGlowSilhouetteShape.point(
-            atArcFraction: eased,
+        HUDGlowSilhouetteShape.point(
+            atArcFraction: sweepFraction(at: t),
             cornerRadius: HUDNotchGeometry.bottomCornerRadius,
             inset: spill,
             in: size

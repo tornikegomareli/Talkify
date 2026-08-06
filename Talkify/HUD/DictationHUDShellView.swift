@@ -246,14 +246,8 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var particleCloud: some View {
         if !reduceMotion, settings.voiceVisual == .glow {
-            HUDParticleCloudView(
-                content: content,
-                center: CGPoint(
-                    x: 0.5,
-                    y: HUDNotchGeometry.closedSize(for: screen).height / size.height
-                )
-            )
-            .clipShape(housingShape)
+            HUDParticleCloudView(content: content)
+                .clipShape(housingShape)
         }
     }
 

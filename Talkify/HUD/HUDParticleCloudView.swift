@@ -1,43 +1,66 @@
 import MetalKit
 import SwiftUI
 
-/// The Edge Glow particle cloud: silver motes drifting toward the glow origin
-/// while listening, rendered by a Metal compute pipeline (ParticleCloud.metal)
-/// into a transparent MTKView. The session ramp mirrors the border glow's —
-/// same trigger, same duration — so the cloud blooms and drains with it. A
+/// The Edge Glow particle cloud: silver motes chasing the beam's sweeping
+/// origin while listening, rendered by a Metal compute pipeline
+/// (ParticleCloud.metal) into a transparent MTKView. The session ramp and the
+/// sweep clock mirror the border glow's — same trigger, same duration, same
+/// sessionEpoch reset — so the cloud blooms, drains, and travels with it. A
 /// dead microphone zeroes the ramp instantly: only the static amber outline
 /// may remain (CONTEXT.md: dead microphone ≠ silence).
 struct HUDParticleCloudView: View {
     let content: DictationHUDContent
-    /// The glow origin in this view's normalized coordinates.
-    let center: CGPoint
+
+    /// Reset on every session start, in the same runloop turn as the glow
+    /// view's, so both sweeps stay in phase.
+    @State private var sweepStart = Date()
 
     var body: some View {
-        // Plain values for the @Sendable keyframeAnimator content closure;
-        // the body re-evaluates on every content change, so they stay fresh.
-        let listening = content.showsVoiceVisual
-        let alive = content.isAudioAlive
-        let center = center
-        Color.clear
-            .keyframeAnimator(
-                initialValue: 0.0,
-                trigger: listening
-            ) { view, progress in
-                view.overlay {
-                    ParticleCloudSurface(
-                        progress: Float(progress) * (alive ? 1 : 0),
-                        center: center
-                    )
-                }
-            } keyframes: { _ in
-                if listening {
-                    LinearKeyframe(1.0, duration: HUDEdgeGlowView.rampDuration)
-                } else {
-                    LinearKeyframe(0.0, duration: HUDEdgeGlowView.rampDuration)
-                }
+        GeometryReader { proxy in
+            let listening = content.showsVoiceVisual
+            TimelineView(.animation(paused: !listening)) { context in
+                // Plain values for the @Sendable keyframeAnimator content
+                // closure; the body re-evaluates every timeline frame, so
+                // they stay fresh.
+                let size = proxy.size
+                let alive = content.isAudioAlive
+                let target = HUDGlowSilhouetteShape.point(
+                    atArcFraction: HUDEdgeGlowView.sweepFraction(
+                        at: context.date.timeIntervalSince(sweepStart)
+                    ),
+                    cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+                    inset: 0,
+                    in: size
+                )
+                let center = CGPoint(
+                    x: target.x / max(size.width, 1),
+                    y: target.y / max(size.height, 1)
+                )
+                Color.clear
+                    .keyframeAnimator(
+                        initialValue: 0.0,
+                        trigger: listening
+                    ) { view, progress in
+                        view.overlay {
+                            ParticleCloudSurface(
+                                progress: Float(progress) * (alive ? 1 : 0),
+                                center: center
+                            )
+                        }
+                    } keyframes: { _ in
+                        if listening {
+                            LinearKeyframe(1.0, duration: HUDEdgeGlowView.rampDuration)
+                        } else {
+                            LinearKeyframe(0.0, duration: HUDEdgeGlowView.rampDuration)
+                        }
+                    }
             }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onChange(of: content.sessionEpoch) {
+            sweepStart = .now
+        }
     }
 }
 
