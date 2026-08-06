@@ -69,7 +69,11 @@ struct HUDShellPreviewHarness: View {
                 var t = 0.0
                 while !Task.isCancelled {
                     if simulatesSessionCycle {
-                        content.showsVoiceVisual = Int(t / 3.0).isMultiple(of: 2)
+                        let listening = Int(t / 3.0).isMultiple(of: 2)
+                        if listening != content.showsVoiceVisual {
+                            content.showsVoiceVisual = listening
+                            if listening { content.sessionEpoch += 1 }
+                        }
                     }
                     let burst = max(0, sin(t * 5.6))
                     let raw = 0.05 + burst * (0.3 + 0.35 * Double.random(in: 0...1))

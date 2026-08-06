@@ -18,6 +18,10 @@ final class DictationHUDContent {
     /// False once levels stop arriving while listening: a dead microphone
     /// must look different from silence (CONTEXT.md).
     var isAudioAlive = true
+    /// Bumped once per session start; one-shot effects (the ripple) trigger
+    /// on the change rather than on the listening state, so they never
+    /// re-fire mid-session.
+    var sessionEpoch = 0
 }
 
 /// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
@@ -202,9 +206,36 @@ struct DictationHUDShellView: View {
         }
     }
 
+    /// The ripple sits between the clip and the shadow: it displaces the
+    /// housing's pixels, and the shadow outside the effect stays still
+    /// instead of shimmering with the wave.
     private var housing: some View {
-        Color.black
+        // Plain values for the @Sendable keyframeAnimator content closure.
+        let rippleOrigin = CGPoint(
+            x: size.width / 2,
+            y: HUDNotchGeometry.closedSize(for: screen).height
+        )
+        let rippleEnabled = !reduceMotion && settings.voiceVisual == .glow
+        return Color.black
             .clipShape(housingShape)
+            .keyframeAnimator(
+                initialValue: 0.0,
+                trigger: content.sessionEpoch
+            ) { view, elapsed in
+                view.modifier(
+                    HUDRippleModifier(
+                        origin: rippleOrigin,
+                        elapsedTime: elapsed,
+                        isEnabled: rippleEnabled
+                    )
+                )
+            } keyframes: { _ in
+                MoveKeyframe(0.0)
+                LinearKeyframe(
+                    HUDRippleModifier.duration,
+                    duration: HUDRippleModifier.duration
+                )
+            }
             .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
     }
 

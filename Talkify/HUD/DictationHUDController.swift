@@ -177,6 +177,7 @@ final class DictationHUDController {
     /// watchdog: levels stopping for over 600ms while listening means the
     /// microphone is dead, which must look different from silence (CONTEXT.md).
     private func startVoiceVisual() {
+        content.sessionEpoch += 1
         content.showsVoiceVisual = true
         content.audioLevel = 0
         content.levelHistory = [Float](repeating: 0, count: HUDWaveformView.barCount)

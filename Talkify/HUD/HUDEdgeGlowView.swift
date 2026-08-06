@@ -12,44 +12,51 @@ import SwiftUI
 /// drain-out never plays; the shader is disabled once the ramp reaches zero.
 struct HUDEdgeGlowView: View {
     /// Room the halo gets beyond the shape's border.
-    static let spill: CGFloat = 28
+    nonisolated static let spill: CGFloat = 28
     /// Arc position of the glow origin on the silhouette: bottom-center of
     /// the shape, directly under the housing.
-    static let originS: Double = 0.5
+    nonisolated static let originS: Double = 0.5
     /// Duration of the bloom-in and drain-out ramps.
-    static let rampDuration: TimeInterval = 0.4
+    nonisolated static let rampDuration: TimeInterval = 0.4
 
     let content: DictationHUDContent
 
     var body: some View {
         GeometryReader { proxy in
+            // Captured as plain values: the keyframeAnimator content closure
+            // is @Sendable, and the body re-evaluates on every level tick, so
+            // the closure always carries fresh ones.
+            let size = proxy.size
+            let listening = content.showsVoiceVisual
+            let amplitude = 0.25 + 2.75 * content.audioLevel
+            let alive: Double = content.isAudioAlive ? 1 : 0
             Rectangle()
                 .keyframeAnimator(
                     initialValue: 0.0,
-                    trigger: content.showsVoiceVisual
+                    trigger: listening
                 ) { view, progress in
                     view.colorEffect(
                         ShaderLibrary.edgeGlow(
-                            .float2(proxy.size),
+                            .float2(size),
                             .float4(
                                 Self.spill,
                                 0,
-                                proxy.size.width - Self.spill * 2,
-                                proxy.size.height - Self.spill
+                                size.width - Self.spill * 2,
+                                size.height - Self.spill
                             ),
                             .float(HUDNotchGeometry.bottomCornerRadius),
                             .float(Self.originS),
                             .float(progress),
                             // Silence keeps a faint steady rim; speech flares it.
-                            .float(0.25 + 2.75 * content.audioLevel),
-                            .float(content.isAudioAlive ? 1 : 0)
+                            .float(amplitude),
+                            .float(alive)
                         ),
-                        isEnabled: progress > 0 || content.showsVoiceVisual
+                        isEnabled: progress > 0 || listening
                     )
                 } keyframes: { _ in
                     // No MoveKeyframe: the track starts from the current
                     // value, so a session ending mid-bloom reverses smoothly.
-                    if content.showsVoiceVisual {
+                    if listening {
                         LinearKeyframe(1.0, duration: Self.rampDuration)
                     } else {
                         LinearKeyframe(0.0, duration: Self.rampDuration)
