@@ -19,12 +19,30 @@ struct HUDSiriOrbView: View {
     let content: DictationHUDContent
 
     @State private var isRotating = false
+    @State private var spin = SpinIntegrator()
 
     var body: some View {
-        let alive = content.isAudioAlive
-        // The orb breathes with the voice on top of its fit-to-band scale.
-        let scale = HUDNotchGeometry.waveBandHeight / Self.artworkSide
-            * (1 + 0.15 * content.audioLevel)
+        TimelineView(.animation) { context in
+            let alive = content.isAudioAlive
+            let level = alive ? content.audioLevel : 0
+            // The orb breathes with the voice on top of its fit-to-band
+            // scale, flares brighter and more saturated while talking, and
+            // spins faster — the integrator keeps speed changes smooth.
+            let scale = HUDNotchGeometry.waveBandHeight / Self.artworkSide
+                * (1 + 0.3 * level)
+            let angle = spin.advance(to: context.date, level: level)
+            orb(alive: alive, scale: scale, spinAngle: angle)
+                .brightness(0.3 * level)
+                .saturation(alive ? 1 + 0.6 * level : 0)
+        }
+        .frame(
+            width: HUDNotchGeometry.waveBandHeight,
+            height: HUDNotchGeometry.waveBandHeight
+        )
+        .accessibilityHidden(true)
+    }
+
+    private func orb(alive: Bool, scale: Double, spinAngle: Double) -> some View {
         ZStack {
             ZStack {
                 Image("siri-icon-bg")
@@ -102,16 +120,27 @@ struct HUDSiriOrbView: View {
                     }
                 }
         }
+        .rotationEffect(.degrees(spinAngle))
         .scaleEffect(scale)
         // Dead microphone: the color life drains to a static amber tint
         // (CONTEXT.md: dead ≠ silent).
-        .saturation(alive ? 1 : 0)
         .colorMultiply(alive ? .white : Color(red: 1.0, green: 0.6, blue: 0.16))
-        .frame(
-            width: HUDNotchGeometry.waveBandHeight,
-            height: HUDNotchGeometry.waveBandHeight
-        )
-        .accessibilityHidden(true)
+    }
+}
+
+/// Integrates the voice-driven spin: a slow idle drift plus a boost while
+/// talking. Integrating (instead of mapping level straight to an angle)
+/// makes speed follow the voice while the motion stays continuous.
+@MainActor
+private final class SpinIntegrator {
+    private var angle = 0.0
+    private var lastDate: Date?
+
+    func advance(to date: Date, level: Double) -> Double {
+        let dt = lastDate.map { min(max(date.timeIntervalSince($0), 0), 0.1) } ?? 0
+        lastDate = date
+        angle += dt * (14 + 260 * level)
+        return angle
     }
 }
 
