@@ -275,6 +275,10 @@ final class DirectDictationController {
             noSpeechTask?.cancel()
             noSpeechTask = nil
         }
+
+        // The recognizer emits its final results while the session finishes;
+        // the band already says "Finalizing…" and must not flash the draft.
+        if case .finishing = state { return }
         hudController.showLiveText(displayText)
     }
 
