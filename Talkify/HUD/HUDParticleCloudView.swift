@@ -10,11 +10,18 @@ import SwiftUI
 /// may remain (CONTEXT.md: dead microphone ≠ silence).
 struct HUDParticleCloudView: View {
     let content: DictationHUDContent
-    let settings: AppSettings
+    let settings: DictationSessionSettings
+    let topFilletRadius: CGFloat
 
     /// Reset on every session start, in the same runloop turn as the glow
     /// view's, so both sweeps stay in phase.
     @State private var sweepStart = Date()
+
+    /// Mirrors `content.showsVoiceVisual` for the ramp's keyframe trigger,
+    /// exactly like HUDEdgeGlowView: a view mounted while listening is
+    /// already true would never see its trigger change, stay at progress 0,
+    /// and keep the MTKView paused.
+    @State private var ramped = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -31,6 +38,7 @@ struct HUDParticleCloudView: View {
                         at: context.date.timeIntervalSince(sweepStart)
                     ),
                     cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+                    topFilletRadius: topFilletRadius,
                     inset: 0,
                     in: size
                 )
@@ -41,7 +49,7 @@ struct HUDParticleCloudView: View {
                 Color.clear
                     .keyframeAnimator(
                         initialValue: 0.0,
-                        trigger: listening
+                        trigger: ramped
                     ) { view, progress in
                         view.overlay {
                             ParticleCloudSurface(
@@ -51,7 +59,7 @@ struct HUDParticleCloudView: View {
                             )
                         }
                     } keyframes: { _ in
-                        if listening {
+                        if ramped {
                             LinearKeyframe(1.0, duration: HUDEdgeGlowView.rampDuration)
                         } else {
                             LinearKeyframe(0.0, duration: HUDEdgeGlowView.rampDuration)
@@ -63,6 +71,9 @@ struct HUDParticleCloudView: View {
         .accessibilityHidden(true)
         .onChange(of: content.sessionEpoch) {
             sweepStart = .now
+        }
+        .onChange(of: content.showsVoiceVisual, initial: true) { _, listening in
+            ramped = listening
         }
     }
 }

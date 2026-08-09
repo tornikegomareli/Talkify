@@ -31,11 +31,19 @@ struct HUDEdgeGlowView: View {
     nonisolated static let sweepDuration: TimeInterval = 4.0
 
     let content: DictationHUDContent
-    let settings: AppSettings
+    let settings: DictationSessionSettings
+    let topFilletRadius: CGFloat
 
     /// Reset on every session start so the sweep begins at bottom-center,
     /// directly under the housing.
     @State private var sweepStart = Date()
+
+    /// Mirrors `content.showsVoiceVisual` for the ramp's keyframe trigger.
+    /// The trigger must *change* for the keyframes to play; a view mounted
+    /// while listening is already true (the Settings preview switching back
+    /// to Edge Glow) would otherwise stay at progress 0 forever. The mirror
+    /// starts false and flips on mount, so mounting mid-session blooms too.
+    @State private var ramped = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -56,10 +64,12 @@ struct HUDEdgeGlowView: View {
                 let blurRadius = Self.blurRadius * (1 + 0.5 * level)
                 let origin = Self.sweepOrigin(
                     at: context.date.timeIntervalSince(sweepStart),
-                    in: size
+                    in: size,
+                    topFilletRadius: topFilletRadius
                 )
                 HUDGlowSilhouetteShape(
                     cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+                    topFilletRadius: topFilletRadius,
                     inset: Self.spill
                 )
                 .glow(
@@ -69,7 +79,7 @@ struct HUDEdgeGlowView: View {
                 )
                 .keyframeAnimator(
                     initialValue: 0.0,
-                    trigger: listening
+                    trigger: ramped
                 ) { view, progress in
                     view.colorEffect(
                         ShaderLibrary.edgeGlow(
@@ -83,7 +93,7 @@ struct HUDEdgeGlowView: View {
                 } keyframes: { _ in
                     // No MoveKeyframe: the track starts from the current
                     // value, so a session ending mid-bloom reverses smoothly.
-                    if listening {
+                    if ramped {
                         LinearKeyframe(1.0, duration: Self.rampDuration)
                     } else {
                         LinearKeyframe(0.0, duration: Self.rampDuration)
@@ -97,6 +107,9 @@ struct HUDEdgeGlowView: View {
         .accessibilityHidden(true)
         .onChange(of: content.sessionEpoch) {
             sweepStart = .now
+        }
+        .onChange(of: content.showsVoiceVisual, initial: true) { _, listening in
+            ramped = listening
         }
     }
 
@@ -119,11 +132,13 @@ struct HUDEdgeGlowView: View {
     /// Where the mask origin sits at time `t`, in this view's coordinates.
     nonisolated private static func sweepOrigin(
         at t: TimeInterval,
-        in size: CGSize
+        in size: CGSize,
+        topFilletRadius: CGFloat
     ) -> CGPoint {
         HUDGlowSilhouetteShape.point(
             atArcFraction: sweepFraction(at: t),
             cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+            topFilletRadius: topFilletRadius,
             inset: spill,
             in: size
         )
@@ -135,6 +150,9 @@ struct HUDEdgeGlowView: View {
 /// never drawn.
 struct HUDGlowSilhouetteShape: Shape {
     var cornerRadius: CGFloat
+    /// Radius of the physical top housing fillets. Zero keeps the square
+    /// corners used by external displays without a measured notch.
+    var topFilletRadius: CGFloat = 0
     /// Distance from the view's left/right/bottom edges to the silhouette
     /// (the spill the blurred strokes need).
     var inset: CGFloat
@@ -143,10 +161,20 @@ struct HUDGlowSilhouetteShape: Shape {
         let left = rect.minX + inset
         let right = rect.maxX - inset
         let bottom = rect.maxY - inset
-        let radius = min(cornerRadius, (bottom - rect.minY) / 2)
+        let radius = min(cornerRadius, max(0, (bottom - rect.minY) / 2))
+        let topRadius = min(topFilletRadius, max(0, (bottom - rect.minY) / 2))
 
         var path = Path()
-        path.move(to: CGPoint(x: left, y: rect.minY))
+        if topRadius > 0 {
+            path.move(to: CGPoint(x: left - topRadius, y: rect.minY))
+            path.addArc(
+                tangent1End: CGPoint(x: left, y: rect.minY),
+                tangent2End: CGPoint(x: left, y: rect.minY + topRadius),
+                radius: topRadius
+            )
+        } else {
+            path.move(to: CGPoint(x: left, y: rect.minY))
+        }
         path.addLine(to: CGPoint(x: left, y: bottom - radius))
         path.addArc(
             tangent1End: CGPoint(x: left, y: bottom),
@@ -159,7 +187,15 @@ struct HUDGlowSilhouetteShape: Shape {
             tangent2End: CGPoint(x: right, y: bottom - radius),
             radius: radius
         )
-        path.addLine(to: CGPoint(x: right, y: rect.minY))
+        if topRadius > 0 {
+            path.addArc(
+                tangent1End: CGPoint(x: right, y: rect.minY),
+                tangent2End: CGPoint(x: right + topRadius, y: rect.minY),
+                radius: topRadius
+            )
+        } else {
+            path.addLine(to: CGPoint(x: right, y: rect.minY))
+        }
         return path
     }
 
@@ -168,6 +204,7 @@ struct HUDGlowSilhouetteShape: Shape {
     nonisolated static func point(
         atArcFraction fraction: Double,
         cornerRadius: CGFloat,
+        topFilletRadius: CGFloat = 0,
         inset: CGFloat,
         in size: CGSize
     ) -> CGPoint {
@@ -175,34 +212,60 @@ struct HUDGlowSilhouetteShape: Shape {
         let right = size.width - inset
         let bottom = size.height - inset
         let radius = min(cornerRadius, bottom / 2)
+        let topRadius = min(topFilletRadius, bottom / 2)
 
-        let flank = bottom - radius
+        let flank = max(0, bottom - radius - topRadius)
+        let topCorner = Double.pi * topRadius / 2
         let corner = Double.pi * radius / 2
         let run = (right - left) - 2 * radius
-        let total = 2 * flank + 2 * corner + run
-        let distance = fraction.clamped(to: 0...1) * total
-
-        if distance < flank {
-            return CGPoint(x: left, y: distance)
+        let total = 2 * flank + 2 * corner + run + 2 * topCorner
+        var distance = fraction.clamped(to: 0...1) * total
+        if topRadius > 0 {
+            if distance < topCorner {
+                let angle = -Double.pi / 2 + distance / topRadius
+                return CGPoint(
+                    x: left - topRadius + topRadius * cos(angle),
+                    y: topRadius + topRadius * sin(angle)
+                )
+            }
+            distance -= topCorner
         }
-        if distance < flank + corner {
-            let angle = Double.pi - (distance - flank) / radius
+        if distance < flank {
+            return CGPoint(x: left, y: topRadius + distance)
+        }
+        distance -= flank
+        if distance < corner {
+            let angle = Double.pi - distance / radius
             return CGPoint(
                 x: left + radius + radius * cos(angle),
                 y: bottom - radius + radius * sin(angle)
             )
         }
-        if distance < flank + corner + run {
-            return CGPoint(x: left + radius + (distance - flank - corner), y: bottom)
+        distance -= corner
+        if distance < run {
+            return CGPoint(x: left + radius + distance, y: bottom)
         }
-        if distance < flank + 2 * corner + run {
-            let angle = Double.pi / 2 - (distance - flank - corner - run) / radius
+        distance -= run
+        if distance < corner {
+            let angle = Double.pi / 2 - distance / radius
             return CGPoint(
                 x: right - radius + radius * cos(angle),
                 y: bottom - radius + radius * sin(angle)
             )
         }
-        return CGPoint(x: right, y: flank - (distance - flank - 2 * corner - run))
+        distance -= corner
+        if distance < flank {
+            return CGPoint(x: right, y: bottom - radius - distance)
+        }
+        distance -= flank
+        if topRadius > 0 {
+            let angle = Double.pi + distance / topRadius
+            return CGPoint(
+                x: right + topRadius + topRadius * cos(angle),
+                y: topRadius + topRadius * sin(angle)
+            )
+        }
+        return CGPoint(x: right, y: 0)
     }
 }
 

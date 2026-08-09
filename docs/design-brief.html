@@ -1,0 +1,1692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Talkify — Design Brief</title>
+<style>
+:root{
+  --ground:#06070A;
+  --panel:#0E1118;
+  --raised:#151924;
+  --line:rgba(255,255,255,.09);
+  --line-soft:rgba(255,255,255,.055);
+  --ink:#EEF1F8;
+  --muted:#99A1B5;
+  --faint:#626A7C;
+  --accent:#73A6FF;
+  --accent-dim:rgba(115,166,255,.16);
+  --amber:#FF9929;
+  --ok:#5BD6A0;
+  --stop:#FF6B6B;
+  --font-display:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --col:1080px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+p{margin:0}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+
+/* ---------- shared layout ---------- */
+.wrap{max-width:var(--col);margin:0 auto;padding:0 24px}
+.stack{display:flex;flex-direction:column}
+.eyebrow{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--faint);
+}
+.lead{color:var(--muted);font-size:16px;max-width:66ch}
+.note{color:var(--faint);font-size:12.5px;line-height:1.55}
+.mono{font-family:var(--font-mono)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- screen edge + hero ---------- */
+.edge{
+  position:relative;
+  background:linear-gradient(180deg,#000 0%,#000 62%,rgba(0,0,0,0) 100%);
+  padding-bottom:120px;
+}
+.menubar{
+  height:26px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;font-size:11.5px;color:rgba(255,255,255,.55);
+  font-family:var(--font-body);
+}
+.menubar span{display:flex;gap:14px;align-items:center}
+.hero-hud{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:3}
+.hero-copy{max-width:var(--col);margin:0 auto;padding:150px 24px 0;position:relative;z-index:2}
+.wordmark{
+  font-family:var(--font-display);font-size:clamp(46px,7vw,78px);
+  font-weight:600;letter-spacing:-.02em;line-height:.98;
+}
+.wordmark em{font-style:italic;color:var(--accent)}
+.hero-sub{margin-top:18px;font-size:18px;color:var(--muted);max-width:60ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.chip{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);
+}
+
+/* ---------- voice bar ---------- */
+.voicebar{
+  position:sticky;top:0;z-index:40;
+  background:rgba(6,7,10,.86);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.voicebar .wrap{display:flex;align-items:center;gap:20px;height:52px}
+.vb-label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{
+  appearance:none;background:transparent;border:0;color:var(--muted);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;
+  padding:6px 12px;cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--accent-dim);color:var(--ink)}
+.meter{flex:1;height:3px;background:rgba(255,255,255,.09);border-radius:2px;overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px}
+.jump{display:flex;gap:16px;margin-left:auto}
+.jump a{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--faint)}
+.jump a:hover{color:var(--ink);text-decoration:none}
+@media(max-width:860px){.jump{display:none}}
+
+/* ---------- sections ---------- */
+section{border-top:1px solid var(--line-soft);padding:74px 0}
+section:first-of-type{border-top:0}
+.sec-head{display:flex;flex-direction:column;gap:12px;margin-bottom:36px}
+.sec-head h2{font-family:var(--font-display);font-size:clamp(28px,3.6vw,40px);font-weight:600;letter-spacing:-.015em;line-height:1.1}
+.sec-head p{color:var(--muted);max-width:68ch}
+
+/* ---------- panels / cards ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fill,minmax(268px,1fr))}
+.g4{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.tile-stage{background:#000;position:relative;display:flex;justify-content:center;overflow:hidden}
+.tile-foot{padding:12px 14px;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line-soft)}
+.tile-foot h4{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tile-foot p{font-size:12px;color:var(--faint);line-height:1.5}
+
+/* status pills */
+.pill{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;border-radius:4px;border:1px solid;white-space:nowrap;font-weight:500;
+}
+.pill.default{color:var(--accent);border-color:rgba(115,166,255,.4);background:rgba(115,166,255,.1)}
+.pill.proto{color:var(--amber);border-color:rgba(255,153,41,.38);background:rgba(255,153,41,.1)}
+.pill.blocked{color:var(--stop);border-color:rgba(255,107,107,.38);background:rgba(255,107,107,.1)}
+.pill.ship{color:var(--ok);border-color:rgba(91,214,160,.35);background:rgba(91,214,160,.08)}
+
+/* ---------- HUD component ---------- */
+.hud{position:relative;background:#000;border-radius:0 0 20px 20px;display:flex;flex-direction:column;align-items:center}
+.hud .fillet{position:absolute;top:0;background:#000;pointer-events:none}
+.hud .fillet.l{left:0;transform:translateX(-100%)}
+.hud .fillet.r{right:0;transform:translateX(100%)}
+.hud .notch{width:100%;flex:0 0 auto}
+.hud .band{width:100%;position:relative}
+.hud canvas{display:block;width:100%;height:100%}
+.hud .draft{
+  width:100%;color:#fff;font-size:13px;font-weight:500;text-align:center;
+  padding:7px 18px;line-height:1.35;
+}
+.hud .glowlayer{position:absolute;pointer-events:none}
+.hud .clip{position:absolute;inset:0;border-radius:0 0 20px 20px;overflow:hidden;pointer-events:none}
+
+/* ---------- anatomy ---------- */
+.anatomy{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+@media(max-width:820px){.anatomy{grid-template-columns:1fr}}
+.spec-table td,.spec-table th{padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+.spec-table th{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.spec-table td:first-child{color:var(--ink)}
+.spec-table td.v{font-family:var(--font-mono);color:var(--accent);white-space:nowrap;font-size:12.5px}
+.scroller{overflow-x:auto}
+
+/* ---------- loop steps ---------- */
+.loop{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.step{padding:20px;border-right:1px solid var(--line-soft);background:var(--panel);display:flex;flex-direction:column;gap:7px}
+.step:last-child{border-right:0}
+.step .t{font-family:var(--font-mono);font-size:10.5px;color:var(--accent);letter-spacing:.08em}
+.step h4{font-size:14.5px;font-weight:600}
+.step p{font-size:12.5px;color:var(--faint);line-height:1.5}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+select,.btn{
+  font-family:var(--font-body);font-size:12.5px;color:var(--ink);
+  background:var(--raised);border:1px solid var(--line);border-radius:8px;
+  padding:7px 10px;cursor:pointer;
+}
+select{appearance:none;padding-right:26px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+}
+.btn:hover{border-color:var(--accent)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{display:flex;align-items:center;gap:8px;padding:5px 11px 5px 5px;border:1px solid var(--line);border-radius:999px;background:transparent;cursor:pointer;color:var(--muted);font-size:12px;font-family:var(--font-body)}
+.swatch[aria-pressed="true"]{border-color:var(--accent);color:var(--ink);background:var(--accent-dim)}
+.swatch i{width:20px;height:20px;border-radius:50%;display:block}
+
+/* ---------- settings mock ---------- */
+.mock{display:grid;grid-template-columns:190px 1fr;background:#060709;border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:520px}
+@media(max-width:760px){.mock{grid-template-columns:1fr}}
+.mock-rail{background:rgba(255,255,255,.045);border-right:1px solid rgba(255,255,255,.08);padding:20px 0 18px;display:flex;flex-direction:column}
+.mock-brand{display:flex;align-items:center;gap:9px;padding:0 18px 26px;font-weight:600;font-size:15px}
+.mock-brand svg{color:var(--accent)}
+.mock-group{font-family:var(--font-body);font-size:10px;font-weight:600;letter-spacing:.08em;color:rgba(255,255,255,.35);padding:0 18px 8px}
+.mock-nav{display:flex;flex-direction:column;gap:2px;padding:0 10px}
+.mock-nav button{
+  display:flex;align-items:center;gap:9px;background:transparent;border:0;border-radius:9px;
+  padding:9px 11px;color:rgba(255,255,255,.66);font-size:13px;font-weight:500;cursor:pointer;
+  font-family:var(--font-body);text-align:left;position:relative;
+}
+.mock-nav button[aria-pressed="true"]{background:rgba(255,255,255,.11);color:#fff}
+.mock-nav button[aria-pressed="true"]::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--accent)}
+.mock-foot{margin-top:auto;padding:18px;color:rgba(255,255,255,.5);font-size:11.5px}
+.mock-body{padding:30px 32px;display:flex;flex-direction:column;gap:22px;overflow:hidden}
+.mock-title{font-size:25px;font-weight:600;letter-spacing:-.01em}
+.mock-sub{font-size:13px;color:rgba(255,255,255,.52);margin-top:4px}
+.mock-card{background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:0 16px 8px}
+.mock-card>.cap{font-size:11px;font-weight:600;letter-spacing:.05em;color:rgba(255,255,255,.44);padding:14px 0 4px}
+.mock-row{display:flex;gap:16px;align-items:center;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.mock-row:last-child{border-bottom:0}
+.mock-row .rl{flex:1}
+.mock-row .rl b{display:block;font-size:13px;font-weight:500}
+.mock-row .rl span{font-size:12px;color:rgba(255,255,255,.48)}
+.mock-row select{width:152px}
+.preview-card{background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px}
+.preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.preview-head b{font-size:14px;font-weight:600}
+.preview-head span{display:block;font-size:12px;color:rgba(255,255,255,.48)}
+.preview-stage{height:132px;background:rgba(0,0,0,.5);border-radius:12px;overflow:hidden;position:relative;display:flex;justify-content:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+/* ---------- reveal + draft demos ---------- */
+.stage-edge{position:relative;background:#000;height:150px;display:flex;justify-content:center;overflow:hidden}
+.stage-edge::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:rgba(255,255,255,.14)}
+
+/* ---------- shader cards ---------- */
+.shader{display:grid;grid-template-columns:1fr;gap:0}
+.shader .head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid var(--line-soft)}
+.shader .head h4{font-family:var(--font-mono);font-size:13px;color:var(--ink)}
+.shader .head span{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
+.shader .body{padding:16px;font-size:13px;color:var(--muted);line-height:1.6}
+.shader .body code{font-family:var(--font-mono);font-size:12px;color:var(--accent)}
+
+/* ---------- state table ---------- */
+.state-table td,.state-table th{padding:11px 12px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+.state-table th{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.state-table td:nth-child(2){color:var(--muted);font-size:13px}
+
+/* ---------- questions ---------- */
+.q{display:flex;flex-direction:column;gap:9px;padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.q h4{font-size:15px;font-weight:600;line-height:1.35}
+.q p{font-size:13px;color:var(--muted);line-height:1.6}
+.q .ask{font-size:13px;color:var(--accent)}
+
+footer{border-top:1px solid var(--line-soft);padding:40px 0 70px;color:var(--faint);font-size:12.5px}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+
+<div class="edge">
+  <div class="menubar">
+    <span><b style="font-weight:600;color:rgba(255,255,255,.8)">Talkify</b> File Edit View</span>
+    <span>􀊫 􀖆 􀛨 100% Fri 14:22</span>
+  </div>
+  <div class="hero-hud" id="heroHud"></div>
+  <div class="hero-copy">
+    <p class="eyebrow">Design brief · state of the build · <span class="num">August 2026</span></p>
+    <h1 class="wordmark">Talkify<em>.</em></h1>
+    <p class="hero-sub">Hold Fn, speak, release — the words land in whatever you were typing in. Everything the app shows while you speak hangs off the notch, on every display. This page is the full inventory of what exists today, live and running in your browser.</p>
+    <div class="chips">
+      <span class="chip">macOS 26</span>
+      <span class="chip">Apple Silicon only</span>
+      <span class="chip">Menu bar, no Dock icon</span>
+      <span class="chip">Swift 6 · AppKit + SwiftUI</span>
+      <span class="chip">Apple Speech, on device</span>
+      <span class="chip">No third-party code</span>
+    </div>
+  </div>
+</div>
+
+<div class="voicebar">
+  <div class="wrap">
+    <span class="vb-label">Microphone</span>
+    <div class="seg" role="group" aria-label="Microphone state">
+      <button type="button" data-mode="speak" aria-pressed="true">Speaking</button>
+      <button type="button" data-mode="silent" aria-pressed="false">Silent</button>
+      <button type="button" data-mode="dead" aria-pressed="false">Dead mic</button>
+    </div>
+    <div class="meter" aria-hidden="true"><i id="globalMeter"></i></div>
+    <nav class="jump">
+      <a href="#surface">Surface</a>
+      <a href="#visuals">Visuals</a>
+      <a href="#motion">Motion</a>
+      <a href="#settings">Settings</a>
+      <a href="#gpu">GPU</a>
+      <a href="#open">Open</a>
+    </nav>
+  </div>
+</div>
+
+<main>
+
+<!-- ============ THE LOOP ============ -->
+<section id="loop">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">The product</p>
+      <h2>One gesture, one surface, no window</h2>
+      <p>Talkify has no main window and no Dock icon. The whole product is a key you hold and a black shape that drops out of the notch while you hold it. This is the only interaction that ships today — everything else in the roadmap is gated behind an insertion-latency benchmark.</p>
+    </div>
+    <div class="loop">
+      <div class="step"><span class="t">0 ms</span><h4>Press Fn</h4><p>The session starts immediately. The app has already prewarmed the speech model, so there is nothing to wait for.</p></div>
+      <div class="step"><span class="t">&lt; 250 ms release</span><h4>Tap to latch</h4><p>A quick tap leaves dictation running hands-free until the next press. Holding keeps it open only while held.</p></div>
+      <div class="step"><span class="t">while speaking</span><h4>HUD reacts</h4><p>The shape shows a live voice visual instead of the draft text. Volatile words render instantly; only finalized text is ever inserted.</p></div>
+      <div class="step"><span class="t">on release</span><h4>Insert</h4><p>Accessibility insertion first, clipboard paste as fallback, then the clipboard is restored. The working route is remembered per app.</p></div>
+      <div class="step"><span class="t">escape / 15 s</span><h4>Bail out</h4><p>Escape cancels without inserting. No speech in the first 15 seconds and the session closes silently.</p></div>
+    </div>
+    <p class="note" style="margin-top:16px">Refusals and errors use the same surface: a secure password field shows <span class="mono">“Secure field”</span>, missing permissions show their own line. Messages clear themselves after about two seconds. There is no notification, no alert, no second window.</p>
+  </div>
+</section>
+
+<!-- ============ SURFACE ============ -->
+<section id="surface">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Surface</p>
+      <h2>The notch island</h2>
+      <p>One surface, one behavior, every display. A MacBook with a real notch gets measured; every other display gets a simulated notch of the same stand-in footprint, minus the corner fillets that only make sense against real hardware. The window never resizes — only its origin moves — so it is sized once for the tallest layout it can ever reach.</p>
+    </div>
+
+    <div class="anatomy">
+      <div class="panel" style="padding:22px;display:flex;flex-direction:column;gap:16px">
+        <svg viewBox="0 0 620 320" width="100%" role="img" aria-label="Annotated HUD geometry">
+          <defs>
+            <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#626A7C"/></marker>
+          </defs>
+          <line x1="20" y1="34" x2="600" y2="34" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+          <text x="20" y="26" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10">top edge of the display</text>
+          <!-- fillets -->
+          <path d="M155 34 h22 v22 a22 22 0 0 0 -22 -22 z" fill="#000"/>
+          <path d="M465 34 h-22 v22 a22 22 0 0 1 22 -22 z" fill="#000"/>
+          <!-- body -->
+          <path d="M177 34 h266 v206 a34 34 0 0 1 -34 34 h-198 a34 34 0 0 1 -34 -34 z" fill="#000"/>
+          <line x1="177" y1="96" x2="443" y2="96" stroke="rgba(255,255,255,.16)" stroke-dasharray="3 3"/>
+          <line x1="177" y1="200" x2="443" y2="200" stroke="rgba(255,255,255,.16)" stroke-dasharray="3 3"/>
+          <text x="310" y="72" fill="#99A1B5" font-family="ui-monospace,monospace" font-size="11" text-anchor="middle">housing band</text>
+          <text x="310" y="153" fill="#99A1B5" font-family="ui-monospace,monospace" font-size="11" text-anchor="middle">voice visual band</text>
+          <text x="310" y="240" fill="#99A1B5" font-family="ui-monospace,monospace" font-size="11" text-anchor="middle">draft text band</text>
+          <!-- measures -->
+          <line x1="177" y1="292" x2="443" y2="292" stroke="#626A7C" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="310" y="308" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10.5" text-anchor="middle">540 pt content width</text>
+          <line x1="470" y1="34" x2="470" y2="96" stroke="#626A7C" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="480" y="68" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10.5">32 pt (simulated)</text>
+          <line x1="470" y1="96" x2="470" y2="200" stroke="#626A7C" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="480" y="152" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10.5">64 pt waveform band</text>
+          <line x1="470" y1="200" x2="470" y2="274" stroke="#626A7C" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="480" y="242" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10.5">36 pt → 120 pt max</text>
+          <text x="112" y="52" fill="#626A7C" font-family="ui-monospace,monospace" font-size="10.5" text-anchor="end">11 pt fillet</text>
+          <line x1="118" y1="48" x2="160" y2="44" stroke="#626A7C"/>
+        </svg>
+        <p class="note">The fillet is a square with a quarter disc cut from its <em>outer</em> corner, so the black stays full height where it meets the flank and tapers as it runs into the bezel. Cut the other corner and it reads as a detached tab.</p>
+      </div>
+
+      <div class="panel scroller" style="padding:6px 16px 14px">
+        <table class="spec-table">
+          <thead><tr><th>Measurement</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Content width</td><td class="v">540 pt</td></tr>
+            <tr><td>Simulated notch</td><td class="v">185 × 32 pt</td></tr>
+            <tr><td>Real notch</td><td class="v">measured per display</td></tr>
+            <tr><td>Waveform band</td><td class="v">64 pt</td></tr>
+            <tr><td>Level meter band</td><td class="v">24 pt</td></tr>
+            <tr><td>Draft text band</td><td class="v">36 → 120 pt</td></tr>
+            <tr><td>Bottom corner radius</td><td class="v">20 pt</td></tr>
+            <tr><td>Fillet radius</td><td class="v">11 pt / 0 pt</td></tr>
+            <tr><td>Shadow slack</td><td class="v">44 pt</td></tr>
+            <tr><td>Window level</td><td class="v">mainMenu + 3</td></tr>
+            <tr><td>Draft type</td><td class="v">15 pt medium, white</td></tr>
+            <tr><td>Shadow</td><td class="v">black 35%, r 11, y 4</td></tr>
+            <tr><td>Message dwell</td><td class="v">2 s</td></tr>
+            <tr><td>Dismiss</td><td class="v">350 ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:22px">
+      <div class="panel" style="padding:20px;display:flex;flex-direction:column;gap:8px">
+        <h3 style="font-size:15px">Rules that cannot bend</h3>
+        <p class="note">Click-through and non-activating — the HUD never takes focus, and clicks land on the app behind it. It sits above full-screen apps and on every Space. It always descends from the top center; never the bottom. The display is locked at session start and follows only if that display disconnects. Bounce is expressed in top-anchored scale, never position: a position overshoot would open a gap against the screen edge.</p>
+      </div>
+      <div class="panel" style="padding:20px;display:flex;flex-direction:column;gap:8px">
+        <h3 style="font-size:15px">Silence is not a dead microphone</h3>
+        <p class="note">If levels stop arriving for 600 ms while listening, a watchdog flips every visual to a motionless amber state. Silence sits near zero and keeps moving; a dead microphone stops and turns orange. Switch the bar at the top of this page to <b>Dead mic</b> and every demo below changes together.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VOICE VISUALS ============ -->
+<section id="visuals">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Voice visuals · pick one of two</p>
+      <h2>Waveform, or Edge Glow</h2>
+      <p>While listening, the animated visual replaces the draft text entirely. Two families ship, chosen in Settings. The waveform has nine styles; the Edge Glow has six palettes crossed with three centers. Both are fed by the same level history: 56 samples, roughly 46 per second, smoothed with a fast attack and slow release.</p>
+    </div>
+
+    <h3 style="font-size:17px;margin-bottom:4px">Waveform — nine styles</h3>
+    <p class="note" style="margin-bottom:18px;max-width:70ch">Every style draws the same buffer; only the mark changes. Chart Line ships as the default and carries its own treatment — a crisp core over two glow passes, a mirrored floor reflection, and a specular band travelling along the line. The other eight run through a shared sheen shader.</p>
+    <div class="grid g3" id="waveGallery"></div>
+
+    <h3 style="font-size:17px;margin:44px 0 4px">Edge Glow — the triptych</h3>
+    <p class="note" style="margin-bottom:18px;max-width:70ch">Three animations, one visual. A palette-gradient beam blooms out from under the housing, sweeps the shape's open silhouette (left flank, bottom, right flank — never the hidden top edge), and follows the voice in brightness and stroke weight. A one-shot ripple rolls across the black housing at session start. A particle cloud in the same palette chases the beam's origin.</p>
+
+    <div class="controls">
+      <div class="swatches" id="paletteSwatches" role="group" aria-label="Glow palette"></div>
+    </div>
+    <div class="controls">
+      <span class="vb-label">Center</span>
+      <div class="seg" role="group" aria-label="Glow center" id="centerSeg">
+        <button type="button" data-center="particles" aria-pressed="true">Particles</button>
+        <button type="button" data-center="siriOrb" aria-pressed="false">Siri Orb</button>
+        <button type="button" data-center="siriWave" aria-pressed="false">Siri Wave</button>
+      </div>
+      <button class="btn" type="button" id="replayGlow">Replay session start</button>
+    </div>
+    <div class="tile">
+      <div class="tile-stage" style="padding:0 0 46px" id="glowStage"></div>
+      <div class="tile-foot">
+        <h4>Edge Glow <span class="pill proto">Feel test</span></h4>
+        <p>Beam: 6 pt stroke swelling to 12 with the voice, 12 pt blur, 28 pt spill beyond the shape, one full sweep every 4 seconds, 0.4 s bloom-in and drain-out. Particles: 32 motes, 3–12 pt, respawning when they reach the origin. Ripple: 3 pt displacement, ~0.45 s to cross the shape.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:22px">
+      <div class="tile">
+        <div class="tile-stage" id="reduceStage" style="padding-bottom:28px"></div>
+        <div class="tile-foot">
+          <h4>Reduce Motion <span class="pill ship">Shipping</span></h4>
+          <p>System Reduce Motion replaces both visuals with a 4 pt level bar and keeps the draft text visible. Expand and collapse become a 120 ms fade. This is the entire accessibility fallback today — no app-level toggle duplicates the system setting.</p>
+        </div>
+      </div>
+      <div class="tile">
+        <div class="tile-stage" id="deadStage" style="padding-bottom:28px"></div>
+        <div class="tile-foot">
+          <h4>Dead microphone <span class="pill ship">Shipping</span></h4>
+          <p>Amber, motionless, in every visual: the waveform flattens to an orange line, the beam drops its palette, the particle cloud zeroes out instantly. The colour is <span class="mono" style="color:var(--amber)">#FF9929</span> and it is the only non-neutral hue the HUD uses outside the glow palettes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MOTION ============ -->
+<section id="motion">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Motion</p>
+      <h2>How it arrives, and how it grows</h2>
+      <p>Two motion preferences ship. Reveal style decides how the shape enters and leaves. Long-draft behaviour decides what happens when the words outrun one line. Both were picked by feel and all variants stayed selectable.</p>
+    </div>
+
+    <h3 style="font-size:17px;margin-bottom:14px">Reveal styles</h3>
+    <div class="grid g4" id="revealGallery"></div>
+
+    <h3 style="font-size:17px;margin:44px 0 14px">Long draft behaviour</h3>
+    <div class="grid g3" id="draftGallery"></div>
+    <p class="note" style="margin-top:14px">Grow Down won the feel test and ships as the default. The other two stayed as preferences rather than being deleted. Head truncation is deliberate on the single-line variants: the newest words are the ones a speaker checks.</p>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="settings">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Settings</p>
+      <h2>Seven preferences, two sections</h2>
+      <p>Every user preference lives in one store, backed by UserDefaults, applied live with no Save step. The window below is a faithful, working recreation of the current build — the pickers drive the live preview exactly as they do in the app, including the rows that appear only for their parent visual.</p>
+    </div>
+
+    <div class="mock">
+      <div class="mock-rail">
+        <div class="mock-brand">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="9" stroke-opacity=".5"/><path d="M5 10v0M7.4 7.2v5.6M10 5.4v9.2M12.6 7.8v4.4M15 9.4v1.2"/></svg>
+          Talkify
+        </div>
+        <div class="mock-group">SETTINGS</div>
+        <div class="mock-nav" id="mockNav">
+          <button type="button" data-sec="appearance" aria-pressed="true">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l1.5 4.5L14 6l-4.5 1.5L8 12 6.5 7.5 2 6l4.5-1.5z"/><circle cx="13" cy="12.5" r="1.6"/></svg>
+            Appearance
+          </button>
+          <button type="button" data-sec="sounds" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 8v0M4 5.5v5M7 2.5v11M10 5v6M13 7v2"/></svg>
+            Sounds
+          </button>
+        </div>
+        <div class="mock-foot"><b style="display:block;font-weight:600;color:rgba(255,255,255,.5)">Talkify</b>Local settings</div>
+      </div>
+      <div class="mock-body" id="mockBody"></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:22px">
+      <div class="panel scroller" style="padding:6px 16px 14px">
+        <table class="spec-table">
+          <thead><tr><th>Preference</th><th>Default</th><th>Options</th></tr></thead>
+          <tbody>
+            <tr><td>Voice visual</td><td class="v">Waveform</td><td class="num">2</td></tr>
+            <tr><td>Waveform style</td><td class="v">Chart Line</td><td class="num">9</td></tr>
+            <tr><td>Glow palette</td><td class="v">Spectrum</td><td class="num">6</td></tr>
+            <tr><td>Glow center</td><td class="v">Particles</td><td class="num">3</td></tr>
+            <tr><td>Reveal style</td><td class="v">Slide</td><td class="num">4</td></tr>
+            <tr><td>Long draft</td><td class="v">Grow Down</td><td class="num">3</td></tr>
+            <tr><td>Sound set</td><td class="v">Synth8</td><td class="num">6</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel" style="padding:20px;display:flex;flex-direction:column;gap:10px">
+        <h3 style="font-size:15px">Decided, not yet built</h3>
+        <p class="note">Two decisions are written down and still waiting on code. Settings should become a <b>borderless, fixed-size, centred modal</b> with its own header, a top-right close control, Escape to dismiss, and header dragging — today it is still a standard titled window. And a dictation session should <b>snapshot</b> its appearance and sound choices at start, so changing a picker mid-session no longer alters a running visual; today the HUD reads the live store.</p>
+        <p class="note">The window is dark-only by decision. The accent is fixed Talkify blue <span class="mono" style="color:var(--accent)">#73A6FF</span> — a selected glow palette never recolours the Settings shell.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SOUND ============ -->
+<section id="sound">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Sound</p>
+      <h2>Three cues per session</h2>
+      <p>Begin when listening starts, End when the session closes, Paste when the text lands in the target. Six sets exist; playback is a fixed level with no volume preference. The Settings preview plays the Begin/End pair only — Paste stays an internal insertion event.</p>
+    </div>
+    <div class="panel scroller" style="padding:6px 16px 14px">
+      <table class="spec-table">
+        <thead><tr><th>Set</th><th>Character</th><th>Origin</th><th>Shippable</th></tr></thead>
+        <tbody>
+          <tr><td>Synth8 <span class="pill default">Default</span></td><td>Rising thump-blip-body in, falling body-thump out</td><td>Original synthesis</td><td class="v" style="color:var(--ok)">Yes</td></tr>
+          <tr><td>Synth7</td><td>Single woody tock, tick-then-tock out</td><td>Original synthesis</td><td class="v" style="color:var(--ok)">Yes</td></tr>
+          <tr><td>Synth3</td><td>Double-strike tock-tick with a singing tail</td><td>Original synthesis</td><td class="v" style="color:var(--ok)">Yes</td></tr>
+          <tr><td>Chime</td><td>Two-note pluck: rising fifth in, falling fifth out</td><td>Original synthesis</td><td class="v" style="color:var(--ok)">Yes</td></tr>
+          <tr><td>Click</td><td>Minimal 7 ms UI click</td><td>freesound #370962, CC0</td><td class="v" style="color:var(--ok)">Yes</td></tr>
+          <tr><td>Pop <span class="pill blocked">Blocked</span></td><td>Plunger pop</td><td>freesound #321807, CC-BY-NC</td><td class="v" style="color:var(--stop)">No — replace or drop</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GPU ============ -->
+<section id="gpu">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">GPU layer</p>
+      <h2>Four Metal programs</h2>
+      <p>Three are SwiftUI shader hooks applied over pixels the view hierarchy already drew. The fourth is a real compute pipeline with its own <span class="mono">MTKView</span> inside the click-through panel, because a particle system needs state that survives between frames and a pixel shader cannot carry any.</p>
+    </div>
+    <div class="grid g2">
+      <div class="panel shader">
+        <div class="head"><h4>EdgeGlow.metal</h4><span>colorEffect</span></div>
+        <div class="body">Masks the drawn beam by distance from a moving origin: <code>exp(−d²) × amplitude</code>, spreading outward as the session ramp grows. Amplitude is the voice — resting at 1.8, flaring to 3.0 while speaking. This shader draws nothing itself; it decides how much of the SwiftUI beam shows.</div>
+      </div>
+      <div class="panel shader">
+        <div class="head"><h4>WaveformSheen.metal</h4><span>layerEffect</span></div>
+        <div class="body">A finish over eight of the nine waveform styles: chromatic fringing that grows from the centre outward and with the voice, a four-tap bloom so bright bars halo, and a metallic specular band ping-ponging across the strip every 2.8 s. Chart Line and Siri Wave opt out — they carry their own treatment.</div>
+      </div>
+      <div class="panel shader">
+        <div class="head"><h4>Ripple.metal</h4><span>layerEffect</span></div>
+        <div class="body">The WWDC24 ripple, unmodified: one wave expanding from the glow origin, displacing pixels radially and brightening them. It runs once per session start, across the black housing only, and sits inside the clip so the drawn shadow does not shimmer with it.</div>
+      </div>
+      <div class="panel shader">
+        <div class="head"><h4>ParticleCloud.metal</h4><span>compute · 2 kernels</span></div>
+        <div class="body">One kernel clears the drawable, one moves and draws 32 motes straight into it. Transparency is the macOS-specific part: non-opaque panel, <code>framebufferOnly = false</code>, clear <code>clearColor</code>, and <code>isOpaque = false</code> on the backing layer. At ramp zero the view pauses after one clearing draw, so an idle HUD costs no GPU.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATE ============ -->
+<section id="state">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">Where the build stands</p>
+      <h2>Shipped, blocked, deferred</h2>
+      <p>Milestone 1 — the shell plus Direct Dictation — is done and works end to end. The HUD prototyping phase is closed: every option that survived a feel test became a preference instead of being deleted, which is why the inventory above is so wide. The next gate is an insertion-latency benchmark, and it blocks all other features by decision.</p>
+    </div>
+    <div class="panel scroller" style="padding:6px 16px 14px">
+      <table class="state-table">
+        <thead><tr><th>Area</th><th>Where it stands</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Direct Dictation</td><td>Trigger, latching, prewarm, insertion routes, clipboard restore</td><td><span class="pill ship">Shipping</span></td></tr>
+          <tr><td>HUD surface</td><td>Placement, geometry, fillets, reveal, messages</td><td><span class="pill ship">Shipping</span></td></tr>
+          <tr><td>Voice visuals</td><td>9 waveform styles, glow triptych, 6 palettes, 3 centers</td><td><span class="pill ship">Shipping</span></td></tr>
+          <tr><td>Settings</td><td>Appearance and Sounds, live preview, immediate apply</td><td><span class="pill ship">Shipping</span></td></tr>
+          <tr><td>Borderless Settings modal</td><td>Decided in an ADR; window is still standard and titled</td><td><span class="pill proto">Decided</span></td></tr>
+          <tr><td>Session settings snapshot</td><td>Decided in an ADR; HUD still reads live preferences</td><td><span class="pill proto">Decided</span></td></tr>
+          <tr><td>Siri Orb artwork</td><td>Imitates Apple's orb, carries no licence</td><td><span class="pill blocked">Cannot ship</span></td></tr>
+          <tr><td>Pop sound set</td><td>CC-BY-NC placeholder</td><td><span class="pill blocked">Cannot ship</span></td></tr>
+          <tr><td>Onboarding</td><td>Permissions and trigger choice specified, not designed</td><td><span class="pill proto">Not designed</span></td></tr>
+          <tr><td>Live Captions</td><td>Provisional feature; design paused until it is confirmed</td><td><span class="pill proto">On hold</span></td></tr>
+          <tr><td>Text cleanup, languages, mic picker, analytics</td><td>Explicitly out of version 1</td><td><span class="pill proto">Deferred</span></td></tr>
+          <tr><td>VoiceOver labels</td><td>Deferred for this milestone; every visual is hidden from accessibility</td><td><span class="pill blocked">Gap</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OPEN ============ -->
+<section id="open">
+  <div class="wrap stack">
+    <div class="sec-head">
+      <p class="eyebrow">What we need from you</p>
+      <h2>Open questions</h2>
+      <p>These are real gaps, not a wish list. Everything above exists; everything below is undecided or unbuilt.</p>
+    </div>
+    <div class="grid g2">
+      <div class="q">
+        <h4>Nine waveform styles, six palettes, three centers</h4>
+        <p>The prototyping phase resolved arguments by shipping every variant as a preference. That is 324 combinations of a single listening state, and the Settings menu now reads like a lab.</p>
+        <p class="ask">Which of these are product, and which were scaffolding? Is there a defensible default set of two or three?</p>
+      </div>
+      <div class="q">
+        <h4>The Siri Orb has to go or be redrawn</h4>
+        <p>It is currently the most distinctive of the three glow centers and it is unlicensed artwork that imitates Apple's own orb. It cannot ship in any form.</p>
+        <p class="ask">Is the orb worth an original replacement, or does the particle cloud carry the identity on its own?</p>
+      </div>
+      <div class="q">
+        <h4>Settings has two sections and a spec calling for six</h4>
+        <p>Dictation, Privacy and Data, System, and an About surface are all written down and empty. The rule is that a section appears only once it has real behaviour behind it.</p>
+        <p class="ask">What is the navigation shape at six sections, and what does the borderless modal header actually contain?</p>
+      </div>
+      <div class="q">
+        <h4>Errors get one line of white text</h4>
+        <p>“Secure field”, missing permissions, and a dead microphone all use the same 15 pt draft slot. Only the dead microphone has a colour of its own.</p>
+        <p class="ask">Do refusals, warnings, and permission prompts need distinct treatments inside a surface this small?</p>
+      </div>
+      <div class="q">
+        <h4>Reduce Motion is a 4 pt bar</h4>
+        <p>It is honest and it is dull. It is also the state a real accessibility user sees for every session, forever.</p>
+        <p class="ask">What does a quiet, motion-free voice visual look like when it is designed rather than reduced?</p>
+      </div>
+      <div class="q">
+        <h4>There is no identity outside the HUD</h4>
+        <p>The menu bar item is a stock SF Symbol microphone that turns red while recording. There is no app icon, no onboarding, no marketing surface.</p>
+        <p class="ask">Where does the brand live for an app whose entire UI is a black shape under a notch?</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap stack" style="gap:8px">
+    <p>Talkify design brief — generated from the codebase at commit <span class="mono">e1c70ef</span>, plus <span class="mono">CONTEXT.md</span> and ADRs 0001–0004.</p>
+    <p class="note">Every visual on this page is a browser recreation of a SwiftUI and Metal original, matched to the real geometry, timings, and palette values. Blur, bloom, and blend behaviour differ from the shipped Metal render — treat these as faithful sketches, not screenshots. The Siri Orb tile is an approximation drawn in CSS; the real prototype uses artwork that cannot be reproduced or shipped.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+"use strict";
+
+/* ============================================================
+   Shared voice simulator — one signal drives every demo.
+   Mirrors the app: ~46 Hz level ticks, 56-sample history,
+   fast attack / slow release, EMA between bars.
+   ============================================================ */
+const BARS = 56;
+const V = {
+  mode: "speak",
+  level: 0,
+  raw: 0,
+  alive: true,
+  hist: new Float32Array(BARS),
+  t: 0,
+  epoch: 0,
+  epochAt: -99
+};
+
+let phraseOn = true, phraseLeft = 1.4;
+function noise(x){ const s = Math.sin(x * 12.9898) * 43758.5453; return s - Math.floor(s); }
+
+function advanceVoice(dt){
+  V.t += dt;
+  let raw = 0;
+  if (V.mode === "speak"){
+    phraseLeft -= dt;
+    if (phraseLeft <= 0){
+      phraseOn = !phraseOn;
+      phraseLeft = phraseOn ? 1.6 + noise(V.t) * 2.2 : 0.35 + noise(V.t + 9) * 0.7;
+    }
+    if (phraseOn){
+      const syll = Math.pow(Math.abs(Math.sin(V.t * Math.PI * 2.6)), 0.65);
+      const body = 0.45 + 0.4 * noise(Math.floor(V.t * 5) * 0.37);
+      raw = syll * body + noise(V.t * 60) * 0.06;
+    } else {
+      raw = noise(V.t * 40) * 0.03;
+    }
+  } else if (V.mode === "silent"){
+    raw = 0.015 + noise(V.t * 30) * 0.02;
+  }
+  V.alive = V.mode !== "dead";
+  V.raw = raw;
+  V.level = Math.max(raw, V.level * 0.88);
+  if (!V.alive) V.level = 0;
+  const last = V.hist[BARS - 1];
+  V.hist.copyWithin(0, 1);
+  V.hist[BARS - 1] = V.alive ? 0.6 * raw + 0.4 * last : 0;
+}
+
+/* ============================================================
+   Palettes — SwiftUI system colours, matched to HUDGlowPalette
+   ============================================================ */
+const SYS = { blue:"#007AFF", purple:"#AF52DE", red:"#FF3B30", mint:"#00C7BE",
+  indigo:"#5856D6", pink:"#FF2D55", teal:"#30B0C7", green:"#34C759",
+  cyan:"#32ADE6", orange:"#FF9500", white:"#FFFFFF" };
+
+const PALETTES = {
+  Spectrum:{ stops:[[0,SYS.blue],[.2,SYS.purple],[.4,SYS.red],[.5,SYS.mint],[.7,SYS.indigo],[.9,SYS.pink],[1,SYS.blue]],
+             particles:["#5973FF","#BF66FF","#FF80BF"] },
+  Silver:{ stops:[[0,"#FFFFFF"],[.3,"#9EB8FF"],[.5,"#FFFFFF"],[.75,"#BFC7F2"],[1,"#FFFFFF"]],
+           particles:["#9EB8FF","#D9E6FF","#FFFFFF"] },
+  Aurora:{ stops:[[0,SYS.mint],[.3,SYS.teal],[.5,SYS.green],[.75,SYS.cyan],[1,SYS.mint]],
+           particles:["#66FFCC","#4DD9D9","#E6FFF2"] },
+  Sunset:{ stops:[[0,SYS.orange],[.35,SYS.red],[.6,SYS.pink],[.85,SYS.purple],[1,SYS.orange]],
+           particles:["#FF9940","#FF7399","#FFE6CC"] },
+  Ocean:{ stops:[[0,SYS.blue],[.35,SYS.cyan],[.65,SYS.indigo],[.85,"#001A73"],[1,SYS.blue]],
+          particles:["#40BFFF","#4D73FF","#D9F2FF"] },
+  Mono:{ stops:[[0,"#FFFFFF"],[1,"#FFFFFF"]], particles:["#FFFFFF","#E6E6E6","#BFBFBF"] }
+};
+const AMBER = "#FF9929";
+
+/* ============================================================
+   HUD builder — the black shape, at any scale
+   ============================================================ */
+function buildHUD(opts){
+  const o = Object.assign({ width:300, notchW:110, notchH:20, band:44, draft:null, radius:20, fillet:0 }, opts);
+  const el = document.createElement("div");
+  el.className = "hud";
+  el.style.width = o.width + "px";
+  el.style.borderRadius = `0 0 ${o.radius}px ${o.radius}px`;
+
+  if (o.fillet > 0){
+    for (const side of ["l","r"]){
+      const f = document.createElement("div");
+      f.className = "fillet " + side;
+      f.style.width = o.fillet + "px";
+      f.style.height = o.fillet + "px";
+      const corner = side === "l" ? "0 100%" : "100% 100%";
+      f.style.webkitMaskImage = `radial-gradient(circle at ${corner}, transparent 0 ${o.fillet}px, #000 ${o.fillet}px)`;
+      f.style.maskImage = f.style.webkitMaskImage;
+      el.appendChild(f);
+    }
+  }
+
+  const notch = document.createElement("div");
+  notch.className = "notch";
+  notch.style.height = o.notchH + "px";
+  el.appendChild(notch);
+
+  const band = document.createElement("div");
+  band.className = "band";
+  band.style.height = o.band + "px";
+  el.appendChild(band);
+  el.__band = band;
+
+  if (o.draft !== null){
+    const d = document.createElement("div");
+    d.className = "draft";
+    d.textContent = o.draft;
+    el.appendChild(d);
+    el.__draft = d;
+  }
+  return el;
+}
+
+function addCanvas(host){
+  const c = document.createElement("canvas");
+  host.appendChild(c);
+  return c;
+}
+
+/* ============================================================
+   Canvas plumbing — DPR-correct sizing, visibility-gated loop
+   ============================================================ */
+const painters = [];
+const io = new IntersectionObserver(entries => {
+  for (const e of entries){
+    const p = e.target.__painter;
+    if (p) p.visible = e.isIntersecting;
+  }
+}, { rootMargin: "120px" });
+
+function register(canvas, draw){
+  const p = { canvas, draw, visible:false, w:0, h:0, ctx:canvas.getContext("2d") };
+  canvas.__painter = p;
+  painters.push(p);
+  io.observe(canvas);
+  const ro = new ResizeObserver(() => sizeCanvas(p));
+  ro.observe(canvas.parentElement || canvas);
+  sizeCanvas(p);
+  return p;
+}
+
+function sizeCanvas(p){
+  const host = p.canvas.parentElement;
+  if (!host) return;
+  const r = host.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  p.w = r.width; p.h = r.height;
+  p.canvas.width = Math.round(r.width * dpr);
+  p.canvas.height = Math.round(r.height * dpr);
+  p.canvas.style.width = r.width + "px";
+  p.canvas.style.height = r.height + "px";
+  p.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+let last = performance.now(), acc = 0;
+function frame(now){
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  acc += dt;
+  while (acc >= 0.022){ advanceVoice(0.022); acc -= 0.022; }
+  meterEl.style.width = (V.level * 100).toFixed(1) + "%";
+  meterEl.style.background = V.alive ? "var(--accent)" : AMBER;
+  for (const p of painters){
+    if (!p.visible || !p.w) continue;
+    p.ctx.clearRect(0, 0, p.w, p.h);
+    p.draw(p.ctx, p.w, p.h, V.t);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   Waveform styles — one buffer, nine marks
+   ============================================================ */
+function silverFill(ctx, h){
+  if (!V.alive) return "rgba(255,153,41,.55)";
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "rgba(158,184,255,.75)");
+  g.addColorStop(.5, "#FFFFFF");
+  g.addColorStop(1, "rgba(158,184,255,.75)");
+  return g;
+}
+
+function barPath(ctx, w, h, spacing, rounded, perceptual){
+  const n = BARS, bw = Math.max(1, (w - spacing * (n - 1)) / n);
+  let x = 0;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++){
+    const s = perceptual ? Math.sqrt(V.hist[i]) : V.hist[i];
+    const bh = Math.max(2, s * h);
+    if (rounded && ctx.roundRect) ctx.roundRect(x, h/2 - bh/2, bw, bh, bw/2);
+    else ctx.rect(x, h/2 - bh/2, bw, bh);
+    x += bw + spacing;
+  }
+}
+
+const WAVES = {
+  Article(ctx, w, h){ barPath(ctx, w, h, 2, false, false); ctx.fillStyle = silverFill(ctx, h); ctx.fill(); },
+  Silver(ctx, w, h){ barPath(ctx, w, h, 3, true, true); ctx.fillStyle = silverFill(ctx, h); ctx.fill(); },
+  Capsules(ctx, w, h){
+    const step = w / BARS, bw = Math.max(step * .55, 1);
+    ctx.fillStyle = silverFill(ctx, h);
+    ctx.beginPath();
+    for (let i = 0; i < BARS; i++){
+      const bh = Math.max(bw, V.hist[i] * .75 * h);
+      const x = i * step;
+      if (ctx.roundRect) ctx.roundRect(x, h/2 - bh/2, bw, bh, bw/2);
+      else ctx.rect(x, h/2 - bh/2, bw, bh);
+    }
+    ctx.fill();
+  },
+  "Chart Line": chartLine,
+  "Chart Area"(ctx, w, h){
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let i = 0; i < BARS; i++) ctx.lineTo(i * w / (BARS - 1), h - V.hist[i] * h * .92);
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = silverFill(ctx, h);
+    ctx.globalAlpha = .9; ctx.fill(); ctx.globalAlpha = 1;
+  },
+  Dots(ctx, w, h){
+    const step = w / BARS, r = 1.6;
+    ctx.fillStyle = silverFill(ctx, h);
+    ctx.beginPath();
+    for (let i = 0; i < BARS; i++){
+      const half = V.hist[i] * h / 2, x = i * step;
+      ctx.moveTo(x + r, h/2 - half); ctx.arc(x, h/2 - half, r, 0, 7);
+      ctx.moveTo(x + r, h/2 + half); ctx.arc(x, h/2 + half, r, 0, 7);
+    }
+    ctx.fill();
+  },
+  Curve(ctx, w, h){
+    const pts = [];
+    for (let i = 0; i < BARS; i++) pts.push([i * w / (BARS - 1), h/2 - Math.max(1, V.hist[i] * h / 2)]);
+    ctx.beginPath();
+    smooth(ctx, pts);
+    const mir = pts.slice().reverse().map(p => [p[0], h - p[1]]);
+    ctx.lineTo(mir[0][0], mir[0][1]);
+    smooth(ctx, mir, true);
+    ctx.closePath();
+    ctx.fillStyle = silverFill(ctx, h);
+    ctx.fill();
+  },
+  Filled(ctx, w, h){
+    ctx.beginPath();
+    ctx.moveTo(0, h/2);
+    for (let i = 0; i < BARS; i++) ctx.lineTo(i * w / (BARS - 1), h/2 - Math.max(.75, V.hist[i] * h / 2));
+    for (let i = BARS - 1; i >= 0; i--) ctx.lineTo(i * w / (BARS - 1), h/2 + Math.max(.75, V.hist[i] * h / 2));
+    ctx.closePath();
+    ctx.fillStyle = silverFill(ctx, h);
+    ctx.fill();
+  },
+  "Siri Wave": siriWave
+};
+
+function smooth(ctx, pts, cont){
+  if (!cont) ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++){
+    const p = pts[i-1], c = pts[i];
+    ctx.quadraticCurveTo(p[0], p[1], (p[0]+c[0])/2, (p[1]+c[1])/2);
+  }
+  ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
+}
+
+/* Chart Line — the default. Crisp core over two glow passes, a mirrored
+   floor reflection, and a specular band travelling along the line. */
+function chartLine(ctx, w, h, t){
+  const lvl = V.level;
+  const mid = h * .58;
+  const path = () => {
+    const pts = [];
+    for (let i = 0; i < BARS; i++) pts.push([i * w / (BARS - 1), mid - Math.max(.75, V.hist[i] * h / 2)]);
+    ctx.beginPath();
+    smooth(ctx, pts);
+  };
+  if (!V.alive){
+    path();
+    ctx.strokeStyle = "rgba(255,153,41,.55)"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.stroke();
+    return;
+  }
+  const silver = ctx.createLinearGradient(0, 0, w, 0);
+  silver.addColorStop(0, "rgba(174,189,224,.85)");
+  silver.addColorStop(.25, "#FFFFFF");
+  silver.addColorStop(.5, "#D1DBF2");
+  silver.addColorStop(.75, "#FFFFFF");
+  silver.addColorStop(1, "rgba(174,189,224,.85)");
+
+  // ambient under-glow
+  const pool = ctx.createRadialGradient(w/2, mid, 2, w/2, mid, w * .45);
+  pool.addColorStop(0, `rgba(190,210,255,${.10 + .22 * lvl})`);
+  pool.addColorStop(1, "rgba(190,210,255,0)");
+  ctx.fillStyle = pool;
+  ctx.fillRect(0, mid - h * .4, w, h * .8);
+
+  // reflection
+  ctx.save();
+  ctx.translate(0, mid * 2); ctx.scale(1, -1);
+  ctx.globalAlpha = .16 + .22 * lvl;
+  path(); ctx.strokeStyle = silver; ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.stroke();
+  ctx.restore();
+
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  // wide halo
+  ctx.save();
+  ctx.globalAlpha = .22 + .5 * lvl;
+  ctx.shadowColor = "rgba(200,218,255,.9)"; ctx.shadowBlur = 14 + 16 * lvl;
+  path(); ctx.strokeStyle = silver; ctx.lineWidth = 3 + 6 * lvl; ctx.stroke();
+  ctx.restore();
+  // tight bloom
+  ctx.save();
+  ctx.globalAlpha = .8;
+  ctx.shadowColor = "rgba(230,240,255,.9)"; ctx.shadowBlur = 5;
+  path(); ctx.strokeStyle = silver; ctx.lineWidth = 2.4 + 2.4 * lvl; ctx.stroke();
+  ctx.restore();
+  // crisp core
+  path();
+  ctx.strokeStyle = `rgba(255,255,255,${.75 + .25 * lvl})`;
+  ctx.lineWidth = 1.7; ctx.stroke();
+  // specular sweep
+  const ph = (t / 3.2) % 2, lin = ph < 1 ? ph : 2 - ph, e = lin * lin * (3 - 2 * lin);
+  const sg = ctx.createLinearGradient(e * w - w * .18, 0, e * w + w * .18, 0);
+  sg.addColorStop(0, "rgba(255,255,255,0)");
+  sg.addColorStop(.5, "rgba(255,255,255,.9)");
+  sg.addColorStop(1, "rgba(255,255,255,0)");
+  path(); ctx.strokeStyle = sg; ctx.lineWidth = 2.6; ctx.stroke();
+}
+
+/* Siri Wave — the attenuated-sine composition, three colours, lighten */
+const SIRI_COLORS = ["rgb(173,57,76)", "rgb(48,220,155)", "rgb(25,122,255)"];
+const siriState = SIRI_COLORS.map((_, i) => ({ cur: randWave(0), next: randWave(0), p: 1, seed: i }));
+function randWave(power){
+  const c = [];
+  for (let i = 0; i < 4; i++) c.push({ A: .1 + Math.random() * .9, k: .6 + Math.random() * .3, t: -1 + Math.random() * 5 });
+  return { power, curves: c, use: 2 + Math.floor(Math.random() * 3) };
+}
+let siriTick = 0;
+function siriWave(ctx, w, h, t){
+  const alive = V.alive;
+  const power = alive ? V.level : 0;
+  siriTick += 1;
+  if (siriTick % 18 === 0){
+    for (const s of siriState){ s.cur = s.next; s.next = randWave(power); s.p = 0; }
+  }
+  for (const s of siriState){ s.p = Math.min(1, s.p + .06); }
+
+  // support line
+  ctx.strokeStyle = alive ? "rgba(255,255,255,.5)" : "rgba(255,153,41,.5)";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+
+  ctx.globalCompositeOperation = "lighter";
+  siriState.forEach((s, idx) => {
+    const wave = lerpWave(s.cur, s.next, s.p, power);
+    ctx.fillStyle = alive ? SIRI_COLORS[idx] : "rgba(255,153,41,.5)";
+    ctx.beginPath();
+    const midX = w/2, midY = h/2;
+    const upper = [];
+    for (let x = -midX; x < midX; x += 2){
+      let y = midY;
+      for (let i = 0; i < wave.use; i++){
+        const c = wave.curves[i];
+        const A = c.A * midY * wave.power;
+        const sx = x / (midX / 9);
+        y = Math.max(y, attenuated(sx, A, c.k, c.t) + midY);
+      }
+      upper.push([midX + x, y]);
+    }
+    ctx.moveTo(0, midY);
+    for (const p of upper) ctx.lineTo(p[0], p[1]);
+    for (let i = upper.length - 1; i >= 0; i--) ctx.lineTo(upper[i][0], 2 * midY - upper[i][1]);
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.globalCompositeOperation = "source-over";
+}
+function lerpWave(a, b, p, power){
+  const c = [];
+  for (let i = 0; i < 4; i++) c.push({
+    A: a.curves[i].A + (b.curves[i].A - a.curves[i].A) * p,
+    k: a.curves[i].k + (b.curves[i].k - a.curves[i].k) * p,
+    t: a.curves[i].t + (b.curves[i].t - a.curves[i].t) * p
+  });
+  return { power, curves: c, use: b.use };
+}
+function attenuated(x, A, k, t){
+  const sine = A * Math.sin(k * x - t);
+  const K = 4, shifted = t - Math.PI / 2;
+  const bell = Math.pow(K / (K + Math.pow(k * x - shifted, 2)), K);
+  return Math.abs(sine * bell);
+}
+
+/* ============================================================
+   Edge Glow — silhouette beam, sweeping origin, distance mask
+   ============================================================ */
+function silhouette(ctx, w, h, inset, radius, fillet){
+  const l = inset, r = w - inset, b = h - inset;
+  ctx.beginPath();
+  if (fillet > 0){
+    ctx.moveTo(l - fillet, 0);
+    ctx.arcTo(l, 0, l, fillet, fillet);
+  } else ctx.moveTo(l, 0);
+  ctx.lineTo(l, b - radius);
+  ctx.arcTo(l, b, l + radius, b, radius);
+  ctx.lineTo(r - radius, b);
+  ctx.arcTo(r, b, r, b - radius, radius);
+  if (fillet > 0) ctx.arcTo(r, 0, r + fillet, 0, fillet);
+  else ctx.lineTo(r, 0);
+}
+
+function sweepFraction(t){
+  const phase = ((t / 4) + 0.5) % 2;
+  const lin = phase < 1 ? phase : 2 - phase;
+  const eased = lin * lin * (3 - 2 * lin);
+  return lin + (eased - lin) * 0.3;
+}
+
+function sweepPoint(f, w, h, inset, radius, fillet){
+  const l = inset, r = w - inset, b = h - inset;
+  const flank = Math.max(0, b - radius - fillet);
+  const topC = Math.PI * fillet / 2, corner = Math.PI * radius / 2;
+  const run = (r - l) - 2 * radius;
+  const total = 2 * flank + 2 * corner + run + 2 * topC;
+  let d = Math.max(0, Math.min(1, f)) * total;
+  if (fillet > 0){
+    if (d < topC){ const a = -Math.PI/2 + d/fillet; return [l - fillet + fillet*Math.cos(a), fillet + fillet*Math.sin(a)]; }
+    d -= topC;
+  }
+  if (d < flank) return [l, fillet + d];
+  d -= flank;
+  if (d < corner){ const a = Math.PI - d/radius; return [l + radius + radius*Math.cos(a), b - radius + radius*Math.sin(a)]; }
+  d -= corner;
+  if (d < run) return [l + radius + d, b];
+  d -= run;
+  if (d < corner){ const a = Math.PI/2 - d/radius; return [r - radius + radius*Math.cos(a), b - radius + radius*Math.sin(a)]; }
+  d -= corner;
+  if (d < flank) return [r, b - radius - d];
+  d -= flank;
+  if (fillet > 0){ const a = Math.PI + d/fillet; return [r + fillet + fillet*Math.cos(a), fillet + fillet*Math.sin(a)]; }
+  return [r, 0];
+}
+
+const SPILL = 28;
+function drawGlow(ctx, w, h, t, paletteName, ramp, radius, fillet, store){
+  const pal = PALETTES[paletteName];
+  const lvl = V.level;
+  const amp = V.alive ? 1.8 + 1.2 * lvl : 1.5;
+  const lw = 6 * (1 + lvl);
+  const blur = 12 * (1 + .5 * lvl);
+  const [ox, oy] = sweepPoint(sweepFraction(t), w, h, SPILL, radius, fillet);
+
+  const off = store.buf || (store.buf = document.createElement("canvas"));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (off.width !== Math.round(w*dpr) || off.height !== Math.round(h*dpr)){
+    off.width = Math.round(w*dpr); off.height = Math.round(h*dpr);
+  }
+  const oc = off.getContext("2d");
+  oc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  oc.clearRect(0, 0, w, h);
+
+  let stroke;
+  if (V.alive){
+    stroke = oc.createConicGradient(0, w/2, h/2);
+    for (const [pos, col] of pal.stops) stroke.addColorStop(pos, col);
+  } else stroke = AMBER;
+
+  oc.lineCap = "round"; oc.strokeStyle = stroke;
+  oc.filter = `blur(${blur}px)`;
+  silhouette(oc, w, h, SPILL, radius, fillet); oc.lineWidth = lw; oc.stroke();
+  oc.filter = `blur(${blur/2}px)`;
+  silhouette(oc, w, h, SPILL, radius, fillet); oc.lineWidth = lw; oc.stroke();
+  oc.filter = "none";
+  silhouette(oc, w, h, SPILL, radius, fillet); oc.lineWidth = lw/2; oc.stroke();
+
+  // distance mask: exp(-d²)·amplitude, cut off at the ramp radius
+  const diag = Math.hypot(w, h);
+  const mask = oc.createRadialGradient(ox, oy, 0, ox, oy, diag);
+  const p = Math.max(ramp, 1e-3), sp = p * p * (3 - 2 * p);
+  for (let i = 0; i <= 12; i++){
+    const s = i / 12, d = s * diag / Math.max(w, h);
+    let a = sp * Math.exp(-d * d) * amp;
+    const edge = 1 - d / p;
+    a *= edge <= 0 ? 0 : (edge >= 1 ? 1 : edge * edge * (3 - 2 * edge));
+    mask.addColorStop(s, `rgba(0,0,0,${Math.max(0, Math.min(1, a))})`);
+  }
+  oc.globalCompositeOperation = "destination-in";
+  oc.fillStyle = mask;
+  oc.fillRect(0, 0, w, h);
+  oc.globalCompositeOperation = "source-over";
+
+  ctx.globalCompositeOperation = "lighter";
+  ctx.drawImage(off, 0, 0, w, h);
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* particle cloud — 32 motes chasing the sweep origin */
+function makeParticles(){
+  const arr = [];
+  for (let i = 0; i < 32; i++) arr.push({ x:0, y:0, life:0, r: 3 + Math.random()*9, v: 2 + Math.random()*2, ci:i%3 });
+  return arr;
+}
+function drawParticles(ctx, w, h, t, parts, paletteName, ramp, radius, fillet){
+  const cols = PALETTES[paletteName].particles;
+  const [cx, cy] = sweepPoint(sweepFraction(t), w, h, 0, radius, fillet);
+  for (const p of parts){
+    const dx = cx - p.x, dy = cy - p.y, d = Math.hypot(dx, dy);
+    if (d < 12 || (p.x === 0 && p.y === 0) || p.life > 100){
+      p.x = Math.random() * w; p.y = Math.random() * h; p.life = 0;
+    } else {
+      p.x += dx / d * p.v; p.y += dy / d * p.v; p.life += 1;
+    }
+    const a = Math.min(p.life / 100, 1) * ramp;
+    if (a <= 0.01) continue;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = cols[p.ci];
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * ramp, 0, 7);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ripple — one bright wave crossing the housing at session start */
+function drawRipple(ctx, w, h, age, ox, oy){
+  if (age < 0 || age > 1.2) return;
+  const speed = 1200 * (w / 540);
+  const reach = age * speed;
+  const g = ctx.createRadialGradient(ox, oy, Math.max(0, reach - 26), ox, oy, reach + 26);
+  const fade = Math.exp(-2.2 * age);
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(.5, `rgba(255,255,255,${.20 * fade})`);
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+/* ============================================================
+   Build: waveform gallery
+   ============================================================ */
+const WAVE_META = [
+  ["Chart Line", "Default. A conveyor, not a chart — the buffer slides continuously between level ticks. Carries its own treatment and skips the sheen shader.", "default"],
+  ["Silver", "Rounded bars on square-root heights, so quiet speech still reads. Our own styling of the original bar architecture.", ""],
+  ["Article", "The original: square bars, linear heights, 2 pt gaps. The reference implementation everything else grew from.", ""],
+  ["Capsules", "Width-derived capsules with dampened heights. From a charting library's capsule mode.", ""],
+  ["Chart Area", "Swift Charts area mark with Catmull-Rom interpolation, straight out of the box.", ""],
+  ["Dots", "A mirrored pair of dots per sample. The quietest of the set.", ""],
+  ["Curve", "A smooth symmetric blob through midpoint quadratics.", ""],
+  ["Filled", "A continuous min/max region — the classic audio-editor waveform.", ""],
+  ["Siri Wave", "Three overlapping colour waves under a lightening blend. Ported from an MIT-licensed Siri 9 recreation; carries its own colours, so it is the only style that breaks the silver language.", "proto"]
+];
+
+const waveGallery = document.getElementById("waveGallery");
+for (const [name, desc, tag] of WAVE_META){
+  const tile = document.createElement("div");
+  tile.className = "tile";
+  const stage = document.createElement("div");
+  stage.className = "tile-stage";
+  stage.style.paddingBottom = "22px";
+  const hud = buildHUD({ width: 236, notchH: 18, band: 40 });
+  stage.appendChild(hud);
+  tile.appendChild(stage);
+
+  const foot = document.createElement("div");
+  foot.className = "tile-foot";
+  const pill = tag === "default" ? '<span class="pill default">Default</span>'
+             : tag === "proto" ? '<span class="pill proto">Outlier</span>' : "";
+  foot.innerHTML = `<h4>${name} ${pill}</h4><p>${desc}</p>`;
+  tile.appendChild(foot);
+  waveGallery.appendChild(tile);
+
+  const canvas = addCanvas(hud.__band);
+  register(canvas, (ctx, w, h, t) => WAVES[name](ctx, w, h, t));
+}
+
+/* ============================================================
+   Build: Edge Glow stage
+   ============================================================ */
+let glowPalette = "Spectrum";
+let glowCenter = "particles";
+let glowEpochAt = -99;
+
+const swatchHost = document.getElementById("paletteSwatches");
+for (const name of Object.keys(PALETTES)){
+  const b = document.createElement("button");
+  b.className = "swatch";
+  b.type = "button";
+  b.setAttribute("aria-pressed", String(name === glowPalette));
+  const stops = PALETTES[name].stops.map(([p, c]) => `${c} ${Math.round(p*100)}%`).join(",");
+  b.innerHTML = `<i style="background:conic-gradient(${stops})"></i>${name}`;
+  b.addEventListener("click", () => {
+    glowPalette = name;
+    for (const s of swatchHost.children) s.setAttribute("aria-pressed", String(s === b));
+    syncSettings();
+  });
+  swatchHost.appendChild(b);
+}
+
+const glowStage = document.getElementById("glowStage");
+const glowHud = buildHUD({ width: 460, notchH: 28, band: 56, fillet: 11 });
+glowStage.appendChild(glowHud);
+
+// housing-clipped layer (ripple + particles), then the glow spilling outside
+const clip = document.createElement("div");
+clip.className = "clip";
+glowHud.appendChild(clip);
+const clipCanvas = addCanvas(clip);
+const parts = makeParticles();
+register(clipCanvas, (ctx, w, h, t) => {
+  const ramp = rampValue(glowEpochAt, t);
+  drawRipple(ctx, w, h, t - glowEpochAt, w/2, 28);
+  if (glowCenter === "particles" && V.alive) drawParticles(ctx, w, h, t, parts, glowPalette, ramp, 20, 11);
+});
+
+const glowLayer = document.createElement("div");
+glowLayer.className = "glowlayer";
+glowLayer.style.inset = `0px -${SPILL}px -${SPILL}px`;
+glowHud.appendChild(glowLayer);
+const glowCanvas = addCanvas(glowLayer);
+const glowStore = {};
+register(glowCanvas, (ctx, w, h, t) => drawGlow(ctx, w, h, t, glowPalette, rampValue(glowEpochAt, t), 20, 11, glowStore));
+
+// Siri Wave center lives in the band; the orb is a CSS overlay
+const glowBandCanvas = addCanvas(glowHud.__band);
+register(glowBandCanvas, (ctx, w, h, t) => { if (glowCenter === "siriWave") siriWave(ctx, w, h, t); });
+
+const orb = document.createElement("div");
+orb.style.cssText = "position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none";
+orb.innerHTML = `<div class="orb"></div>`;
+glowHud.appendChild(orb);
+
+function rampValue(at, t){
+  const age = t - at;
+  if (age < 0) return 1;
+  return Math.max(0, Math.min(1, age / 0.4));
+}
+
+document.getElementById("centerSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  glowCenter = b.dataset.center;
+  for (const c of e.currentTarget.children) c.setAttribute("aria-pressed", String(c === b));
+  orb.style.display = glowCenter === "siriOrb" ? "flex" : "none";
+  syncSettings();
+});
+document.getElementById("replayGlow").addEventListener("click", () => { glowEpochAt = V.t; });
+glowEpochAt = 0;
+
+/* ============================================================
+   Build: Reduce Motion + dead mic tiles
+   ============================================================ */
+const reduceHud = buildHUD({ width: 300, notchH: 22, band: 24, draft: "quick brown fox jumps over" });
+document.getElementById("reduceStage").appendChild(reduceHud);
+const reduceCanvas = addCanvas(reduceHud.__band);
+register(reduceCanvas, (ctx, w, h) => {
+  const pad = 46, bw = w - pad * 2, y = h/2 - 2;
+  ctx.fillStyle = "rgba(255,255,255,.15)";
+  if (ctx.roundRect){ ctx.beginPath(); ctx.roundRect(pad, y, bw, 4, 2); ctx.fill(); }
+  ctx.fillStyle = V.alive ? "rgba(255,255,255,.85)" : "rgba(255,153,41,.6)";
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(pad, y, Math.max(6, bw * V.level), 4, 2);
+  ctx.fill();
+});
+
+const deadHud = buildHUD({ width: 300, notchH: 22, band: 46 });
+document.getElementById("deadStage").appendChild(deadHud);
+const deadCanvas = addCanvas(deadHud.__band);
+const frozenHist = new Float32Array(BARS);
+register(deadCanvas, (ctx, w, h, t) => {
+  // The dead-mic state is motionless: freeze the buffer as well as the colour.
+  const wasAlive = V.alive, lvl = V.level, hist = V.hist;
+  V.alive = false; V.level = 0; V.hist = frozenHist;
+  chartLine(ctx, w, h, t);
+  V.alive = wasAlive; V.level = lvl; V.hist = hist;
+});
+
+/* ============================================================
+   Build: reveal styles
+   ============================================================ */
+const REVEALS = [
+  ["Slide", "Drops in from outside the screen edge. No bounce — a position overshoot would tear the shape off the edge.", "default", { transform:["translateY(-115%)","translateY(0)"] }, 400, "cubic-bezier(.22,.9,.28,1)"],
+  ["Unfurl", "Unrolls downward out of the housing, stretching past its height and settling back. The bounciest of the four.", "", { transform:["scaleY(.001)","scaleY(1.09)","scaleY(.97)","scaleY(1)"], offset:[0,.55,.8,1] }, 450, "cubic-bezier(.3,.8,.3,1)"],
+  ["Bloom", "Inflates out of the housing while fading in, with a soft overshoot.", "", { transform:["scale(.55)","scale(1.06)","scale(1)"], opacity:["0","1","1"], offset:[0,.6,1] }, 400, "cubic-bezier(.25,.85,.3,1)"],
+  ["Drift", "Barely moves: fades in while drifting down the last few points. The most understated.", "", { transform:["translateY(-14px)","translateY(0)"], opacity:["0","1"] }, 240, "cubic-bezier(.2,.7,.4,1)"]
+];
+const revealHost = document.getElementById("revealGallery");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+REVEALS.forEach(([name, desc, tag, frames, dur, ease], i) => {
+  const tile = document.createElement("div");
+  tile.className = "tile";
+  const stage = document.createElement("div");
+  stage.className = "stage-edge";
+  stage.style.height = "112px";
+  const hud = buildHUD({ width: 150, notchH: 14, band: 20, draft: "Listening…", radius: 14 });
+  hud.style.transformOrigin = "top center";
+  hud.querySelector(".draft").style.fontSize = "10.5px";
+  stage.appendChild(hud);
+  tile.appendChild(stage);
+  const foot = document.createElement("div");
+  foot.className = "tile-foot";
+  foot.innerHTML = `<h4>${name} ${tag === "default" ? '<span class="pill default">Default</span>' : ""}</h4><p>${desc}</p>`;
+  tile.appendChild(foot);
+  revealHost.appendChild(tile);
+
+  const canvas = addCanvas(hud.__band);
+  register(canvas, (ctx, w, h) => {
+    const pad = 22, bw = w - pad * 2, y = h/2 - 1.5;
+    ctx.fillStyle = V.alive ? "rgba(255,255,255,.8)" : "rgba(255,153,41,.6)";
+    if (ctx.roundRect){ ctx.beginPath(); ctx.roundRect(pad, y, Math.max(4, bw * V.level), 3, 1.5); ctx.fill(); }
+  });
+
+  if (reduceMotion) return;
+  const play = () => hud.animate(frames, { duration: dur, easing: ease, fill: "backwards" });
+  setTimeout(() => { play(); setInterval(play, 3200); }, i * 380);
+  stage.addEventListener("click", play);
+  stage.style.cursor = "pointer";
+});
+
+/* ============================================================
+   Build: long-draft behaviours
+   ============================================================ */
+const DRAFT_TEXT = "the quick brown fox jumps over the lazy dog and keeps on talking well past the end of a single line";
+const DRAFTS = [
+  ["Tail Only", "One line, newest words visible, head truncated.", ""],
+  ["Grow Down", "Wraps and grows the shape downward, capped at four lines. The window is already sized for the cap, so nothing resizes.", "default"],
+  ["Shrink to Fit", "One line whose type shrinks as the draft grows, truncating only after it hits 55% scale.", ""]
+];
+const draftHost = document.getElementById("draftGallery");
+const draftEls = [];
+DRAFTS.forEach(([name, desc, tag]) => {
+  const tile = document.createElement("div");
+  tile.className = "tile";
+  const stage = document.createElement("div");
+  stage.className = "tile-stage";
+  stage.style.cssText += "padding-bottom:22px;align-items:flex-start;min-height:150px";
+  const hud = buildHUD({ width: 258, notchH: 18, band: 0, draft: "" });
+  stage.appendChild(hud);
+  tile.appendChild(stage);
+  const foot = document.createElement("div");
+  foot.className = "tile-foot";
+  foot.innerHTML = `<h4>${name} ${tag === "default" ? '<span class="pill default">Default</span>' : ""}</h4><p>${desc}</p>`;
+  tile.appendChild(foot);
+  draftHost.appendChild(tile);
+
+  const d = hud.__draft;
+  if (name === "Tail Only"){
+    d.style.cssText += "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:center";
+  } else if (name === "Grow Down"){
+    d.style.cssText += "display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden";
+  } else {
+    d.style.cssText += "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:center";
+  }
+  draftEls.push({ name, el: d });
+});
+
+let draftChars = 0;
+setInterval(() => {
+  draftChars += 2;
+  if (draftChars > DRAFT_TEXT.length + 24) draftChars = 0;
+  const text = DRAFT_TEXT.slice(0, Math.min(draftChars, DRAFT_TEXT.length));
+  for (const d of draftEls){
+    d.el.textContent = text;
+    if (d.name === "Shrink to Fit"){
+      const scale = Math.max(.55, 1 - text.length / 190);
+      d.el.style.fontSize = (13 * scale).toFixed(2) + "px";
+    }
+  }
+}, 90);
+
+/* ============================================================
+   Build: settings mock — real controls, real conditional rows
+   ============================================================ */
+const S = {
+  voiceVisual: "Waveform",
+  waveformStyle: "Chart Line",
+  glowPalette: "Spectrum",
+  glowCenter: "Particles",
+  revealStyle: "Slide",
+  longDraftStyle: "Grow Down",
+  soundSet: "Synth8"
+};
+const OPTIONS = {
+  voiceVisual: ["Waveform", "Edge Glow"],
+  waveformStyle: WAVE_META.map(m => m[0]),
+  glowPalette: Object.keys(PALETTES),
+  glowCenter: ["Particles", "Siri Orb", "Siri Wave"],
+  revealStyle: ["Slide", "Unfurl", "Bloom", "Drift"],
+  longDraftStyle: ["Tail Only", "Grow Down", "Shrink to Fit"],
+  soundSet: ["Synth8", "Synth7", "Synth3", "Chime", "Click", "Pop"]
+};
+const ROWS = {
+  voiceVisual: ["While listening", "The visual shown while Talkify is listening"],
+  waveformStyle: ["Waveform style", "The shape and motion of the waveform"],
+  glowPalette: ["Glow palette", "The colors used by the edge beam"],
+  glowCenter: ["Glow center", "The content that sits inside the beam"],
+  revealStyle: ["Reveal style", "How the HUD appears when a session starts"],
+  longDraftStyle: ["Long draft behavior", "What happens when your draft grows"],
+  soundSet: ["Sound set", "The sounds that bracket a dictation session"]
+};
+
+let mockSection = "appearance";
+const mockBody = document.getElementById("mockBody");
+let previewHud = null, previewEpochAt = 0, previewParts = makeParticles();
+
+function selectFor(key){
+  const sel = document.createElement("select");
+  sel.setAttribute("aria-label", ROWS[key][0]);
+  for (const opt of OPTIONS[key]){
+    const o = document.createElement("option");
+    o.value = o.textContent = opt;
+    sel.appendChild(o);
+  }
+  sel.value = S[key];
+  sel.addEventListener("change", () => { S[key] = sel.value; renderMock(); });
+  return sel;
+}
+
+function rowFor(key){
+  const row = document.createElement("div");
+  row.className = "mock-row";
+  const label = document.createElement("div");
+  label.className = "rl";
+  label.innerHTML = `<b>${ROWS[key][0]}</b><span>${ROWS[key][1]}</span>`;
+  row.appendChild(label);
+  row.appendChild(selectFor(key));
+  return row;
+}
+
+function card(title, keys, extra){
+  const c = document.createElement("div");
+  c.className = "mock-card";
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.textContent = title;
+  c.appendChild(cap);
+  for (const k of keys) c.appendChild(rowFor(k));
+  if (extra) c.appendChild(extra);
+  return c;
+}
+
+function purgePainters(){
+  for (let i = painters.length - 1; i >= 0; i--){
+    if (!painters[i].canvas.isConnected){
+      io.unobserve(painters[i].canvas);
+      painters.splice(i, 1);
+    }
+  }
+}
+
+function renderMock(){
+  mockBody.replaceChildren();
+  purgePainters();
+  const head = document.createElement("div");
+  head.innerHTML = mockSection === "appearance"
+    ? `<div class="mock-title">Appearance</div><div class="mock-sub">Customize the HUD while you speak</div>`
+    : `<div class="mock-title">Sounds</div><div class="mock-sub">Choose and preview session sounds</div>`;
+  mockBody.appendChild(head);
+
+  if (mockSection === "appearance"){
+    mockBody.appendChild(previewCard());
+    const keys = ["voiceVisual"];
+    if (S.voiceVisual === "Waveform") keys.push("waveformStyle");
+    else keys.push("glowPalette", "glowCenter");
+    mockBody.appendChild(card("Voice visual", keys));
+    mockBody.appendChild(card("Motion and layout", ["revealStyle", "longDraftStyle"]));
+  } else {
+    const btn = document.createElement("div");
+    btn.className = "mock-row";
+    btn.innerHTML = `<div class="rl"><b>Preview</b><span>Play the selected begin and end sounds</span></div>`;
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.type = "button";
+    b.style.borderRadius = "999px";
+    b.textContent = "Play preview";
+    b.addEventListener("click", () => { b.textContent = "Playing…"; setTimeout(() => b.textContent = "Play preview", 900); });
+    btn.appendChild(b);
+    mockBody.appendChild(card("Session sounds", ["soundSet"], btn));
+    const n = document.createElement("p");
+    n.className = "note";
+    n.textContent = S.soundSet === "Pop"
+      ? "Pop is a CC-BY-NC placeholder. It is exposed in development builds only and must be replaced or dropped before release."
+      : "Playback level is fixed; there is no volume preference. Preview disables itself while the pair plays.";
+    mockBody.appendChild(n);
+  }
+  syncGlobalsFromSettings();
+}
+
+function previewCard(){
+  const wrap = document.createElement("div");
+  wrap.className = "preview-card";
+  const head = document.createElement("div");
+  head.className = "preview-head";
+  head.innerHTML = `<div><b>Live preview</b><span>Your changes appear here immediately</span></div><div class="dot"></div>`;
+  wrap.appendChild(head);
+
+  const stage = document.createElement("div");
+  stage.className = "preview-stage";
+  wrap.appendChild(stage);
+
+  const hud = buildHUD({ width: 300, notchH: 20, band: 42, fillet: 8, radius: 14 });
+  stage.appendChild(hud);
+  previewHud = hud;
+
+  const pClip = document.createElement("div");
+  pClip.className = "clip";
+  pClip.style.borderRadius = "0 0 14px 14px";
+  hud.appendChild(pClip);
+  const pClipCanvas = addCanvas(pClip);
+  register(pClipCanvas, (ctx, w, h, t) => {
+    if (S.voiceVisual !== "Edge Glow") return;
+    const ramp = rampValue(previewEpochAt, t);
+    drawRipple(ctx, w, h, t - previewEpochAt, w/2, 20);
+    if (S.glowCenter === "Particles" && V.alive)
+      drawParticles(ctx, w, h, t, previewParts, S.glowPalette, ramp, 14, 8);
+  });
+
+  const bandCanvas = addCanvas(hud.__band);
+  register(bandCanvas, (ctx, w, h, t) => {
+    if (S.voiceVisual === "Waveform") WAVES[S.waveformStyle](ctx, w, h, t);
+    else if (S.glowCenter === "Siri Wave") siriWave(ctx, w, h, t);
+  });
+
+  const gl = document.createElement("div");
+  gl.className = "glowlayer";
+  gl.style.inset = `0px -${SPILL}px -${SPILL}px`;
+  hud.appendChild(gl);
+  const glCanvas = addCanvas(gl);
+  const store = {};
+  register(glCanvas, (ctx, w, h, t) => {
+    if (S.voiceVisual !== "Edge Glow") return;
+    drawGlow(ctx, w, h, t, S.glowPalette, rampValue(previewEpochAt, t), 14, 8, store);
+  });
+
+  const pOrb = document.createElement("div");
+  pOrb.style.cssText = "position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none";
+  pOrb.innerHTML = `<div class="orb" style="width:58px;height:58px"></div>`;
+  hud.appendChild(pOrb);
+  if (S.voiceVisual === "Edge Glow" && S.glowCenter === "Siri Orb") pOrb.style.display = "flex";
+
+  const replay = document.createElement("button");
+  replay.className = "btn";
+  replay.type = "button";
+  replay.textContent = "Replay reveal";
+  replay.style.cssText += "position:absolute;right:10px;bottom:10px;font-size:11px;padding:5px 9px";
+  replay.addEventListener("click", () => {
+    previewEpochAt = V.t;
+    if (reduceMotion) return;
+    const spec = REVEALS.find(r => r[0] === S.revealStyle);
+    hud.style.transformOrigin = "top center";
+    hud.animate(spec[3], { duration: spec[4], easing: spec[5], fill: "backwards" });
+  });
+  stage.appendChild(replay);
+  return wrap;
+}
+
+function syncGlobalsFromSettings(){
+  // keep the standalone Edge Glow stage in step with the mock
+  glowPalette = S.glowPalette;
+  glowCenter = S.glowCenter === "Particles" ? "particles" : S.glowCenter === "Siri Orb" ? "siriOrb" : "siriWave";
+  orb.style.display = glowCenter === "siriOrb" ? "flex" : "none";
+  for (const s of swatchHost.children) s.setAttribute("aria-pressed", String(s.textContent.trim() === S.glowPalette));
+  for (const c of document.getElementById("centerSeg").children)
+    c.setAttribute("aria-pressed", String(c.dataset.center === glowCenter));
+}
+function syncSettings(){
+  S.glowPalette = glowPalette;
+  S.glowCenter = glowCenter === "particles" ? "Particles" : glowCenter === "siriOrb" ? "Siri Orb" : "Siri Wave";
+  if (mockSection === "appearance" && S.voiceVisual === "Edge Glow") renderMock();
+}
+
+document.getElementById("mockNav").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  mockSection = b.dataset.sec;
+  for (const c of e.currentTarget.children) c.setAttribute("aria-pressed", String(c === b));
+  renderMock();
+});
+renderMock();
+
+/* ============================================================
+   Hero HUD — hangs off the top of the page like the screen edge
+   ============================================================ */
+const heroHud = buildHUD({ width: 420, notchH: 26, band: 54, fillet: 11 });
+document.getElementById("heroHud").appendChild(heroHud);
+const heroClip = document.createElement("div");
+heroClip.className = "clip";
+heroHud.appendChild(heroClip);
+const heroClipCanvas = addCanvas(heroClip);
+const heroParts = makeParticles();
+register(heroClipCanvas, (ctx, w, h, t) => {
+  if (V.alive) drawParticles(ctx, w, h, t, heroParts, "Spectrum", 1, 20, 11);
+});
+const heroGlow = document.createElement("div");
+heroGlow.className = "glowlayer";
+heroGlow.style.inset = `0px -${SPILL}px -${SPILL}px`;
+heroHud.appendChild(heroGlow);
+const heroGlowCanvas = addCanvas(heroGlow);
+const heroStore = {};
+register(heroGlowCanvas, (ctx, w, h, t) => drawGlow(ctx, w, h, t, "Spectrum", 1, 20, 11, heroStore));
+
+/* ============================================================
+   Voice mode switch
+   ============================================================ */
+const meterEl = document.getElementById("globalMeter");
+document.querySelector(".voicebar .seg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  V.mode = b.dataset.mode;
+  for (const c of e.currentTarget.children) c.setAttribute("aria-pressed", String(c === b));
+});
+
+/* orb approximation styles */
+const orbStyle = document.createElement("style");
+orbStyle.textContent = `
+.orb{width:74px;height:74px;border-radius:50%;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 50% 55%, #1b2340 0%, #05070f 78%);
+  box-shadow:0 0 26px rgba(120,150,255,.35), inset 0 0 20px rgba(140,170,255,.25)}
+.orb::before,.orb::after{content:"";position:absolute;inset:-22%;border-radius:50%;mix-blend-mode:screen;filter:blur(7px)}
+.orb::before{background:
+  radial-gradient(circle at 32% 30%, rgba(255,86,160,.9) 0 22%, transparent 55%),
+  radial-gradient(circle at 70% 34%, rgba(64,150,255,.9) 0 22%, transparent 55%);
+  animation:orbA 6s linear infinite}
+.orb::after{background:
+  radial-gradient(circle at 62% 72%, rgba(60,230,170,.85) 0 22%, transparent 55%),
+  radial-gradient(circle at 30% 68%, rgba(180,110,255,.85) 0 22%, transparent 55%);
+  animation:orbB 9s linear infinite}
+@keyframes orbA{to{transform:rotate(360deg)}}
+@keyframes orbB{to{transform:rotate(-360deg)}}`;
+document.head.appendChild(orbStyle);
+
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

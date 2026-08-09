@@ -4,7 +4,7 @@ import SwiftUI
 /// The Direct Dictation HUD surface: a NotchIsland-style shape that descends
 /// from the top center of the selected display. Non-activating and
 /// click-through; the host window is sized once per display and only its
-/// origin moves. Appearance and sounds follow AppSettings.
+/// origin moves. Each session keeps the settings captured at its start.
 @MainActor
 final class DictationHUDController {
     private static let messageDuration = Duration.seconds(2)
@@ -21,6 +21,8 @@ final class DictationHUDController {
     }
 
     private let settings: AppSettings
+    private var renderedSettings: DictationSessionSettings
+    private var sessionSettings: DictationSessionSettings
     private let panel: DictationHUDPanel
     private let hostingView: NSHostingView<DictationHUDShellView>
     private let content = DictationHUDContent()
@@ -32,8 +34,11 @@ final class DictationHUDController {
     private var micWatchdogTask: Task<Void, Never>?
 
     init(settings: AppSettings) {
+        let initialSettings = settings.sessionSettings
         self.settings = settings
-        sounds = DictationHUDSounds(settings: settings)
+        renderedSettings = initialSettings
+        sessionSettings = initialSettings
+        sounds = DictationHUDSounds()
         let placeholder = HUDScreenSnapshot(
             id: 0,
             frame: .zero,
@@ -44,7 +49,7 @@ final class DictationHUDController {
         hostingView = NSHostingView(
             rootView: DictationHUDShellView(
                 screen: placeholder,
-                settings: settings,
+                settings: initialSettings,
                 content: content
             )
         )
@@ -76,7 +81,7 @@ final class DictationHUDController {
     /// Played when finalized text lands in the target, after a finished
     /// session's insertion.
     func playPasteSound() {
-        sounds.playPaste()
+        sounds.playPaste(using: sessionSettings.soundSet)
     }
 
     func showMessage(_ text: String) {
@@ -85,19 +90,26 @@ final class DictationHUDController {
 
     func showMessage(_ text: String, on displayID: CGDirectDisplayID?) {
         guard let screen = selectScreen(targetDisplayID: displayID) else { return }
+        renderedSettings = settings.sessionSettings
         mode = .message
         stopVoiceVisual()
         present(text, on: screen)
         scheduleMessageDismiss()
     }
 
-    func showListening(on displayID: CGDirectDisplayID?, isLatched: Bool) {
+    func showListening(
+        on displayID: CGDirectDisplayID?,
+        isLatched: Bool,
+        settings: DictationSessionSettings
+    ) {
         guard let screen = selectScreen(targetDisplayID: displayID) else { return }
+        sessionSettings = settings
+        renderedSettings = settings
         cancelMessageDismiss()
         mode = .session
         startVoiceVisual()
         present(isLatched ? Self.latchedText : "Listening…", on: screen)
-        sounds.playBegin()
+        sounds.playBegin(using: settings.soundSet)
     }
 
     func showLatched() {
@@ -120,7 +132,7 @@ final class DictationHUDController {
         cancelMessageDismiss()
         stopVoiceVisual()
         if case .session = mode {
-            sounds.playEnd()
+            sounds.playEnd(using: sessionSettings.soundSet)
         }
         mode = .hidden
         content.isRevealed = false
@@ -157,7 +169,7 @@ final class DictationHUDController {
         content.text = text
         hostingView.rootView = DictationHUDShellView(
             screen: screen,
-            settings: settings,
+            settings: renderedSettings,
             content: content
         )
         panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)

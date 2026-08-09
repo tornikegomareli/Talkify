@@ -37,7 +37,7 @@ struct DictationHUDShellView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let screen: HUDScreenSnapshot
-    let settings: AppSettings
+    let settings: DictationSessionSettings
     let content: DictationHUDContent
 
     private var size: CGSize {
@@ -51,18 +51,35 @@ struct DictationHUDShellView: View {
     /// Reduce Motion always shows the quiet level meter in its slim band;
     /// otherwise both animated visuals get the tall band — the waveform fills
     /// it, the glow keeps it as an empty stage so the silhouette has flanks
-    /// for the light to wrap.
+    /// for the light to wrap. In the Shape live draft trades band for text:
+    /// the glow drops the band entirely (the beam wraps the text band), the
+    /// waveform compresses to the slim strip so strip + wrapped text still
+    /// fit the fixed window.
     private var visualBandHeight: CGFloat {
         guard content.showsVoiceVisual else { return 0 }
         if reduceMotion { return HUDNotchGeometry.visualBandHeight }
+        // Compact has no band of its own: its indicator lives inside the
+        // text band, beside the draft.
+        if settings.voiceVisual == .compact { return 0 }
         return HUDNotchGeometry.waveBandHeight
     }
 
-    /// Any animated visual replaces the draft text entirely while listening;
-    /// with Reduce Motion the draft text always shows.
+    /// Waveform and Edge Glow replace the draft text entirely while
+    /// listening; Compact is built around it. With Reduce Motion the draft
+    /// text always shows.
     private var showsTextBand: Bool {
-        !(content.showsVoiceVisual && !reduceMotion)
+        if !content.showsVoiceVisual || reduceMotion { return true }
+        return settings.voiceVisual == .compact
     }
+
+    /// Whether the text band renders the Compact layout: the voice indicator
+    /// beside a leading-aligned draft. Not gated on the listening state —
+    /// swapping the band's structure at finalize reads as a glitch mid
+    /// retract, so the layout stays and the indicator settles instead.
+    private var showsCompactBand: Bool {
+        settings.voiceVisual == .compact && !reduceMotion
+    }
+
 
     private var filletSize: CGFloat {
         HUDNotchGeometry.filletSize(for: screen)
@@ -88,13 +105,8 @@ struct DictationHUDShellView: View {
                         HUDLevelMeterView(content: content)
                     } else if settings.voiceVisual == .waveform {
                         HUDWaveformView(settings: settings, content: content)
-                    } else if settings.glowCenter == .siriWave {
-                        // Edge Glow with the Siri wave center: the wave
-                        // takes the band inside the sweeping beam.
-                        HUDSiriWaveView(content: content)
-                            .padding(.vertical, 6)
                     } else {
-                        // Edge Glow: the other centers (particles, orb) are
+                        // Edge Glow: the centers (particles, orb) are
                         // shape-wide overlays, so the band is an empty stage.
                         Color.clear
                     }
@@ -180,14 +192,49 @@ struct DictationHUDShellView: View {
         }
     }
 
-    /// Draft text lives in the band below the housing.
+    /// Draft text lives in the band below the housing. Compact puts its
+    /// voice indicator on the leading side, Dynamic Island-style, with the
+    /// draft leading-aligned beside it; the other visuals center the draft.
+    @ViewBuilder
     private var textBand: some View {
-        draftText
-            .font(.system(size: 15, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 9)
-            .frame(minHeight: HUDNotchGeometry.textBandHeight)
+        Group {
+            if showsCompactBand {
+                HStack(alignment: .top, spacing: 10) {
+                    HUDCompactIndicatorView(content: content)
+                        .padding(.top, 3)
+                    compactDraftText
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                draftText
+            }
+        }
+        .font(.system(size: 15, weight: .medium))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 9)
+        .frame(minHeight: HUDNotchGeometry.textBandHeight)
+    }
+
+    /// The Compact draft: the same long-draft semantics, leading-aligned so
+    /// the text hangs off the indicator instead of floating centered.
+    @ViewBuilder
+    private var compactDraftText: some View {
+        switch settings.longDraftStyle {
+        case .tailOnly:
+            Text(content.text)
+                .lineLimit(1)
+                .truncationMode(.head)
+        case .growDown:
+            Text(content.text)
+                .lineLimit(4)
+                .multilineTextAlignment(.leading)
+        case .shrinkToFit:
+            Text(content.text)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .minimumScaleFactor(0.55)
+        }
     }
 
     /// The single-line variants truncate the head — the newest words are what
@@ -252,7 +299,11 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var particleCloud: some View {
         if !reduceMotion, settings.voiceVisual == .glow, settings.glowCenter == .particles {
-            HUDParticleCloudView(content: content, settings: settings)
+            HUDParticleCloudView(
+                content: content,
+                settings: settings,
+                topFilletRadius: filletSize
+            )
                 .clipShape(housingShape)
         }
     }
@@ -279,7 +330,11 @@ struct DictationHUDShellView: View {
     @ViewBuilder
     private var edgeGlow: some View {
         if !reduceMotion, settings.voiceVisual == .glow {
-            HUDEdgeGlowView(content: content, settings: settings)
+            HUDEdgeGlowView(
+                content: content,
+                settings: settings,
+                topFilletRadius: filletSize
+            )
         }
     }
 
@@ -317,3 +372,4 @@ struct DictationHUDShellView: View {
 #Preview("Message · simulated notch") {
     HUDShellPreviewHarness(screen: HUDPreviewScreen.external, text: "Secure field")
 }
+

@@ -52,7 +52,11 @@ struct HUDShellPreviewHarness: View {
     @State private var content = DictationHUDContent()
 
     var body: some View {
-        DictationHUDShellView(screen: screen, settings: settings, content: content)
+        DictationHUDShellView(
+            screen: screen,
+            settings: settings.sessionSettings,
+            content: content
+        )
             .frame(width: 700, height: 280, alignment: .top)
             .background { HUDPreviewScreen.wallpaper }
             .task {

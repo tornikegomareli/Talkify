@@ -117,4 +117,25 @@ struct HUDNotchGeometryTests {
         #expect(HUDNotchGeometry.filletSize(for: notched) > 0)
         #expect(HUDNotchGeometry.filletSize(for: external) == 0)
     }
+
+    @Test func glowSweepFollowsHousingFillets() {
+        let size = CGSize(width: 600, height: 120)
+        let start = HUDGlowSilhouetteShape.point(
+            atArcFraction: 0,
+            cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+            topFilletRadius: HUDNotchGeometry.filletSize(for: notched),
+            inset: 28,
+            in: size
+        )
+        let end = HUDGlowSilhouetteShape.point(
+            atArcFraction: 1,
+            cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+            topFilletRadius: HUDNotchGeometry.filletSize(for: notched),
+            inset: 28,
+            in: size
+        )
+
+        #expect(start == CGPoint(x: 17, y: 0))
+        #expect(end == CGPoint(x: 583, y: 0))
+    }
 }

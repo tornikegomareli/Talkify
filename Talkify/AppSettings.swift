@@ -70,3 +70,32 @@ final class AppSettings {
         defaults.string(forKey: key).flatMap { Value(rawValue: $0) }
     }
 }
+
+/// The preferences captured when Direct Dictation starts. A session keeps
+/// this value until its end and paste sounds have played.
+struct DictationSessionSettings: Equatable {
+    let soundSet: DictationSoundSet
+    let voiceVisual: HUDVoiceVisualStyle
+    let waveformStyle: HUDWaveformStyle
+    let revealStyle: HUDRevealStyle
+    let longDraftStyle: HUDLongDraftStyle
+    let glowPalette: HUDGlowPalette
+    let glowCenter: HUDGlowCenterStyle
+
+    @MainActor
+    init(settings: AppSettings) {
+        soundSet = settings.soundSet
+        voiceVisual = settings.voiceVisual
+        waveformStyle = settings.waveformStyle
+        revealStyle = settings.revealStyle
+        longDraftStyle = settings.longDraftStyle
+        glowPalette = settings.glowPalette
+        glowCenter = settings.glowCenter
+    }
+}
+
+extension AppSettings {
+    var sessionSettings: DictationSessionSettings {
+        DictationSessionSettings(settings: self)
+    }
+}

@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hudController: DictationHUDController?
     private var dictationController: DirectDictationController?
     private var settingsWindowController: SettingsWindowController?
+    private let settingsRuntimeState = SettingsRuntimeState()
 
     static func main() {
         let application = NSApplication.shared
@@ -20,7 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = AppSettings()
         self.settings = settings
         let hudController = DictationHUDController(settings: settings)
-        let dictationController = DirectDictationController(hudController: hudController)
+        let dictationController = DirectDictationController(
+            settings: settings,
+            hudController: hudController
+        )
         self.hudController = hudController
         self.dictationController = dictationController
 
@@ -30,8 +34,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.statusItemController = statusItemController
 
-        dictationController.onRecordingStateChange = { [weak statusItemController] isRecording in
+        dictationController.onRecordingStateChange = {
+            [weak statusItemController, weak settingsRuntimeState] isRecording in
             statusItemController?.setRecording(isRecording)
+            settingsRuntimeState?.isDictating = isRecording
         }
 
         // Requests permissions and prepares the selected Speech Model
@@ -48,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindowController == nil {
             settingsWindowController = SettingsWindowController(
                 settings: settings,
-                sounds: DictationHUDSounds(settings: settings)
+                sounds: DictationHUDSounds(),
+                runtimeState: settingsRuntimeState
             )
         }
         settingsWindowController?.show()

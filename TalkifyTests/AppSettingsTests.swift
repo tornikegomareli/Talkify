@@ -62,4 +62,25 @@ struct AppSettingsTests {
         #expect(settings.soundSet == .synth8)
         #expect(settings.voiceVisual == .waveform)
     }
+
+    @Test func sessionSnapshotDoesNotChangeWithStoredSettings() {
+        let settings = AppSettings(defaults: freshDefaults())
+        let snapshot = settings.sessionSettings
+
+        settings.soundSet = .chime
+        settings.voiceVisual = .glow
+        settings.waveformStyle = .dots
+        settings.revealStyle = .bloom
+        settings.longDraftStyle = .tailOnly
+        settings.glowPalette = .aurora
+        settings.glowCenter = .siriOrb
+
+        #expect(snapshot.soundSet == .synth8)
+        #expect(snapshot.voiceVisual == .waveform)
+        #expect(snapshot.waveformStyle == .chartLine)
+        #expect(snapshot.revealStyle == .slide)
+        #expect(snapshot.longDraftStyle == .growDown)
+        #expect(snapshot.glowPalette == .spectrum)
+        #expect(snapshot.glowCenter == .particles)
+    }
 }

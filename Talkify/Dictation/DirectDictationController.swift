@@ -25,6 +25,7 @@ final class DirectDictationController {
     private static let tapThreshold = Duration.milliseconds(250)
     private static let noSpeechTimeout = Duration.seconds(15)
 
+    private let settings: AppSettings
     private let speechService = SpeechRecognitionService()
     private let hudController: DictationHUDController
     private let textInsertionService = TextInsertionService()
@@ -41,7 +42,8 @@ final class DirectDictationController {
     private var isPrepared = false
     private var preparationFailureMessage: String?
 
-    init(hudController: DictationHUDController) {
+    init(settings: AppSettings, hudController: DictationHUDController) {
+        self.settings = settings
         self.hudController = hudController
         triggerMonitor = DictationTriggerMonitor { [weak self] event in
             Task { @MainActor [weak self] in
@@ -196,7 +198,12 @@ final class DirectDictationController {
         finishWhenStarted = false
         cancelWhenStarted = false
         triggerMonitor?.setEscapeCaptureEnabled(true)
-        hudController.showListening(on: target?.displayID, isLatched: gesture.isLatched)
+        let sessionSettings = settings.sessionSettings
+        hudController.showListening(
+            on: target?.displayID,
+            isLatched: gesture.isLatched,
+            settings: sessionSettings
+        )
         onRecordingStateChange?(true)
 
         sessionStartTask = Task { [weak self] in

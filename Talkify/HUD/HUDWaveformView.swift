@@ -7,7 +7,7 @@ import SwiftUI
 struct HUDWaveformView: View {
     static let barCount = 56
 
-    let settings: AppSettings
+    let settings: DictationSessionSettings
     let content: DictationHUDContent
 
     @State private var start = Date()
