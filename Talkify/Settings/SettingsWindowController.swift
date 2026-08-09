@@ -19,7 +19,8 @@ final class SettingsWindowController: NSWindowController {
     convenience init(
         settings: AppSettings,
         sounds: DictationHUDSounds,
-        runtimeState: SettingsRuntimeState
+        runtimeState: SettingsRuntimeState,
+        usageTracker: UsageTracker
     ) {
         let window = TalkifySettingsWindow(
             contentRect: NSRect(origin: .zero, size: Self.windowSize),
@@ -32,6 +33,7 @@ final class SettingsWindowController: NSWindowController {
                 settings: settings,
                 sounds: sounds,
                 runtimeState: runtimeState,
+                usageTracker: usageTracker,
                 onClose: { [weak window] in window?.close() }
             )
         )

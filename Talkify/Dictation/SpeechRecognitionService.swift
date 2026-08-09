@@ -12,6 +12,29 @@ actor SpeechRecognitionService {
         }
     }
 
+    struct ResultAccumulator {
+        private(set) var finalizedText = ""
+        private(set) var volatileText = ""
+
+        mutating func receive(_ text: String, isFinal: Bool) -> Update {
+            if isFinal {
+                finalizedText += text
+                volatileText = ""
+            } else {
+                volatileText = text
+            }
+
+            return Update(
+                finalizedText: finalizedText,
+                volatileText: volatileText
+            )
+        }
+
+        var completedText: String {
+            finalizedText + volatileText
+        }
+    }
+
     enum RecognitionError: LocalizedError, Sendable {
         case unavailable
         case unsupportedLocale
@@ -76,19 +99,14 @@ actor SpeechRecognitionService {
         )
 
         let resultTask = Task { () throws -> String in
-            var finalizedText = ""
+            var accumulator = ResultAccumulator()
 
             for try await result in prepared.transcriber.results {
                 let text = String(result.text.characters)
-                if result.isFinal {
-                    finalizedText += text
-                    updateHandler(Update(finalizedText: finalizedText, volatileText: ""))
-                } else {
-                    updateHandler(Update(finalizedText: finalizedText, volatileText: text))
-                }
+                updateHandler(accumulator.receive(text, isFinal: result.isFinal))
             }
 
-            return finalizedText
+            return accumulator.completedText
         }
 
         let input = MicrophoneInput(

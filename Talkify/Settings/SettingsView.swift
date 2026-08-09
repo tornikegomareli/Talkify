@@ -26,6 +26,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 enum SettingsSection: String, CaseIterable, Identifiable {
     case appearance
     case sounds
+    case insights
 
     var id: Self { self }
     var group: SettingsSectionGroup { .settings }
@@ -34,6 +35,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Appearance"
         case .sounds: "Sounds"
+        case .insights: "Insights"
         }
     }
 
@@ -41,6 +43,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Customize the Direct Dictation HUD"
         case .sounds: "Choose and preview Direct Dictation sounds"
+        case .insights: "Review your local Direct Dictation activity"
         }
     }
 
@@ -48,16 +51,18 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "sparkles"
         case .sounds: "waveform"
+        case .insights: "chart.bar.xaxis"
         }
     }
 }
 
-/// The fixed Settings surface. Preferences persist immediately through
-/// AppSettings, while active Direct Dictation sessions keep their snapshot.
+/// The fixed Settings surface. Preferences persist through AppSettings,
+/// active sessions keep their snapshot, and Insights reads aggregate usage.
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let sounds: DictationHUDSounds
     let runtimeState: SettingsRuntimeState
+    let usageTracker: UsageTracker
     let onClose: () -> Void
 
     @Environment(\.colorSchemeContrast) private var contrast
@@ -77,7 +82,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             SettingsHeader(onClose: onClose)
 
-            if runtimeState.isDictating {
+            if runtimeState.isDictating && selectedSection != .insights {
                 ActiveSessionNotice()
             }
 
@@ -92,7 +97,8 @@ struct SettingsView: View {
                     SettingsContent(
                         section: selectedSection,
                         settings: settings,
-                        sounds: sounds
+                        sounds: sounds,
+                        usageTracker: usageTracker
                     )
                     .id(selectedSection)
                     .transition(.opacity)
@@ -268,6 +274,7 @@ private struct SettingsContent: View {
     let section: SettingsSection
     @Bindable var settings: AppSettings
     let sounds: DictationHUDSounds
+    let usageTracker: UsageTracker
 
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -287,6 +294,8 @@ private struct SettingsContent: View {
                     AppearanceSettings(settings: settings)
                 case .sounds:
                     SoundsSettings(settings: settings, sounds: sounds)
+                case .insights:
+                    InsightsSettings(tracker: usageTracker)
                 }
             }
             .frame(maxWidth: 620, alignment: .leading)
@@ -685,7 +694,7 @@ private final class SettingsWindowDragView: NSView {
     }
 }
 
-private enum SettingsTheme {
+enum SettingsTheme {
     static let background = Color(red: 0.025, green: 0.027, blue: 0.035)
     static let sidebar = Color(red: 0.035, green: 0.038, blue: 0.049)
     static let card = Color(red: 0.065, green: 0.069, blue: 0.087)
@@ -698,6 +707,10 @@ private enum SettingsTheme {
         settings: settings,
         sounds: DictationHUDSounds(),
         runtimeState: SettingsRuntimeState(),
+        usageTracker: UsageTracker(store: UsageStore(
+            fileURL: FileManager.default.temporaryDirectory
+                .appending(path: "TalkifySettingsPreview-usage.json")
+        )),
         onClose: {}
     )
 }

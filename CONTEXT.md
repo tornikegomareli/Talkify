@@ -62,6 +62,10 @@ _Avoid_: Mock preview, static screenshot
 An immutable snapshot of all Appearance and Sounds preferences captured when Direct Dictation starts.
 _Avoid_: Draft settings, temporary preferences
 
+**Insights**:
+A local Settings section that summarizes aggregate **Direct Dictation** activity.
+_Avoid_: Transcript history, cloud analytics
+
 ## Relationships
 
 - Pressing the **Dictation Trigger** starts **Direct Dictation** immediately
@@ -71,9 +75,9 @@ _Avoid_: Draft settings, temporary preferences
 - A quick tap leaves **Direct Dictation** active until the next trigger press
 - The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
 - The HUD renders volatile recognition results immediately
-- **Direct Dictation** inserts only finalized recognition results
+- **Direct Dictation** inserts finalized recognition text plus the latest volatile result when recognition ends before finalizing it
 - The **Direct Dictation** HUD expands from the physical notch on the focused input's display
-- The first Settings menu exposes only the **Appearance** and **Sounds** sections
+- Settings exposes **Appearance**, **Sounds**, and **Insights** in that order
 - The Settings navigation supports labeled groups, but renders no empty or disabled sections
 - A new Settings section appears only after its underlying preferences and behavior exist
 - If the focused input's display is unknown, the HUD uses the display containing the pointer
@@ -98,7 +102,7 @@ _Avoid_: Draft settings, temporary preferences
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
 - A detached child pill under the island (the uni-pills goo bubble) was prototyped as a third placement and rejected by feel: a second detached surface does not fit the single-shape design
 - Reduce Motion overrides every live draft placement with the plain text band and quiet level meter
-- `AppSettings` is the only persisted source of truth; the Dictation controller creates Dictation session settings for the HUD at session start
+- `AppSettings` is the only persisted source of truth for preferences; the Dictation controller creates Dictation session settings for the HUD at session start
 - Future Settings sections are registered in code with stable typed IDs, group metadata, backing behavior, and tests; remote or plugin-defined sections are out of scope
 - Appearance shows the live preview first, then the Voice visual and Motion and layout groups
 - The Talkify Settings window is dark-only; system accessibility settings still override contrast and motion treatment
@@ -112,7 +116,7 @@ _Avoid_: Draft settings, temporary preferences
 - Development Settings exposes every implemented sound set, including Pop; the production picker excludes non-shippable sets before publishing
 - Incomplete sound sets are hidden from Settings; an unavailable selected set disables preview and cannot be persisted
 - The first Appearance and Sounds release has no reset control; reset becomes a confirmed section-level action after more settings exist
-- Future Analytics belongs to a top-level product screen, separate from Settings, matching Wispr Flow's Insights boundary
+- **Insights** appears directly below **Sounds** in Settings and has no separate menu-bar entry or window
 - Settings appears as a centered modal surface with custom dark glass content instead of a standard titled window
 - Settings closes through its explicit close control or Escape; clicking outside the modal does not dismiss it
 - Settings uses a fixed-size surface with internal scrolling rather than user resizing
@@ -158,7 +162,11 @@ _Avoid_: Draft settings, temporary preferences
 - Clipboard paste restores the previous clipboard after the target application consumes the paste event
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
-- Talkify persists only application settings; macOS manages permission state
+- Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
+- **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count
+- **Insights** never stores recognized text or target application identifiers
+- A completed **Direct Dictation** session with nonempty inserted text updates **Insights**
+- **Insights** shows words, sessions, speaking time, weighted words per minute, Voice Momentum, 14-day activity, streaks, and a 16-week heatmap
 - Settings lets the user choose the session sounds, the voice-reactive visual, the waveform style, and the edge glow's color palette
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
 - Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
@@ -211,7 +219,7 @@ _Avoid_: Draft settings, temporary preferences
 - The Settings surface uses a 16-point continuous radius, a one-pixel low-opacity border, and a soft shadow
 - Settings may open during Direct Dictation; the active session remains on its captured settings and changes apply next session
 - While Direct Dictation is active, Settings shows a small contextual notice that changes apply to the next session; idle Settings has no notice
-- The active-session notice sits under the modal header, applies to every Settings section, and disappears when the session ends without dismissal UI
+- The active-session notice sits under the modal header on Appearance and Sounds, and disappears when the session ends without dismissal UI
 - The active-session notice text is: “Changes apply to the next Direct Dictation session.”
 - Sounds Preview disables itself while the Begin/End pair plays so repeated clicks cannot overlap playback
 - Sounds Preview waits for the selected Begin sound's actual duration before playing End

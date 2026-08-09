@@ -29,6 +29,7 @@ final class DirectDictationController {
     private let speechService = SpeechRecognitionService()
     private let hudController: DictationHUDController
     private let textInsertionService = TextInsertionService()
+    private let usageTracker: UsageTracker
 
     private var triggerMonitor: DictationTriggerMonitor?
     private var state = State.idle
@@ -41,10 +42,16 @@ final class DirectDictationController {
     private var cancelWhenStarted = false
     private var isPrepared = false
     private var preparationFailureMessage: String?
+    private var recordingStartedAt: ContinuousClock.Instant?
 
-    init(settings: AppSettings, hudController: DictationHUDController) {
+    init(
+        settings: AppSettings,
+        hudController: DictationHUDController,
+        usageTracker: UsageTracker
+    ) {
         self.settings = settings
         self.hudController = hudController
+        self.usageTracker = usageTracker
         triggerMonitor = DictationTriggerMonitor { [weak self] event in
             Task { @MainActor [weak self] in
                 self?.handle(event)
@@ -257,6 +264,7 @@ final class DirectDictationController {
         switch state {
         case let .starting(gesture):
             state = .recording(gesture)
+            recordingStartedAt = .now
             startNoSpeechTimer()
             if finishWhenStarted {
                 requestFinish()
@@ -295,6 +303,9 @@ final class DirectDictationController {
 
     private func finishSession() {
         guard case .recording = state else { return }
+        let speakingDuration = recordingStartedAt.map {
+            Self.timeInterval(for: $0.duration(to: .now))
+        } ?? 0
         state = .finishing
         stopNoSpeechTimer()
         triggerMonitor?.setEscapeCaptureEnabled(false)
@@ -308,6 +319,11 @@ final class DirectDictationController {
                 await textInsertionService.insert(text, into: focusedTarget)
                 hudController.playPasteSound()
                 resetSession()
+                let wordCount = UsageMetrics.wordCount(in: text)
+                await usageTracker.recordSession(
+                    wordCount: wordCount,
+                    speakingDuration: speakingDuration
+                )
             } catch {
                 failSession(message: error.localizedDescription)
             }
@@ -380,6 +396,7 @@ final class DirectDictationController {
         finishWhenStarted = false
         cancelWhenStarted = false
         sessionStartTask = nil
+        recordingStartedAt = nil
         triggerMonitor?.setEscapeCaptureEnabled(false)
         onRecordingStateChange?(false)
     }
@@ -404,5 +421,10 @@ final class DirectDictationController {
         case .starting, .recording, .finishing, .cancelling:
             true
         }
+    }
+
+    private static func timeInterval(for duration: Duration) -> TimeInterval {
+        let components = duration.components
+        return Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }

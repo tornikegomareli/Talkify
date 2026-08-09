@@ -9,7 +9,11 @@ struct SettingsWindowTests {
         let controller = SettingsWindowController(
             settings: settings,
             sounds: DictationHUDSounds(),
-            runtimeState: SettingsRuntimeState()
+            runtimeState: SettingsRuntimeState(),
+            usageTracker: UsageTracker(store: UsageStore(
+                fileURL: FileManager.default.temporaryDirectory
+                    .appending(path: "TalkifySettingsWindowTests-" + UUID().uuidString + ".json")
+            ))
         )
         let window = try #require(controller.window)
         #expect(window.title == "Talkify Settings")
@@ -23,8 +27,8 @@ struct SettingsWindowTests {
     }
 
     @Test func settingsSectionsStayFocusedOnImplementedFeatures() {
-        #expect(SettingsSection.allCases == [.appearance, .sounds])
-        #expect(SettingsSectionGroup.settings.sections == [.appearance, .sounds])
+        #expect(SettingsSection.allCases == [.appearance, .sounds, .insights])
+        #expect(SettingsSectionGroup.settings.sections == [.appearance, .sounds, .insights])
     }
 
     @Test func appearanceOptionsFollowTheSelectedVisual() {

@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hudController: DictationHUDController?
     private var dictationController: DirectDictationController?
     private var settingsWindowController: SettingsWindowController?
+    private var usageTracker: UsageTracker?
     private let settingsRuntimeState = SettingsRuntimeState()
 
     static func main() {
@@ -21,12 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = AppSettings()
         self.settings = settings
         let hudController = DictationHUDController(settings: settings)
+        let usageTracker = UsageTracker()
         let dictationController = DirectDictationController(
             settings: settings,
-            hudController: hudController
+            hudController: hudController,
+            usageTracker: usageTracker
         )
         self.hudController = hudController
         self.dictationController = dictationController
+        self.usageTracker = usageTracker
 
         let statusItemController = StatusItemController(
             toggleDictation: { dictationController.toggleFromMenu() },
@@ -50,12 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSettings() {
-        guard let settings else { return }
+        guard let settings, let usageTracker else { return }
         if settingsWindowController == nil {
             settingsWindowController = SettingsWindowController(
                 settings: settings,
                 sounds: DictationHUDSounds(),
-                runtimeState: settingsRuntimeState
+                runtimeState: settingsRuntimeState,
+                usageTracker: usageTracker
             )
         }
         settingsWindowController?.show()
