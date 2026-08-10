@@ -96,6 +96,11 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 
 `CONTEXT.md` is the domain rulebook; decisions live in `docs/adr/`. Code style: 2-space indentation, enforced by `.editorconfig`.
 
+## Roadmap
+
+- **Live Captions & Meeting Transcripts** — ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
+- **Text cleanup** — optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
+
 ## Contributing
 
 PRs welcome. `main` is protected — changes come in through a pull request with green CI (build + full test suite on macOS). Read `CONTEXT.md` first: its terminology is binding, and a few visuals are feel-tested picks that shouldn't be "fixed" casually.
