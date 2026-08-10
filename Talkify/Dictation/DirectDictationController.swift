@@ -1,32 +1,17 @@
 import AppKit
 
+/// The impure half of Direct Dictation: owns the services, translates
+/// trigger-monitor events into DictationSessionMachine actions, runs the
+/// begin guards, and executes the machine's effects. Every state transition
+/// lives in the machine; async completions come back to it as new actions.
 @MainActor
 final class DirectDictationController {
     var onRecordingStateChange: ((Bool) -> Void)?
-    /// Fired by the Read Aloud shortcut (Option+Escape), only while no
-    /// dictation session is active — speaking through the microphone's
-    /// speaker path mid-dictation would feed the recognizer its own audio.
+    /// Fired by the Read Aloud shortcut, only while no dictation session is
+    /// active — speaking through the speaker path mid-dictation would feed
+    /// the recognizer its own audio.
     var onReadAloudTriggered: (() -> Void)?
 
-    private enum Gesture {
-        case held(startedAt: ContinuousClock.Instant)
-        case latched
-
-        var isLatched: Bool {
-            if case .latched = self { return true }
-            return false
-        }
-    }
-
-    private enum State {
-        case idle
-        case starting(Gesture)
-        case recording(Gesture)
-        case finishing
-        case cancelling
-    }
-
-    private static let tapThreshold = Duration.milliseconds(250)
     private static let noSpeechTimeout = Duration.seconds(15)
 
     private let settings: AppSettings
@@ -36,17 +21,13 @@ final class DirectDictationController {
     private let usageTracker: UsageTracker
 
     private var triggerMonitor: DictationTriggerMonitor?
-    private var state = State.idle
+    private var machine = DictationSessionMachine()
     private var focusedTarget: TextInsertionService.Target?
     private var noSpeechTask: Task<Void, Never>?
     private var permissionTask: Task<Void, Never>?
     private var sessionStartTask: Task<Void, Never>?
-    private var hasSpeech = false
-    private var finishWhenStarted = false
-    private var cancelWhenStarted = false
     private var isPrepared = false
     private var preparationFailureMessage: String?
-    private var recordingStartedAt: ContinuousClock.Instant?
 
     init(
         settings: AppSettings,
@@ -91,14 +72,7 @@ final class DirectDictationController {
     }
 
     func toggleFromMenu() {
-        switch state {
-        case .idle:
-            beginSession(gesture: .latched)
-        case .starting, .recording:
-            requestFinish()
-        case .finishing, .cancelling:
-            break
-        }
+        send(.menuToggled(now: .now))
     }
 
     func requestPermissionsAndPrepare() {
@@ -148,90 +122,116 @@ final class DirectDictationController {
         }
     }
 
+    // MARK: - Actions in
+
     private func handle(_ event: DictationTriggerMonitor.Event) {
         switch event {
         case .triggerPressed:
-            triggerPressed()
+            send(.triggerPressed(now: .now))
         case .triggerReleased:
-            triggerReleased()
+            send(.triggerReleased(now: .now))
         case .cancelPressed:
-            cancelSession()
+            send(.escapePressed)
         case .readAloudPressed:
-            if case .idle = state {
-                onReadAloudTriggered?()
+            send(.readAloudPressed)
+        }
+    }
+
+    private func send(_ action: DictationSessionMachine.Action) {
+        perform(machine.reduce(action))
+    }
+
+    // MARK: - Effects out
+
+    private func perform(_ effects: [DictationSessionMachine.Effect]) {
+        for effect in effects {
+            perform(effect)
+        }
+    }
+
+    private func perform(_ effect: DictationSessionMachine.Effect) {
+        switch effect {
+        case .checkAndBegin:
+            checkAndBegin()
+        case .beginRecognition:
+            beginRecognition()
+        case let .finishRecognition(speakingDuration):
+            finishRecognition(speakingDuration: speakingDuration)
+        case .cancelRecognition:
+            Task { [weak self] in
+                guard let self else { return }
+                await speechService.cancel()
+                send(.sessionEnded)
             }
-        }
-    }
-
-    private func triggerPressed() {
-        switch state {
-        case .idle:
-            beginSession(gesture: .held(startedAt: .now))
-        case .starting(.latched), .recording(.latched):
-            requestFinish()
-        case .starting(.held), .recording(.held), .finishing, .cancelling:
-            break
-        }
-    }
-
-    private func triggerReleased() {
-        switch state {
-        case let .starting(.held(startedAt)):
-            updateReleasedGesture(startedAt: startedAt, isStarting: true)
-        case let .recording(.held(startedAt)):
-            updateReleasedGesture(startedAt: startedAt, isStarting: false)
-        case .idle, .starting(.latched), .recording(.latched), .finishing, .cancelling:
-            break
-        }
-    }
-
-    private func updateReleasedGesture(
-        startedAt: ContinuousClock.Instant,
-        isStarting: Bool
-    ) {
-        let elapsed = startedAt.duration(to: .now)
-        if elapsed < Self.tapThreshold {
-            state = isStarting ? .starting(.latched) : .recording(.latched)
+        case .cancelStartTask:
+            sessionStartTask?.cancel()
+        case let .setEscapeCapture(enabled):
+            triggerMonitor?.setEscapeCaptureEnabled(enabled)
+        case .startNoSpeechTimer:
+            startNoSpeechTimer()
+        case .stopNoSpeechTimer:
+            stopNoSpeechTimer()
+        case let .showListening(latched):
+            hudController.showListening(
+                on: focusedTarget?.displayID,
+                isLatched: latched,
+                settings: settings.sessionSettings
+            )
+        case .showLatched:
             hudController.showLatched()
-        } else {
-            requestFinish()
+        case .showLiveText:
+            if let liveText {
+                hudController.showLiveText(liveText)
+            }
+        case .showFinalizing:
+            hudController.showFinalizing()
+        case .hideHUD:
+            hudController.hide()
+        case let .notifyRecording(isRecording):
+            if !isRecording {
+                focusedTarget = nil
+                sessionStartTask = nil
+            }
+            onRecordingStateChange?(isRecording)
+        case .triggerReadAloud:
+            onReadAloudTriggered?()
         }
     }
 
-    private func beginSession(gesture: Gesture) {
-        guard case .idle = state else { return }
+    /// The text carried alongside the current `updateReceived` action; the
+    /// machine decides whether it shows, the controller remembers what.
+    private var liveText: String?
 
+    // MARK: - Begin guards (the machine's checkAndBegin effect)
+
+    private func checkAndBegin() {
         guard isPrepared else {
             hudController.showMessage(preparationFailureMessage ?? "Preparing speech…")
+            send(.beginRejected)
             return
         }
 
         if !PermissionService.hasAccessibilityAccess {
             PermissionService.requestAccessibilityAccess()
             hudController.showMessage("Accessibility permission required")
+            send(.beginRejected)
             return
         }
 
         let target = textInsertionService.captureFocusedTarget()
         if target?.isSecure == true {
             hudController.showMessage("Secure field", on: target?.displayID)
+            send(.beginRejected)
             return
         }
 
-        state = .starting(gesture)
         focusedTarget = target
-        hasSpeech = false
-        finishWhenStarted = false
-        cancelWhenStarted = false
-        triggerMonitor?.setEscapeCaptureEnabled(true)
-        let sessionSettings = settings.sessionSettings
-        hudController.showListening(
-            on: target?.displayID,
-            isLatched: gesture.isLatched,
-            settings: sessionSettings
-        )
-        onRecordingStateChange?(true)
+        send(.beginApproved)
+    }
 
+    // MARK: - Recognition plumbing
+
+    private func beginRecognition() {
         sessionStartTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -243,7 +243,7 @@ final class DirectDictationController {
                     },
                     failureHandler: { [weak self] message in
                         Task { @MainActor [weak self] in
-                            self?.failSession(message: message)
+                            self?.fail(message: message, wasCancelled: false)
                         }
                     },
                     levelHandler: { [weak self] level in
@@ -254,82 +254,33 @@ final class DirectDictationController {
                 )
                 guard !Task.isCancelled else {
                     await speechService.cancel()
-                    resetSession()
+                    send(.sessionEnded)
                     return
                 }
                 sessionStartTask = nil
-                recognitionDidStart()
+                send(.recognitionStarted(now: .now))
             } catch {
                 sessionStartTask = nil
-                if Task.isCancelled || cancelWhenStarted {
-                    resetSession()
-                    return
+                if Task.isCancelled {
+                    send(.recognitionFailed(wasCancelled: true))
+                } else {
+                    fail(message: error.localizedDescription, wasCancelled: false)
                 }
-                failSession(message: error.localizedDescription)
             }
-        }
-    }
-
-    private func recognitionDidStart() {
-        if cancelWhenStarted {
-            Task { [weak self] in
-                guard let self else { return }
-                await speechService.cancel()
-                resetSession()
-            }
-            return
-        }
-
-        switch state {
-        case let .starting(gesture):
-            state = .recording(gesture)
-            recordingStartedAt = .now
-            startNoSpeechTimer()
-            if finishWhenStarted {
-                requestFinish()
-            }
-        case .idle, .recording, .finishing, .cancelling:
-            break
         }
     }
 
     private func receive(_ update: SpeechRecognitionService.Update) {
-        guard isSessionActive else { return }
-
         let displayText = update.displayText
-        if !displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            hasSpeech = true
-            noSpeechTask?.cancel()
-            noSpeechTask = nil
-        }
-
-        // The recognizer emits its final results while the session finishes;
-        // the band already says "Finalizing…" and must not flash the draft.
-        if case .finishing = state { return }
-        hudController.showLiveText(displayText)
+        let hasVisibleText = !displayText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        liveText = displayText
+        send(.updateReceived(hasVisibleText: hasVisibleText))
+        liveText = nil
     }
 
-    private func requestFinish() {
-        switch state {
-        case .starting:
-            finishWhenStarted = true
-        case .recording:
-            finishSession()
-        case .idle, .finishing, .cancelling:
-            break
-        }
-    }
-
-    private func finishSession() {
-        guard case .recording = state else { return }
-        let speakingDuration = recordingStartedAt.map {
-            Self.timeInterval(for: $0.duration(to: .now))
-        } ?? 0
-        state = .finishing
-        stopNoSpeechTimer()
-        triggerMonitor?.setEscapeCaptureEnabled(false)
-        hudController.showFinalizing()
-
+    private func finishRecognition(speakingDuration: TimeInterval) {
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -337,87 +288,54 @@ final class DirectDictationController {
                 hudController.hide()
                 await textInsertionService.insert(text, into: focusedTarget)
                 hudController.playPasteSound()
-                resetSession()
+                send(.sessionEnded)
                 let wordCount = UsageMetrics.wordCount(in: text)
                 await usageTracker.recordSession(
                     wordCount: wordCount,
                     speakingDuration: speakingDuration
                 )
             } catch {
-                failSession(message: error.localizedDescription)
+                fail(message: error.localizedDescription, wasCancelled: false)
             }
         }
     }
 
-    private func cancelSession() {
-        switch state {
-        case .idle, .finishing, .cancelling:
-            return
-        case .starting:
-            cancelWhenStarted = true
-            state = .cancelling
-            sessionStartTask?.cancel()
-        case .recording:
-            state = .cancelling
-        }
+    /// A failure path always ends with the message shown after the reset —
+    /// the machine handles the transition, the controller the message.
+    private func fail(message: String, wasCancelled: Bool) {
+        let effects = machine.reduce(.recognitionFailed(wasCancelled: wasCancelled))
+        guard !effects.isEmpty else { return }
 
-        stopNoSpeechTimer()
-        triggerMonitor?.setEscapeCaptureEnabled(false)
-        hudController.hide()
-
-        if sessionStartTask == nil {
+        if effects.contains(.cancelRecognition) {
+            // Active failure: cancel recognition, reset, then show why.
+            for effect in effects where effect != .cancelRecognition {
+                perform(effect)
+            }
             Task { [weak self] in
                 guard let self else { return }
                 await speechService.cancel()
-                resetSession()
+                send(.sessionEnded)
+                hudController.showMessage(message)
             }
+        } else {
+            perform(effects)
         }
     }
 
-    private func cancelSilentSession() {
-        guard !hasSpeech else { return }
-        cancelSession()
-    }
-
-    private func failSession(message: String) {
-        guard isSessionActive else { return }
-        state = .cancelling
-        stopNoSpeechTimer()
-        triggerMonitor?.setEscapeCaptureEnabled(false)
-
-        Task { [weak self] in
-            guard let self else { return }
-            await speechService.cancel()
-            resetSession()
-            hudController.showMessage(message)
-        }
-    }
+    // MARK: - Timers
 
     private func startNoSpeechTimer() {
         noSpeechTask?.cancel()
         noSpeechTask = Task { [weak self] in
             try? await Task.sleep(for: Self.noSpeechTimeout)
             guard !Task.isCancelled else { return }
-            self?.cancelSilentSession()
+            self?.send(.noSpeechTimedOut)
         }
     }
 
     private func stopNoSpeechTimer() {
         noSpeechTask?.cancel()
         noSpeechTask = nil
-    }
-
-    private func resetSession() {
-        stopNoSpeechTimer()
-        state = .idle
-        focusedTarget = nil
-        hasSpeech = false
-        finishWhenStarted = false
-        cancelWhenStarted = false
-        sessionStartTask = nil
-        recordingStartedAt = nil
-        triggerMonitor?.setEscapeCaptureEnabled(false)
-        onRecordingStateChange?(false)
     }
 
     private func installTriggerMonitor() {
@@ -431,19 +349,5 @@ final class DirectDictationController {
     private func preparationFailed(message: String) {
         preparationFailureMessage = message
         hudController.showMessage(message)
-    }
-
-    private var isSessionActive: Bool {
-        switch state {
-        case .idle:
-            false
-        case .starting, .recording, .finishing, .cancelling:
-            true
-        }
-    }
-
-    private static func timeInterval(for duration: Duration) -> TimeInterval {
-        let components = duration.components
-        return Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }

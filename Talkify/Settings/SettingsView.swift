@@ -12,6 +12,7 @@ struct SettingsView: View {
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var selectedSection: SettingsSection = .appearance
 
     static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
