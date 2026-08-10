@@ -1,7 +1,7 @@
 import ApplicationServices
 import Foundation
 
-final class DictationTriggerMonitor: @unchecked Sendable {
+final class GlobalKeyEventMonitor: @unchecked Sendable {
   enum Event: Sendable {
     case triggerPressed
     case triggerReleased
@@ -16,7 +16,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
 
   private var eventTap: CFMachPort?
   private var runLoopSource: CFRunLoopSource?
-  private var functionKeyIsDown = false
+  private var triggerKeyIsDown = false
   private var captureEscape = false
   /// True while a Settings key recorder is armed: every event passes
   /// through untouched so the rebind keystroke cannot start a session.
@@ -45,7 +45,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     let callback: CGEventTapCallBack = { _, type, event, userInfo in
       guard let userInfo else { return Unmanaged.passUnretained(event) }
 
-      let monitor = Unmanaged<DictationTriggerMonitor>
+      let monitor = Unmanaged<GlobalKeyEventMonitor>
         .fromOpaque(userInfo)
         .takeUnretainedValue()
 
@@ -89,7 +89,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     runLoopSource = nil
 
     stateLock.withLock {
-      functionKeyIsDown = false
+      triggerKeyIsDown = false
       captureEscape = false
     }
   }
@@ -106,7 +106,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     stateLock.withLock {
       triggerBinding = trigger
       readAloudBinding = readAloud
-      functionKeyIsDown = false
+      triggerKeyIsDown = false
     }
   }
 
@@ -114,7 +114,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
   func setEventHandlingSuspended(_ isSuspended: Bool) {
     stateLock.withLock {
       suspended = isSuspended
-      functionKeyIsDown = false
+      triggerKeyIsDown = false
     }
   }
 
@@ -142,8 +142,8 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         guard triggerBinding.isModifierKey,
            keyCode == triggerBinding.keyCode else { return }
         let isDown = event.flags.contains(triggerBinding.modifierKeyMask)
-        guard isDown != functionKeyIsDown else { return }
-        functionKeyIsDown = isDown
+        guard isDown != triggerKeyIsDown else { return }
+        triggerKeyIsDown = isDown
         output = isDown ? .triggerPressed : .triggerReleased
       }
 
@@ -168,8 +168,8 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         }
         var output: Event?
         stateLock.withLock {
-          guard !functionKeyIsDown else { return }
-          functionKeyIsDown = true
+          guard !triggerKeyIsDown else { return }
+          triggerKeyIsDown = true
           output = .triggerPressed
         }
         if let output { handler(output) }
@@ -199,8 +199,8 @@ final class DictationTriggerMonitor: @unchecked Sendable {
       stateLock.withLock {
         guard !triggerBinding.isModifierKey,
            keyCode == triggerBinding.keyCode,
-           functionKeyIsDown else { return }
-        functionKeyIsDown = false
+           triggerKeyIsDown else { return }
+        triggerKeyIsDown = false
         output = .triggerReleased
       }
       if let output {

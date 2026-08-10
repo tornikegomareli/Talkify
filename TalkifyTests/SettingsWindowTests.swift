@@ -32,12 +32,12 @@ struct SettingsWindowTests {
   }
 
   @Test func appearanceOptionsFollowTheSelectedVisual() {
-    #expect(SettingsView.showsWaveformOptions(for: .waveform))
-    #expect(!SettingsView.showsWaveformOptions(for: .glow))
-    #expect(!SettingsView.showsWaveformOptions(for: .compact))
-    #expect(SettingsView.showsGlowOptions(for: .glow))
-    #expect(!SettingsView.showsGlowOptions(for: .waveform))
-    #expect(!SettingsView.showsGlowOptions(for: .compact))
+    #expect(AppearanceSettingsView.showsWaveformOptions(for: .waveform))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glow))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .compact))
+    #expect(AppearanceSettingsView.showsGlowOptions(for: .glow))
+    #expect(!AppearanceSettingsView.showsGlowOptions(for: .waveform))
+    #expect(!AppearanceSettingsView.showsGlowOptions(for: .compact))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

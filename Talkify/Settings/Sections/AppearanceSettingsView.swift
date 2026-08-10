@@ -3,8 +3,18 @@ import SwiftUI
 /// The Appearance section: the live preview first, then the Voice visual
 /// and Motion and layout groups (CONTEXT.md). Waveform and Glow rows are
 /// conditional on the selected visual; hidden values stay persisted.
-struct AppearanceSettings: View {
+struct AppearanceSettingsView: View {
   @Bindable var settings: AppSettings
+
+  /// Which conditional rows the selected visual exposes; hidden values
+  /// stay persisted (CONTEXT.md).
+  static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
+    visual == .waveform
+  }
+
+  static func showsGlowOptions(for visual: HUDVoiceVisualStyle) -> Bool {
+    visual == .glow
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
@@ -19,7 +29,7 @@ struct AppearanceSettings: View {
           selection: $settings.voiceVisual
         )
 
-        if SettingsView.showsWaveformOptions(for: settings.voiceVisual) {
+        if Self.showsWaveformOptions(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Waveform style",
             description: "The shape and motion of the waveform",
@@ -29,7 +39,7 @@ struct AppearanceSettings: View {
           )
         }
 
-        if SettingsView.showsGlowOptions(for: settings.voiceVisual) {
+        if Self.showsGlowOptions(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Glow palette",
             description: "The colors used by the edge beam",

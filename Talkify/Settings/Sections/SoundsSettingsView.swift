@@ -3,7 +3,7 @@ import SwiftUI
 /// The Sounds section: the session sound set and its begin/end preview.
 /// Preview disables itself while playing, waits out the Begin sound's real
 /// duration, and a set change stops playback (CONTEXT.md).
-struct SoundsSettings: View {
+struct SoundsSettingsView: View {
   @Bindable var settings: AppSettings
   let sounds: DictationHUDSounds
 

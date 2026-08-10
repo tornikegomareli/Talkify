@@ -9,7 +9,7 @@ import SwiftUI
 /// halo, tight bloom) so the line stays sharp instead of blurry, a
 /// cyan→violet→magenta gradient whose hues drift continuously, and the
 /// voice driving stroke weight, glow reach, and brightness.
-struct SmoothLineWave: View {
+struct ChartLineWaveView: View {
   let content: DictationHUDContent
 
   @State private var samples: [Float] = []

@@ -6,7 +6,7 @@ import SwiftUI
 /// with a comparison sentence against the previous period, then full-width
 /// chart surfaces whose subtitle doubles as the scrubbed readout — the
 /// selection value lives in the card header, never in a floating tooltip.
-struct InsightsSettings: View {
+struct InsightsSettingsView: View {
   let tracker: UsageTracker
 
   private var summary: UsageSummary {

@@ -15,14 +15,6 @@ struct SettingsView: View {
 
   @State private var selectedSection: SettingsSection = .appearance
 
-  static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
-    visual == .waveform
-  }
-
-  static func showsGlowOptions(for visual: HUDVoiceVisualStyle) -> Bool {
-    visual == .glow
-  }
-
   var body: some View {
     VStack(spacing: 0) {
       SettingsHeader(onClose: onClose)
@@ -243,15 +235,15 @@ private struct SettingsContent: View {
 
         switch section {
         case .appearance:
-          AppearanceSettings(settings: settings)
+          AppearanceSettingsView(settings: settings)
         case .sounds:
-          SoundsSettings(settings: settings, sounds: sounds)
+          SoundsSettingsView(settings: settings, sounds: sounds)
         case .readAloud:
-          ReadAloudSettings(settings: settings)
+          ReadAloudSettingsView(settings: settings)
         case .shortcuts:
-          ShortcutsSettings(settings: settings)
+          ShortcutsSettingsView(settings: settings)
         case .insights:
-          InsightsSettings(tracker: usageTracker)
+          InsightsSettingsView(tracker: usageTracker)
         }
       }
       .frame(maxWidth: 620, alignment: .leading)

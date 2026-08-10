@@ -20,7 +20,7 @@ final class DirectDictationController {
   private let textInsertionService = TextInsertionService()
   private let usageTracker: UsageTracker
 
-  private var triggerMonitor: DictationTriggerMonitor?
+  private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
   private var focusedTarget: TextInsertionService.Target?
   private var noSpeechTask: Task<Void, Never>?
@@ -37,7 +37,7 @@ final class DirectDictationController {
     self.settings = settings
     self.hudController = hudController
     self.usageTracker = usageTracker
-    triggerMonitor = DictationTriggerMonitor { [weak self] event in
+    keyEventMonitor = GlobalKeyEventMonitor { [weak self] event in
       Task { @MainActor [weak self] in
         self?.handle(event)
       }
@@ -52,18 +52,18 @@ final class DirectDictationController {
   /// Pushes the recorded Settings bindings into the event tap; called at
   /// start and whenever the Shortcuts section changes them.
   func applyKeyBindings() {
-    triggerMonitor?.setBindings(
+    keyEventMonitor?.setBindings(
       trigger: settings.dictationTriggerBinding,
       readAloud: settings.readAloudBinding
     )
-    triggerMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
+    keyEventMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
   }
 
   func stop() {
     noSpeechTask?.cancel()
     permissionTask?.cancel()
     sessionStartTask?.cancel()
-    triggerMonitor?.stop()
+    keyEventMonitor?.stop()
     isPrepared = false
 
     Task {
@@ -124,7 +124,7 @@ final class DirectDictationController {
 
   // MARK: - Actions in
 
-  private func handle(_ event: DictationTriggerMonitor.Event) {
+  private func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
     case .triggerPressed:
       send(.triggerPressed(now: .now))
@@ -166,7 +166,7 @@ final class DirectDictationController {
     case .cancelStartTask:
       sessionStartTask?.cancel()
     case let .setEscapeCapture(enabled):
-      triggerMonitor?.setEscapeCaptureEnabled(enabled)
+      keyEventMonitor?.setEscapeCaptureEnabled(enabled)
     case .startNoSpeechTimer:
       startNoSpeechTimer()
     case .stopNoSpeechTimer:
@@ -180,8 +180,8 @@ final class DirectDictationController {
     case .showLatched:
       hudController.showLatched()
     case .showLiveText:
-      if let liveText {
-        hudController.showLiveText(liveText)
+      if let pendingLiveText {
+        hudController.showLiveText(pendingLiveText)
       }
     case .showFinalizing:
       hudController.showFinalizing()
@@ -200,7 +200,7 @@ final class DirectDictationController {
 
   /// The text carried alongside the current `updateReceived` action; the
   /// machine decides whether it shows, the controller remembers what.
-  private var liveText: String?
+  private var pendingLiveText: String?
 
   // MARK: - Begin guards (the machine's checkAndBegin effect)
 
@@ -275,9 +275,9 @@ final class DirectDictationController {
     let hasVisibleText = !displayText
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .isEmpty
-    liveText = displayText
+    pendingLiveText = displayText
     send(.updateReceived(hasVisibleText: hasVisibleText))
-    liveText = nil
+    pendingLiveText = nil
   }
 
   private func finishRecognition(speakingDuration: TimeInterval) {
@@ -339,7 +339,7 @@ final class DirectDictationController {
   }
 
   private func installTriggerMonitor() {
-    let installed = triggerMonitor?.start() == true
+    let installed = keyEventMonitor?.start() == true
     guard installed else {
       hudController.showMessage("Accessibility permission required")
       return

@@ -11,7 +11,7 @@ import SwiftUI
 /// held modifiers are ignored. Otherwise a full combo (modifiers + key) is
 /// captured, the shape a toggle shortcut needs.
 struct KeyRecorderView: View {
-  @Binding var binding: KeyBinding
+  @Binding var keyBinding: KeyBinding
   let capturesSingleKey: Bool
   let onRecordingChanged: (Bool) -> Void
 
@@ -23,7 +23,7 @@ struct KeyRecorderView: View {
     Button {
       isRecording ? cancelRecording() : startRecording()
     } label: {
-      Text(isRecording ? "Press keys…" : binding.label)
+      Text(isRecording ? "Press keys…" : keyBinding.label)
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(isRecording ? SettingsTheme.accent : .white)
         .frame(minWidth: 96)
@@ -84,7 +84,7 @@ struct KeyRecorderView: View {
         : event.modifierFlags.intersection([.command, .option, .control, .shift])
       let keyName = KeyBinding.keyName(keyCode: event.keyCode, event: event)
       let symbols = KeyBinding.modifierSymbols(modifiers)
-      binding = KeyBinding(
+      keyBinding = KeyBinding(
         keyCode: Int64(event.keyCode),
         modifierFlags: KeyBinding.cgFlags(from: modifiers).rawValue,
         isModifierKey: false,
@@ -103,7 +103,7 @@ struct KeyRecorderView: View {
       let mask = KeyBinding.modifierMask(forKeyCode: Int64(event.keyCode))
       let cgFlags = CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
       guard cgFlags.contains(mask) || event.modifierFlags.contains(.function) else { return }
-      binding = KeyBinding(
+      keyBinding = KeyBinding(
         keyCode: Int64(event.keyCode),
         modifierFlags: 0,
         isModifierKey: true,

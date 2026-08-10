@@ -64,7 +64,7 @@ struct HUDWaveformView: View {
       case .capsules:
         capsules
       case .chartLine:
-        SmoothLineWave(content: content)
+        ChartLineWaveView(content: content)
       case .chartArea:
         areaChart
       case .dots:

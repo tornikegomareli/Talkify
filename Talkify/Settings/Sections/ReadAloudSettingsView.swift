@@ -5,7 +5,7 @@ import SwiftUI
 /// a spoken preview, and the System Settings handoffs for voice downloads
 /// and Personal Voice — Talkify cannot download synthesis voices itself
 /// (CONTEXT.md).
-struct ReadAloudSettings: View {
+struct ReadAloudSettingsView: View {
   @Bindable var settings: AppSettings
 
   @Environment(\.colorSchemeContrast) private var contrast
