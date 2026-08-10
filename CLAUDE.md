@@ -9,6 +9,7 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 ## Code style (rule, not preference)
 
 - Indentation is **2 spaces** everywhere — indent width 2, tab width 2, spaces not tabs — in Swift, Metal, and any other source. Matches the committed `.editorconfig` and the owner's Xcode settings. Never write or reformat code back to 4-space indentation.
+- **No `// MARK:` comments.** A file that needs section markers is a file that needs splitting; organize with small types and separate files instead.
 
 ## Stack decisions (already made, do not relitigate)
 
