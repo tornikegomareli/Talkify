@@ -26,9 +26,10 @@ struct InsightsSettings: View {
                     .accessibilityLabel("Insights data error: \(errorMessage)")
             }
 
-            InsightsMetricGrid(summary: summary)
+            InsightsMetricGrid(summary: summary, timeline: timeline)
             VoiceMomentumCard(momentum: momentum, summary: summary)
             DailyWordsCard(days: timeline)
+            WeekdayRhythmCard(days: tracker.heatmap())
             StreakActivityCard(summary: summary, days: tracker.heatmap())
         }
         .task {
@@ -39,6 +40,7 @@ struct InsightsSettings: View {
 
 private struct InsightsMetricGrid: View {
     let summary: UsageSummary
+    let timeline: [UsageTimelineDay]
 
     var body: some View {
         LazyVGrid(
@@ -54,7 +56,8 @@ private struct InsightsMetricGrid: View {
                 title: "Total Words",
                 value: summary.totalWords.formatted(),
                 detail: "\(summary.completedSessions.formatted()) completed sessions",
-                systemImage: "text.word.spacing"
+                systemImage: "text.word.spacing",
+                sparkline: timeline
             )
             InsightMetricCard(
                 title: "Average WPM",
@@ -77,16 +80,27 @@ private struct InsightMetricCard: View {
     let value: String
     let detail: String
     let systemImage: String
+    var sparkline: [UsageTimelineDay] = []
 
     @Environment(\.colorSchemeContrast) private var contrast
 
+    private var showsSparkline: Bool {
+        sparkline.contains { $0.wordCount > 0 }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(SettingsTheme.accent)
-                .frame(width: 28, height: 28)
-                .background(SettingsTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            HStack(alignment: .top) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SettingsTheme.accent)
+                    .frame(width: 28, height: 28)
+                    .background(SettingsTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                Spacer()
+                if showsSparkline {
+                    MetricSparkline(days: sparkline)
+                }
+            }
 
             Text(value)
                 .font(.system(size: 28, weight: .semibold, design: .rounded))
@@ -104,6 +118,41 @@ private struct InsightMetricCard: View {
         .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
         .insightsCard()
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The 14-day trend as a minimal inline chart: no axes, no legend, just the
+/// shape of the fortnight next to the headline number.
+private struct MetricSparkline: View {
+    let days: [UsageTimelineDay]
+
+    var body: some View {
+        Chart(days) { day in
+            AreaMark(
+                x: .value("Date", day.date, unit: .day),
+                y: .value("Words Dictated", day.wordCount)
+            )
+            .interpolationMethod(.monotone)
+            .foregroundStyle(
+                .linearGradient(
+                    colors: [SettingsTheme.accent.opacity(0.35), SettingsTheme.accent.opacity(0.02)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            LineMark(
+                x: .value("Date", day.date, unit: .day),
+                y: .value("Words Dictated", day.wordCount)
+            )
+            .interpolationMethod(.monotone)
+            .foregroundStyle(SettingsTheme.accent)
+            .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(.hidden)
+        .frame(width: 64, height: 26)
+        .accessibilityLabel("Fourteen-day words trend")
     }
 }
 
@@ -234,6 +283,14 @@ private struct DailyWordsCard: View {
         max(days.map(\.wordCount).max() ?? 0, 1)
     }
 
+    /// Mean words across active days only — a fortnight of mostly-quiet days
+    /// would otherwise drag the reference line into the noise floor.
+    private var activeDayAverage: Int {
+        let active = days.filter { $0.wordCount > 0 }
+        guard !active.isEmpty else { return 0 }
+        return active.reduce(0) { $0 + $1.wordCount } / active.count
+    }
+
     private var takeaway: String {
         if let selectedDay {
             return "\(selectedDay.wordCount.formatted()) words on \(selectedDay.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))"
@@ -260,6 +317,17 @@ private struct DailyWordsCard: View {
                     )
                     .foregroundStyle(SettingsTheme.accent.gradient)
                     .cornerRadius(4)
+                }
+
+                if activeDayAverage > 0, selectedDay == nil {
+                    RuleMark(y: .value("Daily Average", activeDayAverage))
+                        .foregroundStyle(.white.opacity(0.3))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        .annotation(position: .top, alignment: .trailing, spacing: 2) {
+                            Text("avg \(activeDayAverage.formatted())")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.45))
+                        }
                 }
 
                 if let selectedDay {
@@ -318,6 +386,149 @@ private struct ChartValueLabel: View {
             .padding(.vertical, 5)
             .background(.ultraThinMaterial, in: Capsule())
     }
+}
+
+/// Which weekdays carry the dictation habit: a donut of words by weekday over
+/// the last sixteen weeks, with angular selection and a center readout.
+private struct WeekdayRhythmCard: View {
+    private let slices: [WeekdaySlice]
+    private let totalWords: Int
+
+    @Environment(\.colorSchemeContrast) private var contrast
+    @State private var selectedAngle: Int?
+
+    init(days: [UsageHeatmapDay]) {
+        let calendar = UsageMetrics.localCalendar()
+        var totals = [Int: Int]()
+        for day in days where !day.isFuture && day.wordCount > 0 {
+            if let weekday = day.day.weekday(in: calendar) {
+                totals[weekday, default: 0] += day.wordCount
+            }
+        }
+
+        // Sectors need strictly positive values; quiet weekdays are simply
+        // absent. Order follows the user's calendar week.
+        let symbols = calendar.weekdaySymbols
+        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
+        slices = ordered.compactMap { weekday in
+            guard let words = totals[weekday], words > 0 else { return nil }
+            return WeekdaySlice(name: symbols[weekday - 1], wordCount: words)
+        }
+        totalWords = slices.reduce(0) { $0 + $1.wordCount }
+    }
+
+    private var selectedSlice: WeekdaySlice? {
+        guard let selectedAngle else { return nil }
+        var runningTotal = 0
+        return slices.first { slice in
+            let range = runningTotal..<(runningTotal + slice.wordCount)
+            runningTotal += slice.wordCount
+            return range.contains(selectedAngle)
+        }
+    }
+
+    private var busiest: WeekdaySlice? {
+        slices.max { $0.wordCount < $1.wordCount }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Weekly Rhythm")
+                    .font(.headline)
+                if let busiest {
+                    Text("\(busiest.name)s carry your dictation")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
+                }
+            }
+
+            if slices.isEmpty {
+                Text("Dictate through a week to see your rhythm here.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
+            } else {
+                HStack(spacing: 24) {
+                    donut
+                    breakdown
+                }
+            }
+        }
+        .insightsCard()
+    }
+
+    private var donut: some View {
+        Chart(slices) { slice in
+            SectorMark(
+                angle: .value("Words Dictated", slice.wordCount),
+                innerRadius: .ratio(0.618),
+                angularInset: 1.2
+            )
+            .cornerRadius(4)
+            .foregroundStyle(by: .value("Weekday", slice.name))
+            .opacity(selectedSlice == nil || selectedSlice?.name == slice.name ? 1 : 0.35)
+            .accessibilityLabel(slice.name)
+            .accessibilityValue("\(slice.wordCount.formatted()) words dictated")
+        }
+        .chartAngleSelection(value: $selectedAngle)
+        .chartForegroundStyleScale(
+            domain: slices.map(\.name),
+            range: WeekdaySlice.palette
+        )
+        .chartLegend(.hidden)
+        .chartBackground { _ in
+            VStack(spacing: 1) {
+                Text(selectedSlice?.name ?? "Total")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.5))
+                Text((selectedSlice?.wordCount ?? totalWords).formatted())
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+            }
+        }
+        .frame(width: 168, height: 168)
+    }
+
+    private var breakdown: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(slices.enumerated()), id: \.element.id) { index, slice in
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(WeekdaySlice.palette[index % WeekdaySlice.palette.count])
+                        .frame(width: 7, height: 7)
+                    Text(slice.name)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.72))
+                    Spacer(minLength: 12)
+                    Text(Double(slice.wordCount) / Double(max(totalWords, 1)),
+                         format: .percent.precision(.fractionLength(0)))
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct WeekdaySlice: Identifiable {
+    let name: String
+    let wordCount: Int
+
+    var id: String { name }
+
+    /// A cool-range palette that stays inside the app's dark blue language
+    /// instead of a rainbow: accent blue drifting toward mint.
+    static let palette: [Color] = [
+        Color(red: 0.36, green: 0.58, blue: 1.0),
+        Color(red: 0.33, green: 0.72, blue: 0.98),
+        Color(red: 0.35, green: 0.84, blue: 0.90),
+        Color(red: 0.42, green: 0.90, blue: 0.77),
+        Color(red: 0.55, green: 0.62, blue: 0.98),
+        Color(red: 0.70, green: 0.56, blue: 0.98),
+        Color(red: 0.47, green: 0.47, blue: 0.90),
+    ]
 }
 
 private struct StreakActivityCard: View {
