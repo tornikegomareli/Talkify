@@ -61,16 +61,12 @@ struct InsightsSettingsView: View {
   }
 }
 
-// MARK: - Palette
-
 /// Per-metric tints, one hue per metric across the whole section.
 private enum InsightsPalette {
   static let words = SettingsTheme.accent
   static let sessions = Color(red: 0.20, green: 0.82, blue: 0.58)
   static let time = Color(red: 0.62, green: 0.50, blue: 0.98)
 }
-
-// MARK: - Summary cards
 
 private struct InsightSummaryCard: View {
   let title: String
@@ -161,8 +157,6 @@ private struct InsightSummaryCard: View {
   }
 }
 
-// MARK: - Chart surface
-
 /// A chart card whose subtitle is the live readout: idle it explains the
 /// chart, scrubbed it shows the selected day's values.
 private struct InsightChartSurface<Content: View>: View {
@@ -191,8 +185,6 @@ private struct InsightChartSurface<Content: View>: View {
     .insightsCard()
   }
 }
-
-// MARK: - Words per day
 
 private struct WordsTrendChart: View {
   let days: [UsageTimelineDay]
@@ -249,8 +241,6 @@ private struct WordsTrendChart: View {
     }
   }
 }
-
-// MARK: - Sessions per day
 
 private struct SessionsTrendChart: View {
   let days: [UsageTimelineDay]
@@ -344,8 +334,6 @@ private extension View {
       }
   }
 }
-
-// MARK: - Activity heatmap
 
 private struct ActivityHeatmapCard: View {
   let summary: UsageSummary
@@ -506,8 +494,6 @@ private struct ActivityLegend: View {
   }
 }
 
-// MARK: - Card chrome
-
 private struct InsightsCardModifier: ViewModifier {
   @Environment(\.colorSchemeContrast) private var contrast
 
@@ -530,8 +516,6 @@ private extension View {
     modifier(InsightsCardModifier())
   }
 }
-
-// MARK: - Formatting
 
 private enum InsightsFormat {
   static func durationValue(_ duration: TimeInterval) -> String {

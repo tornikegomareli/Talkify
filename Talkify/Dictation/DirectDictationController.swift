@@ -122,8 +122,6 @@ final class DirectDictationController {
     }
   }
 
-  // MARK: - Actions in
-
   private func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
     case .triggerPressed:
@@ -140,8 +138,6 @@ final class DirectDictationController {
   private func send(_ action: DictationSessionMachine.Action) {
     perform(machine.reduce(action))
   }
-
-  // MARK: - Effects out
 
   private func perform(_ effects: [DictationSessionMachine.Effect]) {
     for effect in effects {
@@ -202,8 +198,6 @@ final class DirectDictationController {
   /// machine decides whether it shows, the controller remembers what.
   private var pendingLiveText: String?
 
-  // MARK: - Begin guards (the machine's checkAndBegin effect)
-
   private func checkAndBegin() {
     guard isPrepared else {
       hudController.showMessage(preparationFailureMessage ?? "Preparing speech…")
@@ -228,8 +222,6 @@ final class DirectDictationController {
     focusedTarget = target
     send(.beginApproved)
   }
-
-  // MARK: - Recognition plumbing
 
   private func beginRecognition() {
     sessionStartTask = Task { [weak self] in
@@ -321,8 +313,6 @@ final class DirectDictationController {
       perform(effects)
     }
   }
-
-  // MARK: - Timers
 
   private func startNoSpeechTimer() {
     noSpeechTask?.cancel()

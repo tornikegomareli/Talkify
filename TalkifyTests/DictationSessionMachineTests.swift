@@ -21,8 +21,6 @@ struct DictationSessionMachineTests {
     return machine
   }
 
-  // MARK: Begin
-
   @Test func pressBeginsAHeldSessionAfterApproval() {
     var machine = Machine()
     #expect(machine.reduce(.triggerPressed(now: t0)) == [.checkAndBegin])
@@ -61,8 +59,6 @@ struct DictationSessionMachineTests {
     #expect(machine.reduce(.triggerPressed(now: t0.advanced(by: .milliseconds(50)))).isEmpty)
   }
 
-  // MARK: Quick-tap latching
-
   @Test func quickReleaseWhileStartingLatches() {
     var machine = Machine()
     _ = machine.reduce(.triggerPressed(now: t0))
@@ -95,8 +91,6 @@ struct DictationSessionMachineTests {
     #expect(effects.contains(.showFinalizing))
   }
 
-  // MARK: Finish queued while starting
-
   @Test func releaseWhileStartingQueuesTheFinish() {
     var machine = Machine()
     _ = machine.reduce(.triggerPressed(now: t0))
@@ -111,8 +105,6 @@ struct DictationSessionMachineTests {
     #expect(effects.first == .startNoSpeechTimer)
     #expect(effects.contains(.finishRecognition(speakingDuration: 0)))
   }
-
-  // MARK: Cancel races
 
   @Test func escapeWhileStartingCancelsTheStartTask() {
     var machine = Machine()
@@ -164,8 +156,6 @@ struct DictationSessionMachineTests {
     #expect(machine.state == .finishing)
   }
 
-  // MARK: No-speech policy
-
   @Test func silentSessionCancelsOnTimeout() {
     var machine = recordingMachine()
     let effects = machine.reduce(.noSpeechTimedOut)
@@ -186,8 +176,6 @@ struct DictationSessionMachineTests {
     #expect(effects == [.stopNoSpeechTimer, .showLiveText])
   }
 
-  // MARK: Draft visibility
-
   @Test func updatesDuringFinishingNeverShowTheDraft() {
     var machine = recordingMachine()
     _ = machine.reduce(.triggerReleased(now: t0.advanced(by: .seconds(2))))
@@ -200,8 +188,6 @@ struct DictationSessionMachineTests {
     #expect(machine.reduce(.updateReceived(hasVisibleText: true)).isEmpty)
   }
 
-  // MARK: Read Aloud gate
-
   @Test func readAloudFiresOnlyWhileIdle() {
     var machine = Machine()
     #expect(machine.reduce(.readAloudPressed) == [.triggerReadAloud])
@@ -209,8 +195,6 @@ struct DictationSessionMachineTests {
     machine = recordingMachine()
     #expect(machine.reduce(.readAloudPressed).isEmpty)
   }
-
-  // MARK: Failure and reset
 
   @Test func failureWhileRecordingCancelsRecognition() {
     var machine = recordingMachine()
