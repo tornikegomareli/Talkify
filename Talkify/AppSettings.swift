@@ -19,6 +19,9 @@ final class AppSettings {
         static let longDraftStyle = "hudLongDraftStyle"
         static let glowPalette = "hudGlowPalette"
         static let glowCenter = "hudGlowCenter"
+        static let readAloudVoice = "readAloudVoice"
+        static let dictationTriggerBinding = "dictationTriggerBinding"
+        static let readAloudBinding = "readAloudBinding"
     }
 
     @ObservationIgnored
@@ -52,6 +55,25 @@ final class AppSettings {
         didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
     }
 
+    /// The Read Aloud voice's `AVSpeechSynthesisVoice` identifier; empty
+    /// means the system default voice.
+    var readAloudVoiceID: String {
+        didSet { defaults.set(readAloudVoiceID, forKey: Keys.readAloudVoice) }
+    }
+
+    var dictationTriggerBinding: KeyBinding {
+        didSet { Self.store(dictationTriggerBinding, in: defaults, key: Keys.dictationTriggerBinding) }
+    }
+
+    var readAloudBinding: KeyBinding {
+        didSet { Self.store(readAloudBinding, in: defaults, key: Keys.readAloudBinding) }
+    }
+
+    /// Transient, never persisted: true while a Shortcuts key recorder is
+    /// armed, so global trigger handling pauses and the rebind keystroke
+    /// cannot start a session.
+    var isRecordingKeybind = false
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         soundSet = Self.stored(in: defaults, key: Keys.soundSet) ?? .synth8
@@ -61,6 +83,13 @@ final class AppSettings {
         longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
         glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
         glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
+        readAloudVoiceID = defaults.string(forKey: Keys.readAloudVoice) ?? ""
+        dictationTriggerBinding = Self.storedBinding(
+            in: defaults, key: Keys.dictationTriggerBinding
+        ) ?? .fnTrigger
+        readAloudBinding = Self.storedBinding(
+            in: defaults, key: Keys.readAloudBinding
+        ) ?? .optionEscape
     }
 
     private static func stored<Value: RawRepresentable<String>>(
@@ -68,6 +97,16 @@ final class AppSettings {
         key: String
     ) -> Value? {
         defaults.string(forKey: key).flatMap { Value(rawValue: $0) }
+    }
+
+    private static func storedBinding(in defaults: UserDefaults, key: String) -> KeyBinding? {
+        defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(KeyBinding.self, from: $0) }
+    }
+
+    private static func store(_ binding: KeyBinding, in defaults: UserDefaults, key: String) {
+        if let data = try? JSONEncoder().encode(binding) {
+            defaults.set(data, forKey: key)
+        }
     }
 }
 

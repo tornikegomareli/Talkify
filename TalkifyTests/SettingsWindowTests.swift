@@ -27,8 +27,8 @@ struct SettingsWindowTests {
     }
 
     @Test func settingsSectionsStayFocusedOnImplementedFeatures() {
-        #expect(SettingsSection.allCases == [.appearance, .sounds, .insights])
-        #expect(SettingsSectionGroup.settings.sections == [.appearance, .sounds, .insights])
+        #expect(SettingsSection.allCases == [.appearance, .sounds, .readAloud, .shortcuts, .insights])
+        #expect(SettingsSectionGroup.settings.sections == [.appearance, .sounds, .readAloud, .shortcuts, .insights])
     }
 
     @Test func appearanceOptionsFollowTheSelectedVisual() {

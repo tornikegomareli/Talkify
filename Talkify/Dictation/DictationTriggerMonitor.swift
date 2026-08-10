@@ -6,9 +6,10 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         case triggerPressed
         case triggerReleased
         case cancelPressed
+        /// Option+Escape — the Read Aloud toggle, matching the shortcut
+        /// macOS Spoken Content uses for "speak selection".
+        case readAloudPressed
     }
-
-    private static let functionKeyCode: Int64 = 63
 
     private let handler: @Sendable (Event) -> Void
     private let stateLock = NSLock()
@@ -17,6 +18,13 @@ final class DictationTriggerMonitor: @unchecked Sendable {
     private var runLoopSource: CFRunLoopSource?
     private var functionKeyIsDown = false
     private var captureEscape = false
+    /// True while a Settings key recorder is armed: every event passes
+    /// through untouched so the rebind keystroke cannot start a session.
+    private var suspended = false
+    // Bindings, mutable from the main actor via setBindings; read on the
+    // tap thread under the lock. Defaults match AppSettings' defaults.
+    private var triggerBinding = KeyBinding.fnTrigger
+    private var readAloudBinding = KeyBinding.optionEscape
 
     init(handler: @escaping @Sendable (Event) -> Void) {
         self.handler = handler
@@ -29,6 +37,7 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         let mask = eventMask(for: [
             .flagsChanged,
             .keyDown,
+            .keyUp,
             .tapDisabledByTimeout,
             .tapDisabledByUserInput,
         ])
@@ -91,6 +100,24 @@ final class DictationTriggerMonitor: @unchecked Sendable {
         }
     }
 
+    /// Applies the recorded Settings bindings. Safe while the tap runs; a
+    /// key held through a rebind simply never delivers its release.
+    func setBindings(trigger: KeyBinding, readAloud: KeyBinding) {
+        stateLock.withLock {
+            triggerBinding = trigger
+            readAloudBinding = readAloud
+            functionKeyIsDown = false
+        }
+    }
+
+    /// Pauses all handling while a Settings key recorder is armed.
+    func setEventHandlingSuspended(_ isSuspended: Bool) {
+        stateLock.withLock {
+            suspended = isSuspended
+            functionKeyIsDown = false
+        }
+    }
+
     private func process(
         type: CGEventType,
         event: CGEvent
@@ -102,16 +129,19 @@ final class DictationTriggerMonitor: @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
+        let isSuspended = stateLock.withLock { suspended }
+        if isSuspended {
+            return Unmanaged.passUnretained(event)
+        }
+
         if type == .flagsChanged {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            guard keyCode == Self.functionKeyCode else {
-                return Unmanaged.passUnretained(event)
-            }
-
-            let isDown = event.flags.contains(.maskSecondaryFn)
             var output: Event?
 
             stateLock.withLock {
+                guard triggerBinding.isModifierKey,
+                      keyCode == triggerBinding.keyCode else { return }
+                let isDown = event.flags.contains(triggerBinding.modifierKeyMask)
                 guard isDown != functionKeyIsDown else { return }
                 functionKeyIsDown = isDown
                 output = isDown ? .triggerPressed : .triggerReleased
@@ -119,20 +149,75 @@ final class DictationTriggerMonitor: @unchecked Sendable {
 
             if let output {
                 handler(output)
+                return nil
             }
-            return nil
+            return Unmanaged.passUnretained(event)
         }
 
-        if type == .keyDown,
-           event.getIntegerValueField(.keyboardEventKeycode) == 53 {
-            let shouldCapture = stateLock.withLock { captureEscape }
-            guard shouldCapture else { return Unmanaged.passUnretained(event) }
+        if type == .keyDown {
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let (trigger, readAloud, shouldCapture) = stateLock.withLock {
+                (triggerBinding, readAloudBinding, captureEscape)
+            }
 
-            handler(.cancelPressed)
-            return nil
+            // A non-modifier trigger key: press starts the hold gesture.
+            // Autorepeat is the key being held, not pressed again.
+            if !trigger.isModifierKey, keyCode == trigger.keyCode {
+                guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else {
+                    return nil
+                }
+                var output: Event?
+                stateLock.withLock {
+                    guard !functionKeyIsDown else { return }
+                    functionKeyIsDown = true
+                    output = .triggerPressed
+                }
+                if let output { handler(output) }
+                return nil
+            }
+
+            // The Read Aloud shortcut is always swallowed, so the system
+            // Spoken Content shortcut never double-fires on the same combo.
+            if keyCode == readAloud.keyCode,
+               Self.flagsMatch(event.flags, mask: readAloud.modifiers) {
+                handler(.readAloudPressed)
+                return nil
+            }
+
+            // Plain Escape stays the dictation cancel, captured mid-session.
+            if keyCode == 53, shouldCapture {
+                handler(.cancelPressed)
+                return nil
+            }
+
+            return Unmanaged.passUnretained(event)
+        }
+
+        if type == .keyUp {
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            var output: Event?
+            stateLock.withLock {
+                guard !triggerBinding.isModifierKey,
+                      keyCode == triggerBinding.keyCode,
+                      functionKeyIsDown else { return }
+                functionKeyIsDown = false
+                output = .triggerReleased
+            }
+            if let output {
+                handler(output)
+                return nil
+            }
+            return Unmanaged.passUnretained(event)
         }
 
         return Unmanaged.passUnretained(event)
+    }
+
+    /// Exact-modifier match: ⌥⎋ means Option and only Option; a bare key
+    /// (F13) means no modifiers at all.
+    private static func flagsMatch(_ flags: CGEventFlags, mask: CGEventFlags) -> Bool {
+        let relevant: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+        return flags.intersection(relevant) == mask.intersection(relevant)
     }
 
     private func eventMask(for types: [CGEventType]) -> CGEventMask {

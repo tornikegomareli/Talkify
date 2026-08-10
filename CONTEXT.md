@@ -46,6 +46,10 @@ _Avoid_: Live Captions
 An Apple-managed, on-device language asset used by the Speech framework.
 _Avoid_: Bundled model, Talkify model, Whisper model
 
+**Read Aloud**:
+Speaking the focused application's selected text out loud with an Apple system voice.
+_Avoid_: TTS mode, Speak selection
+
 **Settings section**:
 A navigable category of persisted application preferences with a visible user-facing purpose.
 _Avoid_: Placeholder tab, settings page
@@ -171,6 +175,19 @@ _Avoid_: Transcript history, cloud analytics
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
 - Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
 - A marked-text input method (system-dictation-style provisional text in any field) remains a considered route, deferred: it needs a separate installable input-source bundle, System Settings enablement, and cross-process wiring
+- **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
+- Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
+- Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
+- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding; the Dictation Trigger takes a single key (including a bare modifier like fn), Read Aloud takes a combo, and plain Escape cancels recording
+- A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
+- While a key recorder is armed, global trigger handling pauses so the rebind keystroke cannot start a session
+- The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them
+- Talkify swallows the configured Read Aloud shortcut so the system speak-selection never double-fires; plain Escape remains the dictation cancel, captured only mid-session
+- The Read Aloud shortcut is ignored while Direct Dictation is active — speech playback would feed the recognizer its own audio
+- The Read Aloud voice is a Settings pick listing only enhanced, premium, and authorized Personal voices, with the system default voice otherwise
+- Talkify cannot download synthesis voices (no public API); the Read Aloud section deep-links System Settings and the voice list refreshes live when a download finishes
+- Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
+- Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors
 - **Live Captions** consume exactly one **Caption Source** and never microphone audio
 - A **Live Captions** session starts only after the user confirms its **Caption Source**
 - **Live Captions** display text without saving it
@@ -212,10 +229,10 @@ _Avoid_: Transcript history, cloud analytics
 - DirectDictationController creates Dictation session settings at session start and passes them to DictationHUDController
 - Direct Dictation uses the captured sound set for Begin, End, and Paste; Settings Preview reads the live AppSettings sound set only
 - The session snapshot is captured after target and permission guards pass, immediately before the HUD begins listening
-- The borderless Settings header shows the close control on the leading edge (matching native macOS window controls), then Talkify identity and a Settings title
+- The borderless Settings header shows the close control on the leading edge (matching native macOS window controls) and centers the Talkify identity: the ghost icon and the app name
 - The sidebar retains the `SETTINGS` group label even when the header also shows Settings; it distinguishes navigation groups
-- The Settings header uses the current waveform symbol until a dedicated Talkify icon exists; the icon slot stays stable for that replacement
-- Replacing the temporary header symbol with the Talkify icon must not change the Settings layout
+- The Talkify ghost is the app icon, the status item icon (template-rendered so it follows the menu bar theme), and the Settings header icon
+- While Direct Dictation listens, the status item ghost pulses between full and dimmed tint; the pulse stops when the session ends
 - The Settings surface uses a 16-point continuous radius, a one-pixel low-opacity border, and a soft shadow
 - Settings may open during Direct Dictation; the active session remains on its captured settings and changes apply next session
 - While Direct Dictation is active, Settings shows a small contextual notice that changes apply to the next session; idle Settings has no notice
@@ -227,6 +244,7 @@ _Avoid_: Transcript history, cloud analytics
 - Direct Dictation and Sounds Preview use the existing fixed playback level; Settings has no volume preference
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
+- The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.

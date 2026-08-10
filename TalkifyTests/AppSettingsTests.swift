@@ -18,6 +18,9 @@ struct AppSettingsTests {
         #expect(settings.waveformStyle == .chartLine)
         #expect(settings.revealStyle == .slide)
         #expect(settings.longDraftStyle == .growDown)
+        #expect(settings.readAloudVoiceID.isEmpty)
+        #expect(settings.dictationTriggerBinding == .fnTrigger)
+        #expect(settings.readAloudBinding == .optionEscape)
     }
 
     @Test func everyPreferenceRoundTrips() {
@@ -28,6 +31,17 @@ struct AppSettingsTests {
         settings.waveformStyle = .dots
         settings.revealStyle = .bloom
         settings.longDraftStyle = .shrinkToFit
+        settings.readAloudVoiceID = "com.apple.voice.premium.en-US.Zoe"
+        let f5Binding = KeyBinding(
+            keyCode: 96, modifierFlags: 0, isModifierKey: false,
+            label: "F5", keyEquivalent: ""
+        )
+        let rightCommandTrigger = KeyBinding(
+            keyCode: 54, modifierFlags: 0, isModifierKey: true,
+            label: "right ⌘", keyEquivalent: ""
+        )
+        settings.dictationTriggerBinding = rightCommandTrigger
+        settings.readAloudBinding = f5Binding
 
         let reloaded = AppSettings(defaults: defaults)
         #expect(reloaded.soundSet == .chime)
@@ -35,6 +49,9 @@ struct AppSettingsTests {
         #expect(reloaded.waveformStyle == .dots)
         #expect(reloaded.revealStyle == .bloom)
         #expect(reloaded.longDraftStyle == .shrinkToFit)
+        #expect(reloaded.readAloudVoiceID == "com.apple.voice.premium.en-US.Zoe")
+        #expect(reloaded.dictationTriggerBinding == rightCommandTrigger)
+        #expect(reloaded.readAloudBinding == f5Binding)
     }
 
     @Test func storedKeysMatchTheHistoricalNames() {
@@ -45,12 +62,24 @@ struct AppSettingsTests {
         settings.waveformStyle = .silver
         settings.revealStyle = .drift
         settings.longDraftStyle = .tailOnly
+        settings.readAloudVoiceID = "com.apple.voice.enhanced.en-GB.Jamie"
 
         #expect(defaults.string(forKey: "dictationSoundSet") == "Click")
         #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow")
         #expect(defaults.string(forKey: "hudWaveformStyle") == "Silver")
         #expect(defaults.string(forKey: "hudRevealStyle") == "Drift")
         #expect(defaults.string(forKey: "hudLongDraftStyle") == "Tail Only")
+        #expect(defaults.string(forKey: "readAloudVoice") == "com.apple.voice.enhanced.en-GB.Jamie")
+    }
+
+    @Test func keyBindingsPersistUnderTheirHistoricalKeys() {
+        let defaults = freshDefaults()
+        let settings = AppSettings(defaults: defaults)
+        settings.dictationTriggerBinding = .fnTrigger
+        settings.readAloudBinding = .optionEscape
+
+        #expect(defaults.data(forKey: "dictationTriggerBinding") != nil)
+        #expect(defaults.data(forKey: "readAloudBinding") != nil)
     }
 
     @Test func unknownStoredValueFallsBackToDefault() {

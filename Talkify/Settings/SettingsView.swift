@@ -1,4 +1,5 @@
 import AppKit
+import AVFAudio
 import Observation
 import SwiftUI
 
@@ -26,6 +27,8 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 enum SettingsSection: String, CaseIterable, Identifiable {
     case appearance
     case sounds
+    case readAloud
+    case shortcuts
     case insights
 
     var id: Self { self }
@@ -35,6 +38,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Appearance"
         case .sounds: "Sounds"
+        case .readAloud: "Read Aloud"
+        case .shortcuts: "Shortcuts"
         case .insights: "Insights"
         }
     }
@@ -43,6 +48,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Customize the Direct Dictation HUD"
         case .sounds: "Choose and preview Direct Dictation sounds"
+        case .readAloud: "Choose the voice that reads selected text"
+        case .shortcuts: "Rebind the Direct Dictation and Read Aloud keys"
         case .insights: "Review your local Direct Dictation activity"
         }
     }
@@ -51,6 +58,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "sparkles"
         case .sounds: "waveform"
+        case .readAloud: "speaker.wave.2"
+        case .shortcuts: "keyboard"
         case .insights: "chart.bar.xaxis"
         }
     }
@@ -137,29 +146,36 @@ private struct SettingsHeader: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        HStack(spacing: 11) {
+        ZStack {
             // Close sits on the leading edge, where native macOS windows
             // keep their window controls.
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.92 : 0.7))
-                    .frame(width: 28, height: 28)
-                    .background(.white.opacity(0.07), in: Circle())
-                    .contentShape(Circle())
+            HStack {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.92 : 0.7))
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.07), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                Spacer()
             }
-            .buttonStyle(.plain)
 
-            Image(systemName: "waveform")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(SettingsTheme.accent)
-                .frame(width: 26, height: 26)
-                .background(SettingsTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+            // Talkify identity, dead-center regardless of the close button.
+            HStack(spacing: 9) {
+                Image("MenuBarIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 15, height: 15)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .frame(width: 26, height: 26)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
 
-            Text("Settings")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-
-            Spacer()
+                Text("Talkify")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+            }
         }
         .padding(.horizontal, 16)
         .frame(height: 56)
@@ -294,6 +310,10 @@ private struct SettingsContent: View {
                     AppearanceSettings(settings: settings)
                 case .sounds:
                     SoundsSettings(settings: settings, sounds: sounds)
+                case .readAloud:
+                    ReadAloudSettings(settings: settings)
+                case .shortcuts:
+                    ShortcutsSettings(settings: settings)
                 case .insights:
                     InsightsSettings(tracker: usageTracker)
                 }
@@ -409,6 +429,142 @@ private struct AppearanceSettings: View {
     }
 }
 
+private struct ShortcutsSettings: View {
+    @Bindable var settings: AppSettings
+
+    var body: some View {
+        SettingsCard(title: "Keys") {
+            SettingsRow(
+                title: "Dictation Trigger",
+                description: ""
+            ) {
+                KeyRecorderView(
+                    binding: $settings.dictationTriggerBinding,
+                    capturesSingleKey: true,
+                    onRecordingChanged: { settings.isRecordingKeybind = $0 }
+                )
+            }
+
+            SettingsRow(
+                title: "Read Aloud",
+                description: ""
+            ) {
+                KeyRecorderView(
+                    binding: $settings.readAloudBinding,
+                    capturesSingleKey: false,
+                    onRecordingChanged: { settings.isRecordingKeybind = $0 }
+                )
+            }
+        }
+    }
+}
+
+private struct ReadAloudSettings: View {
+    @Bindable var settings: AppSettings
+
+    @Environment(\.colorSchemeContrast) private var contrast
+    @State private var catalog = VoiceCatalog()
+    @State private var previewSynthesizer = AVSpeechSynthesizer()
+    @State private var personalVoiceStatus = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            SettingsCard(title: "Voice") {
+                SettingsRow(
+                    title: "Read Aloud voice",
+                    description: catalog.voices.isEmpty
+                        ? "Only default-quality voices are installed on this Mac"
+                        : "High-quality voices installed on this Mac"
+                ) {
+                    Picker("Read Aloud voice", selection: $settings.readAloudVoiceID) {
+                        Text("System Default").tag("")
+                        ForEach(catalog.voices, id: \.identifier) { voice in
+                            Text(VoiceCatalog.label(for: voice)).tag(voice.identifier)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 240, alignment: .trailing)
+                }
+
+                SettingsRow(
+                    title: "Preview",
+                    description: "Hear a sample with the selected voice"
+                ) {
+                    Button("Play sample") {
+                        playPreview()
+                    }
+                    .buttonStyle(SettingsButtonStyle())
+                }
+            }
+
+            SettingsCard(title: "More voices") {
+                SettingsRow(
+                    title: "Download premium voices",
+                    description: "In System Settings, open Spoken Content → "
+                        + "System Voice → Manage Voices and download a Premium "
+                        + "voice (the files are large and download quietly; a "
+                        + "stuck download usually clears after a restart). New "
+                        + "voices appear here automatically."
+                ) {
+                    Button("Open System Settings") {
+                        VoiceCatalog.openVoiceDownloadSettings()
+                    }
+                    .buttonStyle(SettingsButtonStyle())
+                }
+
+                if personalVoiceStatus == .notDetermined {
+                    SettingsRow(
+                        title: "Personal Voice",
+                        description: "Let Talkify read text in your own trained voice"
+                    ) {
+                        Button("Allow Personal Voice") {
+                            Task {
+                                personalVoiceStatus = await VoiceCatalog.requestPersonalVoiceAccess()
+                                catalog.refresh()
+                            }
+                        }
+                        .buttonStyle(SettingsButtonStyle())
+                    }
+                }
+            }
+
+            // Informational only: Personal Voice creation is Apple's UI and
+            // has no API, so this stays a footnote rather than a feature row.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(
+                    "Talkify can also speak in a voice trained on your own "
+                        + "speech: create a Personal Voice in System Settings → "
+                        + "Accessibility, then allow Talkify to use it."
+                )
+                .font(.caption)
+                .foregroundStyle(.white.opacity(contrast == .increased ? 0.7 : 0.45))
+                .fixedSize(horizontal: false, vertical: true)
+
+                Button("Open Personal Voice settings…") {
+                    VoiceCatalog.openPersonalVoiceSettings()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+                .tint(SettingsTheme.accent)
+            }
+            .padding(.horizontal, 6)
+        }
+    }
+
+    private func playPreview() {
+        previewSynthesizer.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(
+            string: "Hi! This is how Talkify will read your text out loud."
+        )
+        if !settings.readAloudVoiceID.isEmpty,
+           let voice = AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID) {
+            utterance.voice = voice
+        }
+        previewSynthesizer.speak(utterance)
+    }
+}
+
 private struct SoundsSettings: View {
     @Bindable var settings: AppSettings
     let sounds: DictationHUDSounds
@@ -510,6 +666,35 @@ private struct SettingsPreviewCard: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
+
+                // A simulated menu bar strip so the shape reads as a notch
+                // at the top of a display: matches the housing strip's
+                // scaled height, with the Talkify ghost among the status
+                // items. The shell's black housing draws over its center.
+                HStack(spacing: 0) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 8))
+                        Text("Finder")
+                            .font(.system(size: 8.5, weight: .semibold))
+                    }
+                    Spacer()
+                    HStack(spacing: 8) {
+                        Image("MenuBarIcon")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 8.5)
+                        Image(systemName: "wifi")
+                            .font(.system(size: 8))
+                        Text("11:41")
+                            .font(.system(size: 8.5, weight: .medium))
+                    }
+                }
+                .foregroundStyle(.white.opacity(0.55))
+                .padding(.horizontal, 10)
+                .frame(height: 15.4)
+                .background(.white.opacity(0.05))
 
                 DictationHUDShellView(
                     screen: HUDPreviewScreen.notched,
@@ -645,10 +830,12 @@ private struct SettingsRow<Control: View>: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.48))
-                    .fixedSize(horizontal: false, vertical: true)
+                if !description.isEmpty {
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.48))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 12)
             control

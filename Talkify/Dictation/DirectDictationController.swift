@@ -3,6 +3,10 @@ import AppKit
 @MainActor
 final class DirectDictationController {
     var onRecordingStateChange: ((Bool) -> Void)?
+    /// Fired by the Read Aloud shortcut (Option+Escape), only while no
+    /// dictation session is active — speaking through the microphone's
+    /// speaker path mid-dictation would feed the recognizer its own audio.
+    var onReadAloudTriggered: (() -> Void)?
 
     private enum Gesture {
         case held(startedAt: ContinuousClock.Instant)
@@ -60,7 +64,18 @@ final class DirectDictationController {
     }
 
     func start() {
+        applyKeyBindings()
         requestPermissionsAndPrepare()
+    }
+
+    /// Pushes the recorded Settings bindings into the event tap; called at
+    /// start and whenever the Shortcuts section changes them.
+    func applyKeyBindings() {
+        triggerMonitor?.setBindings(
+            trigger: settings.dictationTriggerBinding,
+            readAloud: settings.readAloudBinding
+        )
+        triggerMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
     }
 
     func stop() {
@@ -141,6 +156,10 @@ final class DirectDictationController {
             triggerReleased()
         case .cancelPressed:
             cancelSession()
+        case .readAloudPressed:
+            if case .idle = state {
+                onReadAloudTriggered?()
+            }
         }
     }
 

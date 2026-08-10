@@ -46,6 +46,33 @@ final class TextInsertionService {
         )
     }
 
+    /// The focused element's selected text, for Read Aloud. Read-only: no
+    /// clipboard, no insertion. Nil when nothing is focused, the element
+    /// exposes no selection, or the selection is empty.
+    func captureSelectedText() -> String? {
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedUIElementAttribute as CFString,
+            &focused
+        ) == .success,
+        let focused else {
+            return nil
+        }
+
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            focused as! AXUIElement,
+            kAXSelectedTextAttribute as CFString,
+            &value
+        ) == .success else {
+            return nil
+        }
+
+        return value as? String
+    }
+
     func insert(_ text: String, into target: Target?) async {
         guard !text.isEmpty else { return }
         guard let target else {
