@@ -2,6 +2,10 @@ import Charts
 import Foundation
 import SwiftUI
 
+/// The Insights section, in the WhoopScope trends language: summary cards
+/// with a comparison sentence against the previous period, then full-width
+/// chart surfaces whose subtitle doubles as the scrubbed readout — the
+/// selection value lives in the card header, never in a floating tooltip.
 struct InsightsSettings: View {
     let tracker: UsageTracker
 
@@ -18,7 +22,7 @@ struct InsightsSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             if let errorMessage = tracker.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(.callout)
@@ -26,11 +30,30 @@ struct InsightsSettings: View {
                     .accessibilityLabel("Insights data error: \(errorMessage)")
             }
 
-            InsightsMetricGrid(summary: summary, timeline: timeline)
-            VoiceMomentumCard(momentum: momentum, summary: summary)
-            DailyWordsCard(days: timeline)
-            WeekdayRhythmCard(days: tracker.heatmap())
-            StreakActivityCard(summary: summary, days: tracker.heatmap())
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 180), spacing: 12)],
+                alignment: .leading,
+                spacing: 12
+            ) {
+                InsightSummaryCard.wordsThisWeek(momentum)
+                InsightSummaryCard.averagePace(summary)
+                InsightSummaryCard.voiceTime(summary)
+            }
+
+            if summary.completedSessions == 0 {
+                ContentUnavailableView(
+                    "No dictation data yet",
+                    systemImage: "chart.xyaxis.line",
+                    description: Text(
+                        "Insights appear after your first completed Direct Dictation session."
+                    )
+                )
+                .insightsCard()
+            } else {
+                WordsTrendChart(days: timeline)
+                SessionsTrendChart(days: timeline)
+                ActivityHeatmapCard(summary: summary, days: tracker.heatmap())
+            }
         }
         .task {
             await tracker.load()
@@ -38,531 +61,308 @@ struct InsightsSettings: View {
     }
 }
 
-private struct InsightsMetricGrid: View {
-    let summary: UsageSummary
-    let timeline: [UsageTimelineDay]
+// MARK: - Palette
 
-    var body: some View {
-        LazyVGrid(
-            columns: [
-                GridItem(.flexible(minimum: 150), spacing: 12),
-                GridItem(.flexible(minimum: 150), spacing: 12),
-                GridItem(.flexible(minimum: 150)),
-            ],
-            alignment: .leading,
-            spacing: 12
-        ) {
-            InsightMetricCard(
-                title: "Total Words",
-                value: summary.totalWords.formatted(),
-                detail: "\(summary.completedSessions.formatted()) completed sessions",
-                systemImage: "text.word.spacing",
-                sparkline: timeline
-            )
-            InsightMetricCard(
-                title: "Average WPM",
-                value: Int(summary.averageWordsPerMinute.rounded()).formatted(),
-                detail: "Weighted by speaking time",
-                systemImage: "speedometer"
-            )
-            InsightMetricCard(
-                title: "Voice Time",
-                value: InsightsFormat.duration(summary.totalSpeakingDuration),
-                detail: "Active speaking time",
-                systemImage: "waveform"
-            )
-        }
-    }
+/// Per-metric tints, one hue per metric across the whole section.
+private enum InsightsPalette {
+    static let words = SettingsTheme.accent
+    static let sessions = Color(red: 0.20, green: 0.82, blue: 0.58)
+    static let time = Color(red: 0.62, green: 0.50, blue: 0.98)
 }
 
-private struct InsightMetricCard: View {
+// MARK: - Summary cards
+
+private struct InsightSummaryCard: View {
     let title: String
+    let symbol: String
     let value: String
-    let detail: String
-    let systemImage: String
-    var sparkline: [UsageTimelineDay] = []
-
-    @Environment(\.colorSchemeContrast) private var contrast
-
-    private var showsSparkline: Bool {
-        sparkline.contains { $0.wordCount > 0 }
-    }
+    let unit: String
+    let comparison: String
+    let caption: String
+    let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(SettingsTheme.accent)
-                    .frame(width: 28, height: 28)
-                    .background(SettingsTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                Spacer()
-                if showsSparkline {
-                    MetricSparkline(days: sparkline)
+        VStack(alignment: .leading, spacing: 11) {
+            Label(title, systemImage: symbol)
+                .font(.headline)
+                .foregroundStyle(tint)
+
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            Text(value)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .monospacedDigit()
+            Text(comparison)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2, reservesSpace: true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(detail)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.46))
-                    .lineLimit(1)
-            }
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .insightsCard()
         .accessibilityElement(children: .combine)
     }
-}
 
-/// The 14-day trend as a minimal inline chart: no axes, no legend, just the
-/// shape of the fortnight next to the headline number.
-private struct MetricSparkline: View {
-    let days: [UsageTimelineDay]
-
-    var body: some View {
-        Chart(days) { day in
-            AreaMark(
-                x: .value("Date", day.date, unit: .day),
-                y: .value("Words Dictated", day.wordCount)
-            )
-            .interpolationMethod(.monotone)
-            .foregroundStyle(
-                .linearGradient(
-                    colors: [SettingsTheme.accent.opacity(0.35), SettingsTheme.accent.opacity(0.02)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            LineMark(
-                x: .value("Date", day.date, unit: .day),
-                y: .value("Words Dictated", day.wordCount)
-            )
-            .interpolationMethod(.monotone)
-            .foregroundStyle(SettingsTheme.accent)
-            .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+    static func wordsThisWeek(_ momentum: UsageMomentum) -> Self {
+        let comparison: String
+        if momentum.previousWordCount == 0 {
+            comparison = "Previous week unavailable"
+        } else if let change = momentum.wordChange {
+            let percentage = Int((abs(change) * 100).rounded())
+            comparison = percentage < 5
+                ? "About the same as the previous week"
+                : "\(percentage)% \(change > 0 ? "higher" : "lower") than the previous week"
+        } else {
+            comparison = "Previous week unavailable"
         }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartLegend(.hidden)
-        .frame(width: 64, height: 26)
-        .accessibilityLabel("Fourteen-day words trend")
-    }
-}
-
-private struct VoiceMomentumCard: View {
-    let momentum: UsageMomentum
-    let summary: UsageSummary
-
-    @Environment(\.colorSchemeContrast) private var contrast
-
-    private var headline: String {
-        if momentum.currentWordCount == 0, momentum.previousWordCount == 0 {
-            return "Your voice rhythm starts with the next session"
-        }
-        if momentum.currentWordCount == 0 {
-            return "No voice activity in the last seven days"
-        }
-        guard let change = momentum.wordChange else {
-            return "You dictated \(momentum.currentWordCount.formatted()) words in seven days"
-        }
-
-        let percentage = Int((abs(change) * 100).rounded())
-        if percentage < 5 {
-            return "Your voice output is steady"
-        }
-        return change > 0
-            ? "Your voice output is up \(percentage)%"
-            : "Your voice output is down \(percentage)%"
-    }
-
-    private var detail: String {
-        let activeDays = InsightsFormat.count(momentum.activeDayCount, singular: "active day")
-        let sessions = InsightsFormat.count(momentum.sessionCount, singular: "session")
-        let average = Int(summary.averageWordsPerSession.rounded()).formatted()
-        return "\(activeDays) · \(sessions) · \(average) words per session"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Label("Voice Momentum", systemImage: "waveform.path.ecg")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SettingsTheme.accent)
-                    Text(headline)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
-                }
-                Spacer(minLength: 12)
-            }
-
-            MomentumComparisonChart(momentum: momentum)
-        }
-        .insightsCard()
-        .accessibilityElement(children: .contain)
-    }
-}
-
-private struct MomentumComparisonChart: View {
-    private let bars: [MomentumBar]
-
-    init(momentum: UsageMomentum) {
-        bars = [
-            MomentumBar(period: "Previous 7 days", wordCount: momentum.previousWordCount),
-            MomentumBar(period: "Last 7 days", wordCount: momentum.currentWordCount),
-        ]
-    }
-
-    var body: some View {
-        Chart {
-            BarPlot(
-                bars,
-                x: .value("Words Dictated", \.wordCount),
-                y: .value("Period", \.period),
-                height: .ratio(0.58)
-            )
-            .foregroundStyle(by: .value("Period", \.period))
-            .cornerRadius(5)
-        }
-        .chartForegroundStyleScale(
-            domain: bars.map(\.period),
-            range: [.white.opacity(0.24), SettingsTheme.accent]
+        return Self(
+            title: "Words this week",
+            symbol: "text.word.spacing",
+            value: momentum.currentWordCount.formatted(),
+            unit: "",
+            comparison: comparison,
+            caption: "Based on \(InsightsFormat.count(momentum.sessionCount, singular: "session"))",
+            tint: InsightsPalette.words
         )
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks { value in
-                AxisValueLabel {
-                    if let period = value.as(String.self) {
-                        Text(period)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                }
-            }
-        }
-        .chartLegend(.hidden)
-        .frame(height: 72)
+    }
+
+    static func averagePace(_ summary: UsageSummary) -> Self {
+        Self(
+            title: "Average pace",
+            symbol: "speedometer",
+            value: Int(summary.averageWordsPerMinute.rounded()).formatted(),
+            unit: "wpm",
+            comparison: "Weighted by active speaking time",
+            caption: "Across \(InsightsFormat.count(summary.completedSessions, singular: "scored session"))",
+            tint: InsightsPalette.sessions
+        )
+    }
+
+    static func voiceTime(_ summary: UsageSummary) -> Self {
+        Self(
+            title: "Voice time",
+            symbol: "waveform",
+            value: InsightsFormat.durationValue(summary.totalSpeakingDuration),
+            unit: InsightsFormat.durationUnit(summary.totalSpeakingDuration),
+            comparison: "\(summary.totalWords.formatted()) words dictated in total",
+            caption: "Longest streak · \(InsightsFormat.count(summary.longestStreak, singular: "day"))",
+            tint: InsightsPalette.time
+        )
     }
 }
 
-private struct MomentumBar: Identifiable {
-    let period: String
-    let wordCount: Int
+// MARK: - Chart surface
 
-    var id: String { period }
+/// A chart card whose subtitle is the live readout: idle it explains the
+/// chart, scrubbed it shows the selected day's values.
+private struct InsightChartSurface<Content: View>: View {
+    let title: String
+    let symbol: String
+    let tint: Color
+    let subtitle: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(title, systemImage: symbol)
+                    .font(.headline)
+                    .foregroundStyle(tint)
+
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+            }
+
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .insightsCard()
+    }
 }
 
-private struct DailyWordsCard: View {
+// MARK: - Words per day
+
+private struct WordsTrendChart: View {
     let days: [UsageTimelineDay]
 
-    @Environment(\.colorSchemeContrast) private var contrast
-    @State private var rawSelectedDate: Date?
+    @State private var selectedDate: Date?
 
     private var selectedDay: UsageTimelineDay? {
-        guard let rawSelectedDate else { return nil }
+        guard let selectedDate else { return nil }
         return days.min {
-            abs($0.date.timeIntervalSince(rawSelectedDate))
-                < abs($1.date.timeIntervalSince(rawSelectedDate))
+            abs($0.date.timeIntervalSince(selectedDate))
+                < abs($1.date.timeIntervalSince(selectedDate))
         }
     }
 
-    private var totalWords: Int {
-        days.reduce(0) { $0 + $1.wordCount }
-    }
-
-    private var yMaximum: Int {
-        max(days.map(\.wordCount).max() ?? 0, 1)
-    }
-
-    /// Mean words across active days only — a fortnight of mostly-quiet days
-    /// would otherwise drag the reference line into the noise floor.
-    private var activeDayAverage: Int {
-        let active = days.filter { $0.wordCount > 0 }
-        guard !active.isEmpty else { return 0 }
-        return active.reduce(0) { $0 + $1.wordCount } / active.count
-    }
-
-    private var takeaway: String {
-        if let selectedDay {
-            return "\(selectedDay.wordCount.formatted()) words on \(selectedDay.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))"
+    private var subtitle: String {
+        guard let selectedDay else {
+            let total = days.reduce(0) { $0 + $1.wordCount }
+            return "\(total.formatted()) words dictated over the last 14 days"
         }
-        return "\(totalWords.formatted()) words over the last 14 days"
+        let date = selectedDay.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return "\(date) · \(selectedDay.wordCount.formatted()) words"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Speaking Activity")
-                    .font(.headline)
-                Text(takeaway)
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
-            }
-
+        InsightChartSurface(
+            title: "Words per day",
+            symbol: "text.word.spacing",
+            tint: InsightsPalette.words,
+            subtitle: subtitle
+        ) {
             Chart {
                 ForEach(days) { day in
                     BarMark(
                         x: .value("Date", day.date, unit: .day),
-                        y: .value("Words Dictated", day.wordCount),
+                        y: .value("Words dictated", day.wordCount),
                         width: .ratio(0.62)
                     )
-                    .foregroundStyle(SettingsTheme.accent.gradient)
-                    .cornerRadius(4)
-                }
-
-                if activeDayAverage > 0, selectedDay == nil {
-                    RuleMark(y: .value("Daily Average", activeDayAverage))
-                        .foregroundStyle(.white.opacity(0.3))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                        .annotation(position: .top, alignment: .trailing, spacing: 2) {
-                            Text("avg \(activeDayAverage.formatted())")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.45))
-                        }
+                    .foregroundStyle(InsightsPalette.words.gradient)
+                    .clipShape(.rect(cornerRadius: 4))
                 }
 
                 if let selectedDay {
-                    RuleMark(x: .value("Selected Date", selectedDay.date, unit: .day))
-                        .foregroundStyle(.white.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                        .annotation(
-                            position: .top,
-                            spacing: 5,
-                            overflowResolution: .init(
-                                x: .fit(to: .chart),
-                                y: .disabled
-                            )
-                        ) {
-                            ChartValueLabel(value: selectedDay.wordCount)
-                        }
-                }
-            }
-            .chartXSelection(value: $rawSelectedDate)
-            .chartYScale(domain: 0...(yMaximum + max(yMaximum / 5, 1)))
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: 2)) { value in
-                    AxisValueLabel(
-                        format: .dateTime.month(.abbreviated).day(),
-                        collisionResolution: .greedy(minimumSpacing: 8)
-                    )
-                    .foregroundStyle(.white.opacity(0.5))
+                    RuleMark(x: .value("Selected date", selectedDay.date, unit: .day))
+                        .foregroundStyle(.secondary)
+                        .lineStyle(.init(lineWidth: 1, dash: [4, 4]))
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
                     AxisGridLine()
-                        .foregroundStyle(.white.opacity(0.07))
                     AxisValueLabel()
-                        .foregroundStyle(.white.opacity(0.5))
                 }
             }
-            .chartPlotStyle { plotArea in
-                plotArea
-                    .background(.white.opacity(0.025))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .frame(height: 190)
+            .insightsDateAxis(days)
+            .chartXSelection(value: $selectedDate)
+            .frame(minHeight: 200)
+            .accessibilityLabel("Words dictated per day over the last fourteen days")
         }
-        .insightsCard()
     }
 }
 
-private struct ChartValueLabel: View {
-    let value: Int
+// MARK: - Sessions per day
 
-    var body: some View {
-        Text("\(value.formatted()) words")
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.ultraThinMaterial, in: Capsule())
-    }
-}
+private struct SessionsTrendChart: View {
+    let days: [UsageTimelineDay]
 
-/// Which weekdays carry the dictation habit: a donut of words by weekday over
-/// the last sixteen weeks, with angular selection and a center readout.
-private struct WeekdayRhythmCard: View {
-    private let slices: [WeekdaySlice]
-    private let totalWords: Int
+    @State private var selectedDate: Date?
 
-    @Environment(\.colorSchemeContrast) private var contrast
-    @State private var selectedAngle: Int?
-
-    init(days: [UsageHeatmapDay]) {
-        let calendar = UsageMetrics.localCalendar()
-        var totals = [Int: Int]()
-        for day in days where !day.isFuture && day.wordCount > 0 {
-            if let weekday = day.day.weekday(in: calendar) {
-                totals[weekday, default: 0] += day.wordCount
-            }
-        }
-
-        // Sectors need strictly positive values; quiet weekdays are simply
-        // absent. Order follows the user's calendar week.
-        let symbols = calendar.weekdaySymbols
-        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
-        slices = ordered.compactMap { weekday in
-            guard let words = totals[weekday], words > 0 else { return nil }
-            return WeekdaySlice(name: symbols[weekday - 1], wordCount: words)
-        }
-        totalWords = slices.reduce(0) { $0 + $1.wordCount }
-    }
-
-    private var selectedSlice: WeekdaySlice? {
-        guard let selectedAngle else { return nil }
-        var runningTotal = 0
-        return slices.first { slice in
-            let range = runningTotal..<(runningTotal + slice.wordCount)
-            runningTotal += slice.wordCount
-            return range.contains(selectedAngle)
+    private var selectedDay: UsageTimelineDay? {
+        guard let selectedDate else { return nil }
+        return days.min {
+            abs($0.date.timeIntervalSince(selectedDate))
+                < abs($1.date.timeIntervalSince(selectedDate))
         }
     }
 
-    private var busiest: WeekdaySlice? {
-        slices.max { $0.wordCount < $1.wordCount }
+    private var subtitle: String {
+        guard let selectedDay else {
+            let total = days.reduce(0) { $0 + $1.sessionCount }
+            return "\(InsightsFormat.count(total, singular: "session")) in the last 14 days"
+        }
+        let date = selectedDay.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return "\(date) · \(InsightsFormat.count(selectedDay.sessionCount, singular: "session"))"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Weekly Rhythm")
-                    .font(.headline)
-                if let busiest {
-                    Text("\(busiest.name)s carry your dictation")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
+        InsightChartSurface(
+            title: "Sessions",
+            symbol: "mic.fill",
+            tint: InsightsPalette.sessions,
+            subtitle: subtitle
+        ) {
+            Chart {
+                ForEach(days) { day in
+                    LineMark(
+                        x: .value("Date", day.date, unit: .day),
+                        y: .value("Sessions", day.sessionCount)
+                    )
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(InsightsPalette.sessions)
+
+                    PointMark(
+                        x: .value("Date", day.date, unit: .day),
+                        y: .value("Sessions", day.sessionCount)
+                    )
+                    .foregroundStyle(InsightsPalette.sessions)
+                    .symbolSize(20)
+                }
+
+                if let selectedDay {
+                    RuleMark(x: .value("Selected date", selectedDay.date, unit: .day))
+                        .foregroundStyle(.secondary)
+                        .lineStyle(.init(lineWidth: 1, dash: [4, 4]))
                 }
             }
-
-            if slices.isEmpty {
-                Text("Dictate through a week to see your rhythm here.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
-            } else {
-                HStack(spacing: 24) {
-                    donut
-                    breakdown
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
+                    AxisGridLine()
+                    AxisValueLabel()
                 }
             }
+            .insightsDateAxis(days)
+            .chartXSelection(value: $selectedDate)
+            .frame(minHeight: 170)
+            .accessibilityLabel("Direct Dictation sessions per day over the last fourteen days")
         }
-        .insightsCard()
-    }
-
-    private var donut: some View {
-        Chart(slices) { slice in
-            SectorMark(
-                angle: .value("Words Dictated", slice.wordCount),
-                innerRadius: .ratio(0.618),
-                angularInset: 1.2
-            )
-            .cornerRadius(4)
-            .foregroundStyle(by: .value("Weekday", slice.name))
-            .opacity(selectedSlice == nil || selectedSlice?.name == slice.name ? 1 : 0.35)
-            .accessibilityLabel(slice.name)
-            .accessibilityValue("\(slice.wordCount.formatted()) words dictated")
-        }
-        .chartAngleSelection(value: $selectedAngle)
-        .chartForegroundStyleScale(
-            domain: slices.map(\.name),
-            range: WeekdaySlice.palette
-        )
-        .chartLegend(.hidden)
-        .chartBackground { _ in
-            VStack(spacing: 1) {
-                Text(selectedSlice?.name ?? "Total")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
-                Text((selectedSlice?.wordCount ?? totalWords).formatted())
-                    .font(.system(size: 19, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-            }
-        }
-        .frame(width: 168, height: 168)
-    }
-
-    private var breakdown: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(slices.enumerated()), id: \.element.id) { index, slice in
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(WeekdaySlice.palette[index % WeekdaySlice.palette.count])
-                        .frame(width: 7, height: 7)
-                    Text(slice.name)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.72))
-                    Spacer(minLength: 12)
-                    Text(Double(slice.wordCount) / Double(max(totalWords, 1)),
-                         format: .percent.precision(.fractionLength(0)))
-                        .font(.caption.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct WeekdaySlice: Identifiable {
-    let name: String
-    let wordCount: Int
+private extension View {
+    /// Pinned date domain with about seven labeled ticks, WhoopScope-style.
+    func insightsDateAxis(_ days: [UsageTimelineDay]) -> some View {
+        let firstDate = days.first?.date ?? .now
+        let lastDate = days.last?.date ?? .now
+        let domainEnd = lastDate > firstDate
+            ? lastDate.addingTimeInterval(12 * 60 * 60)
+            : firstDate.addingTimeInterval(24 * 60 * 60)
 
-    var id: String { name }
-
-    /// A cool-range palette that stays inside the app's dark blue language
-    /// instead of a rainbow: accent blue drifting toward mint.
-    static let palette: [Color] = [
-        Color(red: 0.36, green: 0.58, blue: 1.0),
-        Color(red: 0.33, green: 0.72, blue: 0.98),
-        Color(red: 0.35, green: 0.84, blue: 0.90),
-        Color(red: 0.42, green: 0.90, blue: 0.77),
-        Color(red: 0.55, green: 0.62, blue: 0.98),
-        Color(red: 0.70, green: 0.56, blue: 0.98),
-        Color(red: 0.47, green: 0.47, blue: 0.90),
-    ]
+        return chartXScale(domain: firstDate.addingTimeInterval(-12 * 60 * 60)...domainEnd)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 7)) {
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                }
+            }
+    }
 }
 
-private struct StreakActivityCard: View {
+// MARK: - Activity heatmap
+
+private struct ActivityHeatmapCard: View {
     let summary: UsageSummary
     let days: [UsageHeatmapDay]
 
-    @Environment(\.colorSchemeContrast) private var contrast
+    private var subtitle: String {
+        "\(InsightsFormat.count(summary.currentStreak, singular: "day")) streak · "
+            + "longest \(InsightsFormat.count(summary.longestStreak, singular: "day"))"
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summary.currentStreak.formatted()) day streak")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text("Sixteen weeks of Direct Dictation")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
-                }
-                Spacer()
-                Text("Longest · \(InsightsFormat.count(summary.longestStreak, singular: "day"))")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
+        InsightChartSurface(
+            title: "Activity",
+            symbol: "calendar",
+            tint: InsightsPalette.words,
+            subtitle: subtitle
+        ) {
             ActivityHeatmapChart(days: days)
             ActivityLegend()
-
-            if summary.completedSessions == 0 {
-                Text("Complete a Direct Dictation session to see activity here.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.52))
-            }
         }
-        .insightsCard()
     }
 }
 
@@ -573,8 +373,6 @@ private struct ActivityHeatmapChart: View {
     private let monthLabels: [Int: String]
     private let monthTicks: [Double]
     private let weekdayLabels: [String]
-
-    @Environment(\.colorSchemeContrast) private var contrast
 
     init(days: [UsageHeatmapDay]) {
         let calendar = UsageMetrics.localCalendar()
@@ -641,8 +439,8 @@ private struct ActivityHeatmapChart: View {
         .chartForegroundStyleScale(
             domain: ["Active", "Inactive", "Future"],
             range: [
-                SettingsTheme.accent,
-                .white.opacity(contrast == .increased ? 0.2 : 0.09),
+                InsightsPalette.words,
+                Color.secondary.opacity(0.18),
                 .clear,
             ]
         )
@@ -655,24 +453,24 @@ private struct ActivityHeatmapChart: View {
                        let label = monthLabels[Int(tick)] {
                         Text(label)
                             .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
         .chartYAxis {
-            AxisMarks(position: .leading, values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]) { value in
+            AxisMarks(position: .leading, values: [0.0, 2.0, 4.0, 6.0]) { value in
                 AxisValueLabel {
                     if let row = value.as(Double.self) {
                         Text(weekdayLabels[6 - Int(row)])
                             .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
         .chartLegend(.hidden)
-        .frame(height: 238)
+        .frame(height: 224)
         .accessibilityLabel("Sixteen-week Direct Dictation activity")
     }
 }
@@ -688,44 +486,34 @@ private struct HeatmapChartDay {
 }
 
 private struct ActivityLegend: View {
-    @Environment(\.colorSchemeContrast) private var contrast
-
     var body: some View {
         HStack(spacing: 6) {
             Text("Less")
             ForEach(1...4, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(SettingsTheme.accent.opacity(0.15 + 0.2 * Double(level)))
+                    .fill(InsightsPalette.words.opacity(0.15 + 0.2 * Double(level)))
                     .frame(width: 13, height: 13)
             }
             Text("More")
         }
         .font(.caption2)
-        .foregroundStyle(.white.opacity(contrast == .increased ? 0.76 : 0.5))
+        .foregroundStyle(.secondary)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Activity ranges from less to more words dictated")
     }
 }
+
+// MARK: - Card chrome
 
 private struct InsightsCardModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
         content
-            .padding(16)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(SettingsTheme.card)
-                    .overlay {
-                        LinearGradient(
-                            colors: [SettingsTheme.accent.opacity(0.045), .clear],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    }
-            }
+            .padding(18)
+            .background(SettingsTheme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(
                         .white.opacity(contrast == .increased ? 0.22 : 0.09),
                         lineWidth: 1
@@ -740,15 +528,23 @@ private extension View {
     }
 }
 
+// MARK: - Formatting
+
 private enum InsightsFormat {
-    static func duration(_ duration: TimeInterval) -> String {
+    static func durationValue(_ duration: TimeInterval) -> String {
         if duration < 60 {
-            return "\(Int(duration.rounded()).formatted()) sec"
+            return Int(duration.rounded()).formatted()
         }
         if duration < 3_600 {
-            return "\(Int((duration / 60).rounded()).formatted()) min"
+            return Int((duration / 60).rounded()).formatted()
         }
-        return String(format: "%.1f hr", duration / 3_600)
+        return String(format: "%.1f", duration / 3_600)
+    }
+
+    static func durationUnit(_ duration: TimeInterval) -> String {
+        if duration < 60 { return "sec" }
+        if duration < 3_600 { return "min" }
+        return "hr"
     }
 
     static func count(_ value: Int, singular: String) -> String {
