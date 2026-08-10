@@ -7,80 +7,80 @@ import AVFAudio
 /// through the HUD message surface, matching Direct Dictation.
 @MainActor
 final class ReadAloudController: NSObject {
-    /// Follows the synthesizer's actual state; the status menu mirrors it.
-    var onSpeakingStateChange: ((Bool) -> Void)?
+  /// Follows the synthesizer's actual state; the status menu mirrors it.
+  var onSpeakingStateChange: ((Bool) -> Void)?
 
-    private let settings: AppSettings
-    private let hudController: DictationHUDController
-    private let selectionReader = FocusedSelectionReader()
-    private let synthesizer = AVSpeechSynthesizer()
+  private let settings: AppSettings
+  private let hudController: DictationHUDController
+  private let selectionReader = FocusedSelectionReader()
+  private let synthesizer = AVSpeechSynthesizer()
 
-    init(settings: AppSettings, hudController: DictationHUDController) {
-        self.settings = settings
-        self.hudController = hudController
-        super.init()
-        synthesizer.delegate = self
+  init(settings: AppSettings, hudController: DictationHUDController) {
+    self.settings = settings
+    self.hudController = hudController
+    super.init()
+    synthesizer.delegate = self
+  }
+
+  func toggle() {
+    if synthesizer.isSpeaking {
+      stop()
+    } else {
+      speakSelection()
+    }
+  }
+
+  func stop() {
+    synthesizer.stopSpeaking(at: .immediate)
+  }
+
+  private func speakSelection() {
+    guard PermissionService.hasAccessibilityAccess else {
+      hudController.showMessage("Accessibility permission required")
+      return
     }
 
-    func toggle() {
-        if synthesizer.isSpeaking {
-            stop()
-        } else {
-            speakSelection()
-        }
+    let selection = selectionReader.selectedText()?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let selection, !selection.isEmpty else {
+      hudController.showMessage("No text selected")
+      return
     }
 
-    func stop() {
-        synthesizer.stopSpeaking(at: .immediate)
+    let utterance = AVSpeechUtterance(string: selection)
+    if !settings.readAloudVoiceID.isEmpty,
+     let voice = AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID) {
+      utterance.voice = voice
     }
-
-    private func speakSelection() {
-        guard PermissionService.hasAccessibilityAccess else {
-            hudController.showMessage("Accessibility permission required")
-            return
-        }
-
-        let selection = selectionReader.selectedText()?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let selection, !selection.isEmpty else {
-            hudController.showMessage("No text selected")
-            return
-        }
-
-        let utterance = AVSpeechUtterance(string: selection)
-        if !settings.readAloudVoiceID.isEmpty,
-           let voice = AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID) {
-            utterance.voice = voice
-        }
-        synthesizer.speak(utterance)
-    }
+    synthesizer.speak(utterance)
+  }
 }
 
 extension ReadAloudController: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(
-        _ synthesizer: AVSpeechSynthesizer,
-        didStart utterance: AVSpeechUtterance
-    ) {
-        Task { @MainActor [weak self] in
-            self?.onSpeakingStateChange?(true)
-        }
+  nonisolated func speechSynthesizer(
+    _ synthesizer: AVSpeechSynthesizer,
+    didStart utterance: AVSpeechUtterance
+  ) {
+    Task { @MainActor [weak self] in
+      self?.onSpeakingStateChange?(true)
     }
+  }
 
-    nonisolated func speechSynthesizer(
-        _ synthesizer: AVSpeechSynthesizer,
-        didFinish utterance: AVSpeechUtterance
-    ) {
-        Task { @MainActor [weak self] in
-            self?.onSpeakingStateChange?(false)
-        }
+  nonisolated func speechSynthesizer(
+    _ synthesizer: AVSpeechSynthesizer,
+    didFinish utterance: AVSpeechUtterance
+  ) {
+    Task { @MainActor [weak self] in
+      self?.onSpeakingStateChange?(false)
     }
+  }
 
-    nonisolated func speechSynthesizer(
-        _ synthesizer: AVSpeechSynthesizer,
-        didCancel utterance: AVSpeechUtterance
-    ) {
-        Task { @MainActor [weak self] in
-            self?.onSpeakingStateChange?(false)
-        }
+  nonisolated func speechSynthesizer(
+    _ synthesizer: AVSpeechSynthesizer,
+    didCancel utterance: AVSpeechUtterance
+  ) {
+    Task { @MainActor [weak self] in
+      self?.onSpeakingStateChange?(false)
     }
+  }
 }

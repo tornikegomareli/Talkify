@@ -8,22 +8,22 @@ using namespace metal;
 /// with normalized distance from the origin, spreads outward as the session
 /// ramp grows, and scales with the voice-driven amplitude.
 [[ stitchable ]] half4 edgeGlow(
-    float2 position,
-    half4 color,
-    float2 origin,
-    float2 size,
-    float amplitude,    // voice-driven; the gist uses a constant 3.0
-    float progress      // session ramp, 0…1
+  float2 position,
+  half4 color,
+  float2 origin,
+  float2 size,
+  float amplitude,    // voice-driven; the gist uses a constant 3.0
+  float progress      // session ramp, 0…1
 ) {
-    float2 uvPosition = position / size;
-    float2 uvOrigin = origin / size;
+  float2 uvPosition = position / size;
+  float2 uvOrigin = origin / size;
 
-    float distance = length(uvPosition - uvOrigin);
+  float distance = length(uvPosition - uvOrigin);
 
-    float intensity = smoothstep(0.0, 1.0, progress)
-        * exp(-distance * distance)
-        * amplitude;
-    intensity *= smoothstep(0.0, 1.0, 1.0 - distance / max(progress, 1e-3));
+  float intensity = smoothstep(0.0, 1.0, progress)
+    * exp(-distance * distance)
+    * amplitude;
+  intensity *= smoothstep(0.0, 1.0, 1.0 - distance / max(progress, 1e-3));
 
-    return color * intensity;
+  return color * intensity;
 }

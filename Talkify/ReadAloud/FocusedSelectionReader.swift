@@ -5,29 +5,29 @@ import ApplicationServices
 /// TextInsertionService's insertion routes and clipboard machinery.
 @MainActor
 struct FocusedSelectionReader {
-    /// Nil when nothing is focused, the element exposes no selection, or
-    /// the selection is empty.
-    func selectedText() -> String? {
-        let systemWideElement = AXUIElementCreateSystemWide()
-        var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWideElement,
-            kAXFocusedUIElementAttribute as CFString,
-            &focused
-        ) == .success,
-        let focused else {
-            return nil
-        }
-
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            focused as! AXUIElement,
-            kAXSelectedTextAttribute as CFString,
-            &value
-        ) == .success else {
-            return nil
-        }
-
-        return value as? String
+  /// Nil when nothing is focused, the element exposes no selection, or
+  /// the selection is empty.
+  func selectedText() -> String? {
+    let systemWideElement = AXUIElementCreateSystemWide()
+    var focused: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(
+      systemWideElement,
+      kAXFocusedUIElementAttribute as CFString,
+      &focused
+    ) == .success,
+    let focused else {
+      return nil
     }
+
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(
+      focused as! AXUIElement,
+      kAXSelectedTextAttribute as CFString,
+      &value
+    ) == .success else {
+      return nil
+    }
+
+    return value as? String
+  }
 }

@@ -9,27 +9,27 @@ import SwiftUI
 /// disc from the body-adjacent corner instead mirrors the curve and draws a
 /// detached tab with a wedge of wallpaper between it and the body.
 struct NotchFilletShape: Shape {
-    /// Which side of the HUD body this fillet sits against.
-    let side: HorizontalEdge
+  /// Which side of the HUD body this fillet sits against.
+  let side: HorizontalEdge
 
-    nonisolated func path(in rect: CGRect) -> Path {
-        let radius = min(rect.width, rect.height)
-        // The body's flank is at `maxX` for a leading fillet and `minX` for a
-        // trailing one, so the outer corner — where the disc goes — is the
-        // opposite edge in each case.
-        let corner = CGPoint(
-            x: side == .leading ? rect.minX : rect.maxX,
-            y: rect.maxY
-        )
-        let disc = Path(
-            ellipseIn: CGRect(
-                x: corner.x - radius,
-                y: corner.y - radius,
-                width: radius * 2,
-                height: radius * 2
-            )
-        )
+  nonisolated func path(in rect: CGRect) -> Path {
+    let radius = min(rect.width, rect.height)
+    // The body's flank is at `maxX` for a leading fillet and `minX` for a
+    // trailing one, so the outer corner — where the disc goes — is the
+    // opposite edge in each case.
+    let corner = CGPoint(
+      x: side == .leading ? rect.minX : rect.maxX,
+      y: rect.maxY
+    )
+    let disc = Path(
+      ellipseIn: CGRect(
+        x: corner.x - radius,
+        y: corner.y - radius,
+        width: radius * 2,
+        height: radius * 2
+      )
+    )
 
-        return Path(rect).subtracting(disc)
-    }
+    return Path(rect).subtracting(disc)
+  }
 }

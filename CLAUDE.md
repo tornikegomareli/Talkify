@@ -6,6 +6,10 @@ Menu-bar-only macOS 26 dictation app (Apple Silicon only). Read `CONTEXT.md` fir
 
 Buildable and working end to end: hold Fn, speak, release — text lands in the previously focused control. Milestone 1 (shell + Direct Dictation) and the HUD prototyping phase are shipped; all decided-by-feel picks (reveal animation, long-draft behavior, both voice visuals) live as `AppSettings` preferences behind the Settings window.
 
+## Code style (rule, not preference)
+
+- Indentation is **2 spaces** everywhere — indent width 2, tab width 2, spaces not tabs — in Swift, Metal, and any other source. Matches the committed `.editorconfig` and the owner's Xcode settings. Never write or reformat code back to 4-space indentation.
+
 ## Stack decisions (already made, do not relitigate)
 
 - Plain committed `Talkify.xcodeproj` (no Tuist, no generation), Swift 6, strict concurrency complete

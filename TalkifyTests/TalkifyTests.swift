@@ -9,7 +9,7 @@ import Foundation
 import Testing
 
 struct TalkifyTests {
-    @Test func hostIsTalkify() {
-        #expect(Bundle.main.bundleIdentifier == "com.tgomareli.Talkify")
-    }
+  @Test func hostIsTalkify() {
+    #expect(Bundle.main.bundleIdentifier == "com.tgomareli.Talkify")
+  }
 }

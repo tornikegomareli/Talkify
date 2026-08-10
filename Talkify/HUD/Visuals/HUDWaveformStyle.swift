@@ -13,13 +13,13 @@
 /// rawValue is the UserDefaults value existing picks are stored under —
 /// renaming a case silently resets that preference.
 enum HUDWaveformStyle: String, CaseIterable {
-    case article = "Article"
-    case silver = "Silver"
-    case capsules = "Capsules"
-    case chartLine = "Chart Line"
-    case chartArea = "Chart Area"
-    case dots = "Dots"
-    case curve = "Curve"
-    case filled = "Filled"
-    case siriWave = "Siri Wave"
+  case article = "Article"
+  case silver = "Silver"
+  case capsules = "Capsules"
+  case chartLine = "Chart Line"
+  case chartArea = "Chart Area"
+  case dots = "Dots"
+  case curve = "Curve"
+  case filled = "Filled"
+  case siriWave = "Siri Wave"
 }

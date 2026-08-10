@@ -6,9 +6,9 @@ import Observation
 @MainActor
 @Observable
 final class SettingsRuntimeState {
-    var isDictating: Bool
+  var isDictating: Bool
 
-    init(isDictating: Bool = false) {
-        self.isDictating = isDictating
-    }
+  init(isDictating: Bool = false) {
+    self.isDictating = isDictating
+  }
 }
