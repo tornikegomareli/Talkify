@@ -14,12 +14,15 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 - Apple Speech only (`SpeechAnalyzer`/`SpeechTranscriber`), no Whisper, no third-party dependencies
 - Scaffolding values (bundle ID, entitlements, signing, Info.plist keys): `docs/ProjectSettings.md`
 
-## Layout
+## Layout (modules as folders; communication is one-directional callbacks wired in App/)
 
-- `Talkify/Dictation/` — the six proven components carried over from the previous implementation (session prewarming, gesture latching, per-app insertion routes, clipboard restore). Treat as settled; `DirectDictationController` is the session state machine (idle/starting/recording/finishing/cancelling, held vs latched).
-- `Talkify/HUD/` — the NotchIsland-style HUD: pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested), the shell view, the voice visuals (waveform styles; the Edge Glow triptych of origin glow + ripple + MTKView particle cloud, see ADR-0002), style enums. Canvas previews live next to the views; the preview harness uses a volatile defaults suite.
-- `Talkify/AppSettings.swift` — every user preference, one observable UserDefaults-backed store. The key strings and enum rawValues are load-bearing (stored picks; sound-asset name prefixes) — do not rename.
-- `Talkify/Settings/` — the Settings window (SwiftUI Form in an `NSHostingController`).
+- `Talkify/App/` — the composition root: `AppDelegate` (wires every controller, owns the key-binding observation loop), `StatusItemController` (menu + blinking ghost), and `AppSettings.swift` — every user preference, one observable UserDefaults-backed store. The key strings and enum rawValues are load-bearing (stored picks; sound-asset name prefixes) — do not rename.
+- `Talkify/Input/` — the global CGEvent tap (`DictationTriggerMonitor`) and the recorded `KeyBinding` model, shared by Dictation, Settings, and the status menu.
+- `Talkify/Dictation/` — the session machine and its proven components (session prewarming, gesture latching, per-app insertion routes, clipboard restore). Treat as settled; `DirectDictationController` is the session state machine (idle/starting/recording/finishing/cancelling, held vs latched).
+- `Talkify/HUD/` — the NotchIsland-style HUD, split: root holds the controller, panel, sounds, and pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested); `Shell/` the surface view, its shared `DictationHUDContent` model, and layout enums; `Visuals/` the voice visuals and their styles/palettes/tokens; `Shaders/` the four Metal files (ADR-0002). Canvas previews live next to the views; the harness uses a volatile defaults suite.
+- `Talkify/ReadAloud/` — speaking selected text: controller, `VoiceCatalog`, and the read-only `FocusedSelectionReader` (never touches insertion).
+- `Talkify/Settings/` — the borderless Settings window: shell (`SettingsView`), navigation model (`SettingsSections`), `Sections/` one file per pane, `Components/` the reusable design system (`SettingsTheme/Card/Row/PickerRow/ButtonStyle`, key recorder, drag handle).
+- `Talkify/Insights/` — local usage metrics (pure `UsageMetrics`, tested), store, tracker, and the Swift Charts section.
 - `Talkify/Resources/Sounds/` — sound sets. **Pop is CC-BY-NC and must be replaced or dropped before any release**; see `LICENSE-SOUNDS.txt`.
 - `Talkify/Assets.xcassets/Siri/` — the Siri-orb prototype artwork (voice visual under feel test). **Unlicensed, imitates Apple's Siri orb, must be replaced or dropped before any release**; see `LICENSE-ARTWORK.txt`.
 

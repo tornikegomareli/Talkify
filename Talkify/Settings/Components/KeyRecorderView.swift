@@ -25,7 +25,7 @@ struct KeyRecorderView: View {
         } label: {
             Text(isRecording ? "Press keys…" : binding.label)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isRecording ? Color(red: 0.36, green: 0.58, blue: 1.0) : .white)
+                .foregroundStyle(isRecording ? SettingsTheme.accent : .white)
                 .frame(minWidth: 96)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -36,7 +36,7 @@ struct KeyRecorderView: View {
                 .overlay {
                     Capsule().stroke(
                         isRecording
-                            ? Color(red: 0.36, green: 0.58, blue: 1.0).opacity(0.7)
+                            ? SettingsTheme.accent.opacity(0.7)
                             : .white.opacity(contrast == .increased ? 0.3 : 0.12),
                         lineWidth: 1
                     )

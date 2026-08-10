@@ -122,7 +122,7 @@ struct HUDSiriOrbView: View {
         .scaleEffect(scale)
         // Dead microphone: the color life drains to a static amber tint
         // (CONTEXT.md: dead ≠ silent).
-        .colorMultiply(alive ? .white : Color(red: 1.0, green: 0.6, blue: 0.16))
+        .colorMultiply(alive ? .white : HUDVisualTokens.deadMicAmber)
     }
 }
 

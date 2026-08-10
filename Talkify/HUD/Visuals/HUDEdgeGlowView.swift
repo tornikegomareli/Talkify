@@ -73,7 +73,9 @@ struct HUDEdgeGlowView: View {
                     inset: Self.spill
                 )
                 .glow(
-                    fill: alive ? settings.glowPalette.stroke : AnyShapeStyle(.amber),
+                    fill: alive
+                        ? settings.glowPalette.stroke
+                        : AnyShapeStyle(HUDVisualTokens.deadMicAmber),
                     lineWidth: lineWidth,
                     blurRadius: blurRadius
                 )
@@ -295,13 +297,6 @@ private extension Shape {
                     .fill(fill)
                     .blur(radius: blurRadius / 2)
             }
-    }
-}
-
-private extension ShapeStyle where Self == Color {
-    /// The dead-microphone state: motionless amber.
-    static var amber: Color {
-        Color(red: 1.0, green: 0.6, blue: 0.16)
     }
 }
 

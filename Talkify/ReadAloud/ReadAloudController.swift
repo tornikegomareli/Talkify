@@ -12,9 +12,7 @@ final class ReadAloudController: NSObject {
 
     private let settings: AppSettings
     private let hudController: DictationHUDController
-    /// Its own service instance: Read Aloud only reads the focused
-    /// element's selection and never inserts.
-    private let textService = TextInsertionService()
+    private let selectionReader = FocusedSelectionReader()
     private let synthesizer = AVSpeechSynthesizer()
 
     init(settings: AppSettings, hudController: DictationHUDController) {
@@ -42,7 +40,7 @@ final class ReadAloudController: NSObject {
             return
         }
 
-        let selection = textService.captureSelectedText()?
+        let selection = selectionReader.selectedText()?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard let selection, !selection.isEmpty else {
             hudController.showMessage("No text selected")

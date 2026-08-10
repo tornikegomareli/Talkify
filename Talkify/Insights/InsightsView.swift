@@ -200,11 +200,7 @@ private struct WordsTrendChart: View {
     @State private var selectedDate: Date?
 
     private var selectedDay: UsageTimelineDay? {
-        guard let selectedDate else { return nil }
-        return days.min {
-            abs($0.date.timeIntervalSince(selectedDate))
-                < abs($1.date.timeIntervalSince(selectedDate))
-        }
+        days.closestDay(to: selectedDate)
     }
 
     private var subtitle: String {
@@ -262,11 +258,7 @@ private struct SessionsTrendChart: View {
     @State private var selectedDate: Date?
 
     private var selectedDay: UsageTimelineDay? {
-        guard let selectedDate else { return nil }
-        return days.min {
-            abs($0.date.timeIntervalSince(selectedDate))
-                < abs($1.date.timeIntervalSince(selectedDate))
-        }
+        days.closestDay(to: selectedDate)
     }
 
     private var subtitle: String {
@@ -318,6 +310,17 @@ private struct SessionsTrendChart: View {
             .chartXSelection(value: $selectedDate)
             .frame(minHeight: 170)
             .accessibilityLabel("Direct Dictation sessions per day over the last fourteen days")
+        }
+    }
+}
+
+private extension Array where Element == UsageTimelineDay {
+    /// The timeline day nearest the scrubbed date — the shared selection
+    /// rule for every date-axis chart in Insights.
+    func closestDay(to date: Date?) -> UsageTimelineDay? {
+        guard let date else { return nil }
+        return self.min {
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         }
     }
 }
