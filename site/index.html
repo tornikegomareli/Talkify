@@ -250,24 +250,6 @@
     flex: none;
   }
 
-  .voicebars { display: flex; align-items: center; gap: 3px; height: 22px; flex: none; }
-  .voicebars i {
-    width: 3.5px;
-    border-radius: 2px;
-    background: linear-gradient(180deg, var(--amber), var(--ember));
-    animation: bar-dance 1.1s ease-in-out infinite;
-  }
-  .voicebars i:nth-child(1) { height: 8px; animation-delay: 0s; }
-  .voicebars i:nth-child(2) { height: 16px; animation-delay: 0.15s; }
-  .voicebars i:nth-child(3) { height: 21px; animation-delay: 0.3s; }
-  .voicebars i:nth-child(4) { height: 13px; animation-delay: 0.45s; }
-  .voicebars i:nth-child(5) { height: 7px; animation-delay: 0.6s; }
-
-  @keyframes bar-dance {
-    0%, 100% { transform: scaleY(0.45); }
-    50% { transform: scaleY(1); }
-  }
-
   /* hero copy */
   .hero-copy {
     position: relative;
@@ -418,69 +400,22 @@
 
   .step:hover { border-color: rgba(255, 180, 87, 0.35); transform: translateY(-4px); }
 
-  .step .stage {
-    height: 84px;
-    display: flex;
-    align-items: center;
-  }
-
   .step h3 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
   .step p { font-size: 15.5px; line-height: 1.55; color: var(--ink-dim); }
+  .step p code {
+    font-size: 14px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: rgba(245, 245, 247, 0.07);
+    color: var(--ink);
+  }
+
   .step .num {
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.12em;
     color: var(--ink-faint);
   }
-
-  /* fn keycap */
-  .keycap {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    width: 74px;
-    height: 74px;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #26262c, #131317);
-    border: 1px solid rgba(245, 245, 247, 0.16);
-    box-shadow:
-      0 10px 24px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.09);
-    font-size: 17px;
-    font-weight: 500;
-    color: rgba(245, 245, 247, 0.9);
-    animation: key-press 3s ease-in-out infinite;
-  }
-
-  .keycap .globe { font-size: 13px; opacity: 0.6; }
-
-  @keyframes key-press {
-    0%, 18%, 100% { transform: none; box-shadow: 0 10px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09); }
-    8% { transform: translateY(4px) scale(0.97); box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
-  }
-
-  .step .voicebars.large { height: 44px; gap: 5px; }
-  .step .voicebars.large i { width: 6px; }
-  .step .voicebars.large i:nth-child(1) { height: 16px; }
-  .step .voicebars.large i:nth-child(2) { height: 32px; }
-  .step .voicebars.large i:nth-child(3) { height: 44px; }
-  .step .voicebars.large i:nth-child(4) { height: 26px; }
-  .step .voicebars.large i:nth-child(5) { height: 14px; }
-
-  .landed-text {
-    font-size: 16px;
-    padding: 14px 18px;
-    border-radius: 12px;
-    background: #0c0c10;
-    border: 1px solid var(--hairline);
-    color: var(--ink);
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .landed-text .typed { color: var(--amber); }
 
   /* ---------- the notch HUD visuals ---------- */
 
@@ -529,11 +464,75 @@
   .visual-copy h3 { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
   .visual-copy p { margin-top: 8px; font-size: 14.5px; line-height: 1.55; color: var(--ink-dim); }
 
-  .visuals-footnote {
-    margin-top: 34px;
-    text-align: center;
-    font-size: 14px;
+  /* ---------- speed ---------- */
+
+  .speed-stage {
+    margin-top: 56px;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--hairline);
+    background: #05050a;
+    overflow: hidden;
+  }
+
+  .speed-stage video { display: block; width: 100%; height: auto; }
+
+  .speed-placeholder {
+    aspect-ratio: 16 / 9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background:
+      radial-gradient(70% 60% at 50% 40%, rgba(255, 150, 80, 0.09), transparent 70%),
+      repeating-linear-gradient(45deg, rgba(245,245,247,0.02) 0 12px, transparent 12px 24px);
     color: var(--ink-faint);
+    font-size: 14.5px;
+  }
+
+  .speed-badge {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 180, 87, 0.5);
+    color: var(--amber);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .speed-placeholder code {
+    font-size: 13px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(245, 245, 247, 0.06);
+  }
+
+  /* ---------- settings screenshots ---------- */
+
+  .shots {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  @media (max-width: 860px) { .shots { grid-template-columns: 1fr; } }
+
+  .shot {
+    margin: 0;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--hairline);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+
+  .shot img { display: block; width: 100%; height: auto; }
+
+  .shot figcaption {
+    padding: 16px 22px 20px;
+    font-size: 14px;
+    color: var(--ink-dim);
   }
 
   /* ---------- privacy: big statement ---------- */
@@ -613,22 +612,6 @@
     border: 1px solid rgba(245, 245, 247, 0.16);
   }
 
-  /* heatmap */
-  .heatmap {
-    margin-top: 28px;
-    display: grid;
-    grid-template-rows: repeat(7, 11px);
-    grid-auto-flow: column;
-    grid-auto-columns: 11px;
-    gap: 4px;
-  }
-
-  .heatmap i { border-radius: 3px; background: rgba(245, 245, 247, 0.07); }
-  .heatmap i.l1 { background: rgba(255, 150, 80, 0.25); }
-  .heatmap i.l2 { background: rgba(255, 150, 80, 0.5); }
-  .heatmap i.l3 { background: rgba(255, 150, 80, 0.75); }
-  .heatmap i.l4 { background: var(--amber); }
-
   /* ---------- pill cloud ---------- */
 
   .pills {
@@ -707,7 +690,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .voicebars i, .keycap { animation: none !important; }
     .reveal { opacity: 1; transform: none; transition: none; }
   }
 </style>
@@ -726,6 +708,7 @@
   <div class="links">
     <a href="#how">How it works</a>
     <a href="#hud">The HUD</a>
+    <a href="#speed">Speed</a>
     <a href="#privacy">Privacy</a>
     <a href="#more">More</a>
   </div>
@@ -788,27 +771,23 @@
     <div class="wrap">
       <div class="reveal">
         <span class="kicker">How it works</span>
-        <h2>Hold. Speak.<br>Release.</h2>
-        <p class="section-sub">That's the whole manual. No window to open, no mode to enter. Dictation is a gesture, not an app you switch to.</p>
+        <h2>Three stages,<br>all on device.</h2>
       </div>
       <div class="steps">
         <div class="step reveal">
-          <div class="stage"><div class="keycap"><span class="globe">&#127760;</span>fn</div></div>
           <span class="num">01</span>
-          <h3>Hold fn</h3>
-          <p>The HUD descends from the notch instantly. A quick tap latches the session for hands-free dictation. Any key can be the trigger — rebind it in seconds.</p>
+          <h3>Capture</h3>
+          <p>A global <code>CGEvent</code> tap watches for the trigger key and swallows it while bound, so the key never reaches the focused app. Press starts the session; release ends it; a release under 250&nbsp;ms latches it hands-free. Audio comes from <code>AVAudioEngine</code> on the current system input.</p>
         </div>
         <div class="step reveal">
-          <div class="stage"><div class="voicebars large"><i></i><i></i><i></i><i></i><i></i></div></div>
           <span class="num">02</span>
-          <h3>Say it</h3>
-          <p>On-device Apple Speech transcribes as you talk, and the HUD's voice visual moves with you. Silence and a dead microphone never look the same.</p>
+          <h3>Recognize</h3>
+          <p>Apple's <code>SpeechAnalyzer</code> and <code>SpeechTranscriber</code> run the language model on the Neural Engine. The analyzer is prewarmed at launch, so the first frame of audio is already being processed. Volatile results render immediately and are replaced as recognition firms up.</p>
         </div>
         <div class="step reveal">
-          <div class="stage"><div class="landed-text">Ship it <span class="typed">by Friday.</span></div></div>
           <span class="num">03</span>
-          <h3>Let go</h3>
-          <p>Your words land in the control you were just using — any app, any text field. Accessibility insertion first, clipboard paste as the fallback, your clipboard restored.</p>
+          <h3>Insert</h3>
+          <p>The focused control is captured before recording via the Accessibility API, then written directly through <code>AXUIElement</code> on release. Apps that refuse it fall back to a clipboard paste that restores your previous clipboard, and the working route is remembered per app.</p>
         </div>
       </div>
     </div>
@@ -819,7 +798,7 @@
       <div class="reveal">
         <span class="kicker">The HUD</span>
         <h2>It lives in <span class="lit">the notch.</span></h2>
-        <p class="section-sub">Not another floating window. Talkify turns the notch into the one place your Mac listens from — and gives it a voice visual worth watching.</p>
+        <p class="section-sub">Talkify turns the notch into the one place your Mac listens from and gives it a voice visual worth watching.</p>
       </div>
       <div class="visuals">
         <div class="visual-card reveal">
@@ -831,7 +810,6 @@
           </div>
           <div class="visual-copy">
             <h3>Waveform</h3>
-            <p>Your voice as a living wave, in nine styles — from the metallic Chart Line conveyor to the Siri-style ribbon shown here.</p>
           </div>
         </div>
         <div class="visual-card reveal">
@@ -843,7 +821,6 @@
           </div>
           <div class="visual-copy">
             <h3>Edge Glow</h3>
-            <p>A palette beam sweeps the notch silhouette while a Metal-compute particle cloud chases it. Six palettes — Spectrum shown.</p>
           </div>
         </div>
         <div class="visual-card reveal">
@@ -855,11 +832,26 @@
           </div>
           <div class="visual-copy">
             <h3>Compact</h3>
-            <p>Dynamic Island-style live captions beside a five-bar voice indicator. Long drafts wrap and grow — watch it happen.</p>
           </div>
         </div>
       </div>
-      <p class="visuals-footnote reveal">Real recordings, straight from the notch. Every visual honors Reduce Motion with a quiet level meter.</p>
+    </div>
+  </section>
+
+  <section id="speed">
+    <div class="wrap centered">
+      <div class="reveal">
+        <span class="kicker">Speed</span>
+        <h2>Stop talking.<br><span class="lit">It's already there.</span></h2>
+        <p class="section-sub">No spinner, no "processing", no waiting for a server to answer. Release the key and the text is in your document — fast enough that the pause between speaking and reading is the only delay left.</p>
+      </div>
+      <div class="speed-stage reveal">
+        <!-- PLACEHOLDER: screen recording of a full dictation — release the key, text lands instantly -->
+        <div class="speed-placeholder">
+          <span class="speed-badge">Demo video</span>
+          <p>Drop the recording at <code>assets/speed-demo.mp4</code></p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -867,20 +859,20 @@
     <div class="wrap centered">
       <div class="reveal">
         <span class="kicker">Privacy</span>
-        <h2>Your words never<br><span class="lit">leave your Mac.</span></h2>
+        <h2>Your transcriptions<br><span class="lit">stay on your Mac.</span></h2>
       </div>
       <div class="privacy-lines">
         <div class="privacy-line reveal">
-          <strong>No cloud.</strong>
-          <span>Recognition runs on the Neural Engine with Apple's on-device speech models. Airplane mode changes nothing.</span>
+          <strong>No account.</strong>
+          <span>Nothing to sign up for, nothing to sign into. Download it and dictate.</span>
         </div>
         <div class="privacy-line reveal">
-          <strong>No accounts. No telemetry.</strong>
-          <span>Talkify makes zero network requests. There is nothing to sign into and nothing phoning home.</span>
+          <strong>No internet.</strong>
+          <span>Recognition runs on the Neural Engine with Apple's on-device models. Talkify makes zero network requests, so airplane mode changes nothing.</span>
         </div>
         <div class="privacy-line reveal">
-          <strong>No history.</strong>
-          <span>Audio and recognized text are never stored. The only record is the local usage numbers you can read yourself.</span>
+          <strong>Stored on your disk only.</strong>
+          <span>Your text is written to the app you were typing in and nowhere else. Insights are computed and kept locally, as a plain file on your own disk.</span>
         </div>
       </div>
     </div>
@@ -890,19 +882,29 @@
     <div class="wrap">
       <div class="reveal">
         <span class="kicker">And then some</span>
-        <h2>Small app.<br>Sharp edges.</h2>
+        <h2>It reads back,<br>and it's yours to tune.</h2>
       </div>
       <div class="duo">
         <div class="duo-card reveal">
-          <h3>It reads, too.</h3>
-          <p>Select text anywhere, press the shortcut, and your Mac reads it aloud with the Apple voice you picked — enhanced, premium, or your own Personal Voice. On-device, like everything else.</p>
+          <h3>Read Aloud</h3>
+          <p>Select text in any app and Talkify speaks it — with Apple's Enhanced and Premium voices, or with your own Personal Voice once you authorize it. Voices are listed with their language and quality, the list refreshes the moment a new one finishes downloading, and playback runs on device and offline.</p>
           <div class="shortcut-chip"><kbd>&#8997;</kbd><kbd>esc</kbd>&ensp;Read Aloud</div>
         </div>
         <div class="duo-card reveal">
-          <h3>Know your voice.</h3>
-          <p>Words per day, speaking time, streaks, and a sixteen-week heatmap — computed locally, stored as a JSON file you own. Insights, not surveillance.</p>
-          <div class="heatmap" id="heatmap" aria-hidden="true"></div>
+          <h3>Made to your taste</h3>
+          <p>Three voice visuals, nine waveform styles, six glow palettes, session sounds, and rebindable shortcuts — every change previewed live before you dictate. Insights then tells you what you actually said: words per day, pace, voice time, streaks.</p>
         </div>
+      </div>
+
+      <div class="shots">
+        <figure class="shot reveal">
+          <img src="assets/settings-appearance.jpg" alt="Talkify Settings, Appearance section, with a live HUD preview and voice visual pickers" loading="lazy">
+          <figcaption>Appearance — every option previewed live</figcaption>
+        </figure>
+        <figure class="shot reveal">
+          <img src="assets/settings-insights.jpg" alt="Talkify Settings, Insights section, showing words this week, average pace, voice time and a words-per-day chart" loading="lazy">
+          <figcaption>Insights — computed and stored locally</figcaption>
+        </figure>
       </div>
       <div class="pills reveal">
         <span>Hold or latch the trigger</span>
@@ -1042,22 +1044,6 @@
     document.querySelectorAll(".reveal").forEach(function (n) { io.observe(n); });
   })();
 
-  // Insights heatmap: a plausible 16-week pattern, deterministic.
-  (function () {
-    var map = document.getElementById("heatmap");
-    if (!map) return;
-    for (var i = 0; i < 112; i++) {
-      var cell = document.createElement("i");
-      var v = Math.pow(Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1), 1.6);
-      var day = i % 7;
-      if (day >= 5) v *= 0.35;
-      if (v > 0.75) cell.className = "l4";
-      else if (v > 0.55) cell.className = "l3";
-      else if (v > 0.35) cell.className = "l2";
-      else if (v > 0.18) cell.className = "l1";
-      map.appendChild(cell);
-    }
-  })();
 </script>
 
 </body>
