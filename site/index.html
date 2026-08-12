@@ -180,34 +180,9 @@
     .menubar .right span.date { display: none; }
   }
 
-  /* the island's black body: drawn in CSS *under* the blended video
-     (outside the blend group, so it stays black). Sized to the measured
-     island footprint in the clips: 1090x188 of the 1280x300 crop. */
-  .hud-body {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 4;
-    width: calc(min(620px, 92vw) * 0.846);
-    aspect-ratio: 1083 / 193;
-    background: #000;
-    border-radius: 0 0 17px 17px;
-    pointer-events: none;
-    transition: opacity 0.3s;
-    transform-origin: top center;
-    will-change: transform;
-  }
-
-  .hud-body.off { opacity: 0; }
-
-  @media (max-width: 720px) {
-    .hud-body { border-radius: 0 0 10px 10px; }
-  }
-
-  /* the notch HUD: a real Direct Dictation recording, screen-blended
-     straight onto the wallpaper. Black in the clip becomes transparent,
-     so only the light shows — no box, no border, just the HUD. */
+  /* the notch HUD: a real Direct Dictation recording carrying its own
+     alpha channel — the island body and the glow are the same pixels,
+     so nothing can drift out of sync. */
   .hud {
     position: absolute;
     top: 0;
@@ -217,7 +192,6 @@
     width: 620px;
     max-width: 92vw;
     pointer-events: none;
-    mix-blend-mode: screen;
   }
 
   .hud video {
@@ -530,10 +504,14 @@
   .visual-card:hover { border-color: rgba(255, 180, 87, 0.35); transform: translateY(-4px); }
 
   /* real recordings of the HUD, captured on the notch */
+  /* a faint wash so the island's black body reads as a shape on the card,
+     the way it reads against a desktop */
   .visual-stage {
     position: relative;
     min-height: 150px;
-    background: #000;
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(79, 116, 255, 0.16), transparent 62%),
+      #05050a;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -778,12 +756,10 @@
     </div>
   </div>
 
-  <div class="hud-body" id="hud-body" aria-hidden="true"></div>
-
   <div class="hud" aria-hidden="true">
-    <video class="hud-clip" id="hero-clip" autoplay muted loop playsinline preload="auto" poster="assets/hud-sunset-poster.jpg">
+    <video class="hud-clip" id="hero-clip" autoplay muted loop playsinline preload="auto" poster="assets/hud-sunset-poster.png">
       <source src="assets/hud-sunset.webm" type="video/webm">
-      <source src="assets/hud-sunset.mp4" type="video/mp4">
+      <source src="assets/hud-sunset.mov" type="video/quicktime">
     </video>
   </div>
 
@@ -848,9 +824,9 @@
       <div class="visuals">
         <div class="visual-card reveal">
           <div class="visual-stage">
-            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-siriwave-poster.jpg">
+            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-siriwave-poster.png">
               <source src="assets/hud-siriwave.webm" type="video/webm">
-              <source src="assets/hud-siriwave.mp4" type="video/mp4">
+              <source src="assets/hud-siriwave.mov" type="video/quicktime">
             </video>
           </div>
           <div class="visual-copy">
@@ -860,9 +836,9 @@
         </div>
         <div class="visual-card reveal">
           <div class="visual-stage">
-            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-spectrum-poster.jpg">
+            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-spectrum-poster.png">
               <source src="assets/hud-spectrum.webm" type="video/webm">
-              <source src="assets/hud-spectrum.mp4" type="video/mp4">
+              <source src="assets/hud-spectrum.mov" type="video/quicktime">
             </video>
           </div>
           <div class="visual-copy">
@@ -872,9 +848,9 @@
         </div>
         <div class="visual-card reveal">
           <div class="visual-stage">
-            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-compact-poster.jpg">
+            <video class="hud-clip" autoplay muted loop playsinline preload="metadata" poster="assets/hud-compact-poster.png">
               <source src="assets/hud-compact.webm" type="video/webm">
-              <source src="assets/hud-compact.mp4" type="video/mp4">
+              <source src="assets/hud-compact.mov" type="video/quicktime">
             </video>
           </div>
           <div class="visual-copy">
@@ -985,19 +961,8 @@
     var video = document.getElementById("hero-clip");
     var switcher = document.getElementById("hud-switcher");
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var webm = video.canPlayType('video/webm; codecs="vp9"') !== "";
-    // The four Glow takes share a fixed island; Compact grows with the
-    // text and Siri Wave floats, so those two get no black body.
-    // Each body clip's island appears and collapses at a known moment,
-    // so the body's top-anchored scale is driven off the video clock.
-    var body = document.getElementById("hud-body");
-    var timings = {
-      sunset: { reveal: 0.26, revealDur: 0.4, collapse: 14.6, collapseDur: 0.4 },
-      aurora: { reveal: 0.51, revealDur: 0.4, collapse: 13.9, collapseDur: 0.5 },
-      spectrum: { reveal: 0.0, revealDur: 0.4, collapse: 14.2, collapseDur: 0.5 },
-      ocean: { reveal: 0.33, revealDur: 0.4, collapse: 17.3, collapseDur: 0.5 },
-    };
-    var current = timings.sunset;
+    // VP9-alpha for Chrome/Firefox, HEVC-alpha for Safari.
+    var ext = video.canPlayType('video/webm; codecs="vp9"') !== "" ? ".webm" : ".mov";
 
     // Menu-bar ghost tint follows the active take's palette.
     var ghost = document.getElementById("menubar-ghost");
@@ -1015,23 +980,6 @@
       ghost.style.setProperty("--g2", p[1]);
     }
 
-    function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-    function easeOutBack(p) { var c = 1.2; p -= 1; return 1 + p * p * ((c + 1) * p + c); }
-    function easeInOut(p) { return p * p * (3 - 2 * p); }
-
-    (function tick() {
-      if (current && !reduced && !body.classList.contains("off")) {
-        var t = video.currentTime || 0;
-        var up = easeOutBack(clamp01((t - current.reveal) / current.revealDur));
-        var down = 1 - easeInOut(clamp01((t - current.collapse) / current.collapseDur));
-        var s = Math.max(0, up * down);
-        body.style.transform = "translateX(-50%) scaleY(" + s + ")";
-      }
-      requestAnimationFrame(tick);
-    })();
-
-    if (reduced) body.style.transform = "translateX(-50%)";
-
     switcher.addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-clip]");
       if (!btn) return;
@@ -1039,12 +987,9 @@
       switcher.querySelectorAll("button").forEach(function (b) {
         b.classList.toggle("active", b === btn);
       });
-      current = timings[key] || null;
-      body.classList.toggle("off", !current);
       tintGhost(key);
-      if (current && !reduced) body.style.transform = "translateX(-50%) scaleY(0)";
-      video.poster = "assets/hud-" + key + "-poster.jpg";
-      video.src = "assets/hud-" + key + (webm ? ".webm" : ".mp4");
+      video.poster = "assets/hud-" + key + "-poster.png";
+      video.src = "assets/hud-" + key + ext;
       video.load();
       if (!reduced) video.play();
     });
