@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Talkify — Speak. It's written.</title>
-<meta name="description" content="Native macOS dictation that lives in the notch. Hold a key, speak, release — your words land where you were typing. On-device, open source, no telemetry.">
+<meta name="description" content="Lightning-fast, local first voice dictation for macOS, right from the notch. Free and private.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<meta name="theme-color" content="#060608">
+<meta property="og:title" content="Talkify — Speak. It's written.">
+<meta property="og:description" content="Lightning-fast, local first voice dictation for macOS, right from the notch. Free and private.">
+<meta property="og:image" content="assets/favicon-512.png">
+<meta property="og:type" content="website">
 <style>
   :root {
     --ink: #f5f5f7;
@@ -319,6 +327,48 @@
   }
 
   .btn-ghost:hover { background: rgba(245, 245, 247, 0.14); transform: translateY(-2px); }
+
+  /* the brew one-liner, click to copy */
+  .brew {
+    margin-top: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(245, 245, 247, 0.16);
+    background: rgba(10, 10, 14, 0.5);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink);
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .brew:hover { border-color: rgba(255, 180, 87, 0.5); background: rgba(255, 150, 80, 0.1); }
+
+  .brew code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+    color: rgba(245, 245, 247, 0.92);
+  }
+
+  .brew-prompt { color: var(--amber); font-weight: 700; }
+
+  .brew-hint {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .brew.copied .brew-hint { color: var(--amber); }
+
+  @media (max-width: 560px) {
+    .brew code { font-size: 11.5px; }
+  }
 
   .hero-fineprint {
     margin-top: 26px;
@@ -712,7 +762,7 @@
     <a href="#privacy">Privacy</a>
     <a href="#more">More</a>
   </div>
-  <a class="cta" href="https://github.com/tornikegomareli/Talkify">Get Talkify</a>
+  <a class="cta" href="https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg">Get Talkify</a>
 </nav>
 
 <header class="hero">
@@ -757,11 +807,16 @@
 
   <div class="hero-copy">
     <h1>Speak.<br><span class="lit">It's written.</span></h1>
-    <p class="hero-sub">Native macOS dictation that lives in the notch. Hold a key, talk, release — your words land in whatever you were typing.</p>
+    <p class="hero-sub">Lightning-fast, local first voice dictation for macOS, right from the notch. Free and private.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://github.com/tornikegomareli/Talkify">Download for macOS</a>
+      <a class="btn btn-primary" href="https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg">Download for macOS</a>
       <a class="btn btn-ghost" href="https://github.com/tornikegomareli/Talkify">View on GitHub</a>
     </div>
+    <button class="brew" type="button" data-copy="brew tap tornikegomareli/talkify https://github.com/tornikegomareli/Talkify && brew install --cask talkify">
+      <span class="brew-prompt">$</span>
+      <code>brew tap tornikegomareli/talkify … &amp;&amp; brew install --cask talkify</code>
+      <span class="brew-hint">Copy</span>
+    </button>
     <p class="hero-fineprint">Free &amp; open source&ensp;·&ensp;macOS 26&ensp;·&ensp;Apple Silicon&ensp;·&ensp;100% on-device</p>
   </div>
 </header>
@@ -930,7 +985,7 @@
       <h2>Talk to <span class="lit">your Mac.</span></h2>
       <p class="section-sub">You already know how to use it. You've been practicing since you learned to speak.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="https://github.com/tornikegomareli/Talkify">Download for macOS</a>
+        <a class="btn btn-primary" href="https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg">Download for macOS</a>
         <a class="btn btn-ghost" href="https://github.com/tornikegomareli/Talkify">Star on GitHub</a>
       </div>
       <p class="hero-fineprint">Free &amp; open source&ensp;·&ensp;macOS 26&ensp;·&ensp;Apple Silicon</p>
@@ -994,6 +1049,27 @@
       video.src = "assets/hud-" + key + ext;
       video.load();
       if (!reduced) video.play();
+    });
+  })();
+
+  // Click the brew line to copy it.
+  (function () {
+    var el = document.querySelector(".brew");
+    if (!el) return;
+    el.addEventListener("click", function () {
+      var text = el.dataset.copy;
+      var done = function () {
+        var hint = el.querySelector(".brew-hint");
+        el.classList.add("copied");
+        hint.textContent = "Copied";
+        setTimeout(function () {
+          el.classList.remove("copied");
+          hint.textContent = "Copy";
+        }, 1600);
+      };
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(done, function () {});
+      }
     });
   })();
 

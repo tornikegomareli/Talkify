@@ -51,8 +51,16 @@ Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recogn
 
 ## Install
 
-<!-- PLACEHOLDER: release download link once the first release is cut -->
-Build from source for now:
+With Homebrew:
+
+```bash
+brew tap tornikegomareli/talkify https://github.com/tornikegomareli/Talkify
+brew install --cask talkify
+```
+
+Or grab [**Talkify.dmg**](https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg) from the latest release.
+
+Build from source:
 
 ```bash
 git clone https://github.com/tornikegomareli/Talkify.git
