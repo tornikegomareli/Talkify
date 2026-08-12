@@ -10,6 +10,11 @@ final class StatusItemController: NSObject {
   private let readAloudItem: NSMenuItem
   private var blinkTimer: Timer?
   private var blinkDimmed = false
+  private let templateIcon = NSImage(named: "MenuBarIcon")
+  /// Pre-tinted session icons. NSStatusBarButton renders custom
+  /// contentTintColor values as black (FB8530353), so palette tinting
+  /// swaps in non-template images instead.
+  private var sessionIcons: (full: NSImage, dim: NSImage)?
 
   init(
     toggleDictation: @escaping () -> Void,
@@ -24,7 +29,7 @@ final class StatusItemController: NSObject {
     readAloudItem = NSMenuItem(title: "Read Selected Text", action: nil, keyEquivalent: "")
     super.init()
 
-    statusItem.button?.image = NSImage(named: "MenuBarIcon")
+    statusItem.button?.image = templateIcon
     statusItem.button?.image?.accessibilityDescription = "Talkify"
 
     let menu = NSMenu()
@@ -56,8 +61,11 @@ final class StatusItemController: NSObject {
 
   /// Mirrors the session state on the shell: the ghost pulses between
   /// full and dimmed tint while recording, and the menu item flips.
-  func setRecording(_ isRecording: Bool) {
+  /// An Edge Glow session passes its palette accent so the pulse speaks
+  /// the session's color; nil keeps the theme tint.
+  func setRecording(_ isRecording: Bool, accent: NSColor? = nil) {
     dictationItem.title = isRecording ? "Stop Dictation" : "Start Dictation"
+    sessionIcons = isRecording ? accent.flatMap(makeSessionIcons) : nil
     if isRecording {
       startBlinking()
     } else {
@@ -82,12 +90,19 @@ final class StatusItemController: NSObject {
 
   private func startBlinking() {
     guard blinkTimer == nil else { return }
+    if let sessionIcons {
+      statusItem.button?.image = sessionIcons.full
+    }
     blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { [weak self] _ in
       MainActor.assumeIsolated {
         guard let self else { return }
         self.blinkDimmed.toggle()
-        self.statusItem.button?.contentTintColor =
-          self.blinkDimmed ? .tertiaryLabelColor : .labelColor
+        if let icons = self.sessionIcons {
+          self.statusItem.button?.image = self.blinkDimmed ? icons.dim : icons.full
+        } else {
+          self.statusItem.button?.contentTintColor =
+            self.blinkDimmed ? .tertiaryLabelColor : .labelColor
+        }
       }
     }
   }
@@ -97,6 +112,26 @@ final class StatusItemController: NSObject {
     blinkTimer = nil
     blinkDimmed = false
     statusItem.button?.contentTintColor = nil
+    statusItem.button?.image = templateIcon
+  }
+
+  /// Renders the template ghost filled with the accent, full and dimmed;
+  /// the results are plain images the status bar shows as-is.
+  private func makeSessionIcons(for accent: NSColor) -> (full: NSImage, dim: NSImage)? {
+    guard let templateIcon else { return nil }
+    let full = NSImage(size: templateIcon.size, flipped: false) { rect in
+      templateIcon.draw(in: rect)
+      accent.set()
+      rect.fill(using: .sourceAtop)
+      return true
+    }
+    let dim = NSImage(size: templateIcon.size, flipped: false) { rect in
+      full.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.4)
+      return true
+    }
+    full.isTemplate = false
+    dim.isTemplate = false
+    return (full, dim)
   }
 
   /// Mirrors Read Aloud playback on the menu item.

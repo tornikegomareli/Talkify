@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The Edge Glow color palettes, a permanent Settings pick: each palette
@@ -73,6 +74,20 @@ enum HUDGlowPalette: String, CaseIterable {
         .init(color: .white, location: 0.0),
         .init(color: .white, location: 1.0),
       ]
+    }
+  }
+
+  /// One representative accent for AppKit chrome (the status ghost's
+  /// session tint) — the hue a user would name when asked what color
+  /// this palette is.
+  var statusAccent: NSColor {
+    switch self {
+    case .spectrum: NSColor(red: 0.55, green: 0.5, blue: 1.0, alpha: 1)
+    case .silver: NSColor(red: 0.75, green: 0.8, blue: 1.0, alpha: 1)
+    case .aurora: NSColor(red: 0.2, green: 0.85, blue: 0.6, alpha: 1)
+    case .sunset: NSColor(red: 1.0, green: 0.45, blue: 0.3, alpha: 1)
+    case .ocean: NSColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1)
+    case .mono: .white
     }
   }
 

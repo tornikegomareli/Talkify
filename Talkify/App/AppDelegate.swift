@@ -49,8 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.statusItemController = statusItemController
 
     dictationController.onRecordingStateChange = {
-      [weak statusItemController, weak settingsRuntimeState] isRecording in
-      statusItemController?.setRecording(isRecording)
+      [weak statusItemController, weak settingsRuntimeState] isRecording, session in
+      let accent = session.flatMap {
+        $0.voiceVisual == .glow ? $0.glowPalette.statusAccent : nil
+      }
+      statusItemController?.setRecording(isRecording, accent: accent)
       settingsRuntimeState?.isDictating = isRecording
     }
     readAloudController.onSpeakingStateChange = {

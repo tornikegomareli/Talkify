@@ -6,7 +6,10 @@ import AppKit
 /// lives in the machine; async completions come back to it as new actions.
 @MainActor
 final class DirectDictationController {
-  var onRecordingStateChange: ((Bool) -> Void)?
+  /// Carries the session's captured settings while recording so the shell
+  /// can mirror session-scoped looks (the status ghost's palette tint);
+  /// nil when the session ends.
+  var onRecordingStateChange: ((Bool, DictationSessionSettings?) -> Void)?
   /// Fired by the Read Aloud shortcut, only while no dictation session is
   /// active — speaking through the speaker path mid-dictation would feed
   /// the recognizer its own audio.
@@ -28,6 +31,7 @@ final class DirectDictationController {
   private var sessionStartTask: Task<Void, Never>?
   private var isPrepared = false
   private var preparationFailureMessage: String?
+  private var currentSessionSettings: DictationSessionSettings?
 
   init(
     settings: AppSettings,
@@ -168,10 +172,12 @@ final class DirectDictationController {
     case .stopNoSpeechTimer:
       stopNoSpeechTimer()
     case let .showListening(latched):
+      let session = settings.sessionSettings
+      currentSessionSettings = session
       hudController.showListening(
         on: focusedTarget?.displayID,
         isLatched: latched,
-        settings: settings.sessionSettings
+        settings: session
       )
     case .showLatched:
       hudController.showLatched()
@@ -187,8 +193,9 @@ final class DirectDictationController {
       if !isRecording {
         focusedTarget = nil
         sessionStartTask = nil
+        currentSessionSettings = nil
       }
-      onRecordingStateChange?(isRecording)
+      onRecordingStateChange?(isRecording, currentSessionSettings)
     case .triggerReadAloud:
       onReadAloudTriggered?()
     }

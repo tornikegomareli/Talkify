@@ -233,6 +233,7 @@ _Avoid_: Transcript history, cloud analytics
 - The sidebar retains the `SETTINGS` group label even when the header also shows Settings; it distinguishes navigation groups
 - The Talkify ghost is the app icon, the status item icon (template-rendered so it follows the menu bar theme), and the Settings header icon
 - While Direct Dictation listens, the status item ghost pulses between full and dimmed tint; the pulse stops when the session ends
+- An Edge Glow session tints the status ghost pulse with its captured palette's accent; Waveform and Compact sessions keep the theme tint, and the idle ghost stays template-rendered
 - The Settings surface uses a 16-point continuous radius, a one-pixel low-opacity border, and a soft shadow
 - Settings may open during Direct Dictation; the active session remains on its captured settings and changes apply next session
 - While Direct Dictation is active, Settings shows a small contextual notice that changes apply to the next session; idle Settings has no notice
