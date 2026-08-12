@@ -1014,6 +1014,24 @@
     });
   })();
 
+  // Only decode what's on screen. Alpha video has no hardware decode path
+  // in every browser, so four clips playing at once costs frames the
+  // visible one needs.
+  (function () {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!("IntersectionObserver" in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          if (e.target.paused) e.target.play().catch(function () {});
+        } else if (!e.target.paused) {
+          e.target.pause();
+        }
+      });
+    }, { threshold: 0.05 });
+    document.querySelectorAll("video.hud-clip").forEach(function (v) { io.observe(v); });
+  })();
+
   // Scroll reveal.
   (function () {
     var io = new IntersectionObserver(function (entries) {
