@@ -110,10 +110,6 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 - **Text cleanup** — optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
 - **Snippets** — saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
 
-## Contributing
-
-PRs welcome. `main` is protected — changes come in through a pull request with green CI (build + full test suite on macOS). Read `CONTEXT.md` first: its terminology is binding, and a few visuals are feel-tested picks that shouldn't be "fixed" casually.
-
 ## License
 
 <!-- PLACEHOLDER: pick a license before publishing (MIT/Apache-2.0/GPL) and add the LICENSE file -->
