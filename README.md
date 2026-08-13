@@ -14,23 +14,20 @@ Hold a key, speak, release — your words land in whatever you were typing. Nati
 
 ## Showcase
 
-<!-- PLACEHOLDER: hero demo — hold Fn, HUD descends from the notch, speak, text lands in the focused app (GIF) -->
+Every voice visual, recorded from the notch — Edge Glow in four palettes, Compact live captions, and the Siri-style waveform:
+
 <p align="center">
-  <img src="docs/assets/demo-dictation.gif" width="70%" alt="PLACEHOLDER — dictation demo GIF" />
+  <img src="docs/assets/showreel.gif" width="90%" alt="Talkify's six voice visuals playing together: Edge Glow in Sunset, Aurora, Spectrum and Ocean, Compact captions, and the Siri-style waveform" />
 </p>
 
-<!-- PLACEHOLDER: three visuals side by side — Waveform, Edge Glow, Compact captions (GIFs or PNGs) -->
 <p align="center">
-  <img src="docs/assets/visual-waveform.gif" width="30%" alt="PLACEHOLDER — Waveform visual" />
-  <img src="docs/assets/visual-edgeglow.gif" width="30%" alt="PLACEHOLDER — Edge Glow visual" />
-  <img src="docs/assets/visual-compact.gif" width="30%" alt="PLACEHOLDER — Compact captions" />
+  <img src="docs/assets/settings-appearance.jpg" width="45%" alt="Settings — Appearance, with a live HUD preview" />
+  <img src="docs/assets/settings-insights.jpg" width="45%" alt="Settings — Insights, computed and stored locally" />
 </p>
 
-<!-- PLACEHOLDER: Settings window and Insights charts screenshots -->
-<p align="center">
-  <img src="docs/assets/settings.png" width="45%" alt="PLACEHOLDER — Settings" />
-  <img src="docs/assets/insights.png" width="45%" alt="PLACEHOLDER — Insights" />
-</p>
+<!-- PLACEHOLDER: a single end-to-end dictation clip — hold the trigger, speak, release, text lands in the focused app -->
+
+The showreel above is generated, not screen-captured: `site/showreel.html` plays all six recordings in sync on one surface, and `docs/assets/showreel.mp4` is the same composite for posting.
 
 ## What it does
 
