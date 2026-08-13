@@ -452,21 +452,6 @@
 
   .step h3 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
   .step p { font-size: 15.5px; line-height: 1.55; color: var(--ink-dim); }
-  .step p code {
-    font-size: 14px;
-    padding: 1px 6px;
-    border-radius: 5px;
-    background: rgba(245, 245, 247, 0.07);
-    color: var(--ink);
-  }
-
-  .step .num {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    color: var(--ink-faint);
-  }
-
   /* ---------- the notch HUD visuals ---------- */
 
   .visuals {
@@ -826,23 +811,21 @@
     <div class="wrap">
       <div class="reveal">
         <span class="kicker">How it works</span>
-        <h2>Three stages,<br>all on device.</h2>
+        <h2>Powered by Apple's<br>new <span class="lit">SpeechAnalyzer.</span></h2>
+        <p class="section-sub">Hold your key and Talkify hands your voice to the speech engine Apple introduced in macOS 26 — the same one behind Notes, Voice Memos and Journal. Let go and the finished text goes straight into whatever you were typing in.</p>
       </div>
       <div class="steps">
         <div class="step reveal">
-          <span class="num">01</span>
-          <h3>Capture</h3>
-          <p>A global <code>CGEvent</code> tap watches for the trigger key and swallows it while bound, so the key never reaches the focused app. Press starts the session; release ends it; a release under 250&nbsp;ms latches it hands-free. Audio comes from <code>AVAudioEngine</code> on the current system input.</p>
+          <h3>It answers as you speak</h3>
+          <p>The model was built for live transcription that needs low latency without giving up accuracy, so words arrive while you are still talking rather than after you stop. Talkify warms it up at launch, so your first syllable meets an engine that is already running — there is no spin-up, and no server to wait for.</p>
         </div>
         <div class="step reveal">
-          <span class="num">02</span>
-          <h3>Recognize</h3>
-          <p>Apple's <code>SpeechAnalyzer</code> and <code>SpeechTranscriber</code> run the language model on the Neural Engine. The analyzer is prewarmed at launch, so the first frame of audio is already being processed. Volatile results render immediately and are replaced as recognition firms up.</p>
+          <h3>Built for real speech</h3>
+          <p>Apple's new model is faster and more flexible than the one dictation used before, and it holds up on long, conversational speech — even when you are not close to the microphone. Talkify shows its first rough guess immediately, then replaces it as the recognizer settles on the final wording.</p>
         </div>
         <div class="step reveal">
-          <span class="num">03</span>
-          <h3>Insert</h3>
-          <p>The focused control is captured before recording via the Accessibility API, then written directly through <code>AXUIElement</code> on release. Apps that refuse it fall back to a clipboard paste that restores your previous clipboard, and the working route is remembered per app.</p>
+          <h3>Nothing to install or manage</h3>
+          <p>The language model lives in system storage, downloaded and kept up to date by macOS. It doesn't inflate Talkify's size or memory, it runs outside the app entirely, and your speech never leaves the Mac to reach it.</p>
         </div>
       </div>
     </div>
