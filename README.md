@@ -3,7 +3,7 @@
   <h1 align="center">Talkify</h1>
 </p>
 
-Beautiful and fastest way to do voice dictation on macOS 
+<h3 align="center">Beautiful and fastest way to do voice dictation on macOS</h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-6-orange.svg" />
