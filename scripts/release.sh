@@ -9,6 +9,10 @@
 # The DMG is always named Talkify.dmg so that
 # github.com/<repo>/releases/latest/download/Talkify.dmg keeps working — that
 # is the URL the landing page's Download button uses.
+#
+# Notarization uses a notarytool keychain profile, shared with Camus:
+#   NOTARY_PROFILE   keychain profile name  (default: camus-notary)
+#   SKIP_NOTARIZE=1  sign and package without notarizing (local testing only)
 
 set -euo pipefail
 
@@ -35,6 +39,8 @@ EXPORT_DIR="$BUILD_DIR/export"
 STAGE_DIR="$BUILD_DIR/dmg"
 DMG="$BUILD_DIR/Talkify.dmg"
 CASK="$REPO_ROOT/Casks/talkify.rb"
+TEAM_ID="539293JFA3"
+NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
 
 step() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
@@ -47,6 +53,18 @@ command -v hdiutil >/dev/null || fail "hdiutil not found"
 if ! $DRY_RUN; then
   command -v gh >/dev/null || fail "gh not found — install the GitHub CLI"
   gh auth status >/dev/null 2>&1 || fail "gh is not authenticated — run 'gh auth login'"
+fi
+
+# Check the notary credentials before spending minutes on a build.
+if [[ "${SKIP_NOTARIZE:-0}" == "1" ]]; then
+  echo "  SKIP_NOTARIZE=1 — the DMG will be signed but not notarized"
+elif xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+  echo "  notary profile '$NOTARY_PROFILE' ready"
+else
+  fail "notarytool profile '$NOTARY_PROFILE' not found. Store it once with:
+    xcrun notarytool store-credentials \"$NOTARY_PROFILE\" \\
+      --apple-id <apple-id> --team-id $TEAM_ID --password <app-specific-password>
+  or re-run with SKIP_NOTARIZE=1 to skip notarization."
 fi
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -133,29 +151,32 @@ for attempt in 1 2 3 4 5; do
 done
 hdiutil verify "$DMG" >/dev/null 2>&1 || fail "the DMG failed verification"
 
+# Sign the container too, so Gatekeeper can vouch for the DMG itself and not
+# only the app inside. This must happen BEFORE notarization: signing a stapled
+# DMG rewrites the file and throws the ticket away.
+SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Techzy LLC ($TEAM_ID)}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$TEAM_ID"; then
+  codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
+  echo "  container signed"
+else
+  echo "  no Developer ID identity found — leaving the container unsigned"
+fi
+
 # ------------------------------------------------------------- notarization
 
-if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-  step "Notarizing (profile $NOTARY_PROFILE)"
+if [[ "${SKIP_NOTARIZE:-0}" == "1" ]]; then
+  step "Notarization skipped (SKIP_NOTARIZE=1)"
+  echo "  This DMG is signed but NOT notarized: Gatekeeper will refuse to open"
+  echo "  it, and a brew install will land an app that cannot launch."
+else
+  step "Notarizing with profile '$NOTARY_PROFILE'"
   xcrun notarytool submit "$DMG" \
     --keychain-profile "$NOTARY_PROFILE" \
     --wait
   xcrun stapler staple "$DMG"
-  echo "  stapled"
-else
-  step "Notarization skipped"
-  cat <<'EOS'
-  NOTARY_PROFILE is not set, so this DMG is signed but NOT notarized.
-  Gatekeeper will refuse to open it ("Apple cannot check it for malware")
-  and `brew install --cask talkify` will install an app that will not launch
-  until the user clears quarantine.
-
-  To notarize, store credentials once:
-    xcrun notarytool store-credentials talkify-notary \
-      --apple-id <apple-id> --team-id 539293JFA3 --password <app-specific-password>
-  then re-run with:
-    NOTARY_PROFILE=talkify-notary scripts/release.sh <version>
-EOS
+  xcrun stapler validate "$DMG"
+  spctl -a -t open --context context:primary-signature -v "$DMG" 2>&1 | sed 's/^/  /'
+  echo "  notarized and stapled"
 fi
 
 SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
