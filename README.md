@@ -24,14 +24,6 @@ Hold a key, speak, release — your words land in whatever you were typing. Nati
   <img src="docs/assets/settings-insights.jpg" width="45%" alt="Settings — Insights, computed and stored locally" />
 </p>
 
-## What it does
-
-- **Direct Dictation** — hold the trigger key (fn by default), speak, release. A quick tap latches the session hands-free; Escape cancels. Finalized text inserts into the previously focused control — Accessibility insertion first, clipboard paste with restore as the fallback, with the working route remembered per app.
-- **The notch HUD** — a NotchIsland-style surface that descends from the top of the display (a simulated notch on external monitors). Three voice visuals: nine waveform styles, the Edge Glow (a palette beam sweeping the silhouette, a session ripple, and a Metal-compute particle cloud), and Compact — Dynamic Island-style live captions beside a five-bar voice indicator.
-- **Read Aloud** — select text in any app, press ⌥⎋ (or use the menu): Talkify speaks it with your picked Apple voice — enhanced, premium, or your Personal Voice.
-- **Recordable shortcuts** — System Settings-style key recording for the dictation trigger (any single key, including bare modifiers) and the Read Aloud combo.
-- **Insights** — local-only usage charts: words per day, sessions, streaks, a sixteen-week heatmap. A JSON file on your disk; nothing leaves the Mac.
-
 ## Privacy
 
 Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
@@ -39,7 +31,6 @@ Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recogn
 ## Requirements
 
 - macOS 26 (Tahoe) on Apple Silicon
-- Permissions on first run: Microphone, Speech Recognition, Accessibility, Input Monitoring — dictation reads keys globally and inserts text into other apps, which is exactly what those two grants exist for.
 
 ## Install
 
@@ -82,11 +73,11 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Everything else | Menu bar ghost → Settings |
 
-The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts** — click the recorder, press the key you want.
+The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**
 
 ## Architecture
 
-Modules as folders, one-directional callbacks wired in the composition root, and a pure reducer where the state is genuinely hairy:
+Code is organized into folders, callbacks only flow one way from the main wiring point, and a pure reducer handles the state.
 
 - `App/` — composition root, settings store, status item
 - `Input/` — the global key event tap and recorded bindings
@@ -94,7 +85,7 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 - `HUD/` — geometry seams, the shell, the voice visuals, and all Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
 
-`CONTEXT.md` is the domain rulebook; decisions live in `docs/adr/`. Code style: 2-space indentation, enforced by `.editorconfig`.
+`CONTEXT.md` is the domain doc, decisions live in `docs/adr/`
 
 ## Roadmap
 
@@ -105,5 +96,3 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-Two bundled assets are development-only and are excluded from the release Settings picker: the **Pop** sound set (CC-BY-NC, see `Talkify/Resources/Sounds/LICENSE-SOUNDS.txt`) and the **Siri orb** artwork (unlicensed, see `LICENSE-ARTWORK.txt`). Neither is covered by the MIT grant above.
