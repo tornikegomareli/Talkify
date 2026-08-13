@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talkify — Showreel (single)</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+  :root {
+    --ink: #f5f5f7;
+    --ink-dim: rgba(245, 245, 247, 0.6);
+    --amber: #ffb457;
+    --ember: #ff7847;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #05050a;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  /* Same fixed 16:9 recording surface as the grid showreel, so clips cut
+     together with the same framing. */
+  .stage {
+    position: relative;
+    width: min(100vw, calc(100vh * 16 / 9));
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background-color: #05050a;
+    background-image: url("assets/hero.png");
+    background-size: cover;
+    background-position: center 35%;
+    display: grid;
+    place-items: center;
+  }
+
+  body.plain .stage { background-image: none; }
+
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(4, 4, 10, 0.45), rgba(4, 4, 10, 0.05) 35%, rgba(4, 4, 10, 0.55));
+  }
+
+  body.plain .stage::after { background: none; }
+
+  /* The clip: one visual, as large as the stage allows. In notch mode it
+     hangs from the top edge the way the real HUD does. */
+  .clip {
+    position: relative;
+    z-index: 2;
+    width: 74%;
+    transition: width 0.3s ease;
+  }
+
+  body.big .clip { width: 92%; }
+
+  body.notch .stage { place-items: start center; }
+  body.notch .clip { width: 56%; }
+
+  .clip video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .caption {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 7.5%;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: clamp(13px, 1.5vw, 22px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: rgba(245, 245, 247, 0.95);
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+    transition: opacity 0.25s;
+  }
+
+  .caption .dot {
+    width: 0.6em;
+    height: 0.6em;
+    border-radius: 50%;
+    background: var(--c, #9a9aa6);
+    flex: none;
+  }
+
+  .mark {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: 2.4%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(10px, 1vw, 15px);
+    font-weight: 700;
+    color: rgba(245, 245, 247, 0.85);
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+    transition: opacity 0.25s;
+  }
+
+  .mark img { width: 1.5em; height: 1.5em; display: block; }
+
+  body.nolabels .caption, body.nolabels .mark { opacity: 0; }
+
+  /* Controls live outside the stage so a capture of the stage never sees
+     them; keyboard switching keeps working while they are hidden. */
+  .controls {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 14px;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: 96vw;
+    padding: 8px;
+    border-radius: 999px;
+    background: rgba(10, 10, 14, 0.85);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(245, 245, 247, 0.14);
+    transition: opacity 0.25s;
+  }
+
+  .controls.hidden { opacity: 0; pointer-events: none; }
+
+  .controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(245, 245, 247, 0.16);
+    background: transparent;
+    color: rgba(245, 245, 247, 0.78);
+    font: 600 12px/1 inherit;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+  }
+
+  .controls button:hover { color: var(--ink); border-color: rgba(255, 180, 87, 0.55); }
+
+  .controls button.active {
+    color: var(--ink);
+    border-color: rgba(255, 180, 87, 0.7);
+    background: rgba(255, 150, 80, 0.16);
+  }
+
+  .controls .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, #9a9aa6); flex: none; }
+  .controls .sep { width: 1px; align-self: stretch; background: rgba(245, 245, 247, 0.14); margin: 0 4px; }
+  .controls kbd { font: inherit; font-size: 10px; opacity: 0.5; }
+
+  .hint {
+    position: fixed;
+    left: 14px;
+    top: 14px;
+    z-index: 20;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: rgba(245, 245, 247, 0.35);
+    transition: opacity 0.25s;
+  }
+
+  .hint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="clip">
+    <video id="clip" muted loop autoplay playsinline preload="auto"></video>
+  </div>
+  <div class="caption" id="caption"></div>
+  <div class="mark"><img src="assets/favicon.svg" alt=""> Talkify</div>
+</div>
+
+<div class="controls" id="controls">
+  <span id="chips" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center"></span>
+  <span class="sep"></span>
+  <button data-act="cycle" id="cycleBtn">Auto-cycle<kbd>A</kbd></button>
+  <button data-act="restart">Restart<kbd>R</kbd></button>
+  <button data-act="size">Size<kbd>S</kbd></button>
+  <button data-act="bg">Background<kbd>B</kbd></button>
+  <button data-act="labels">Labels<kbd>T</kbd></button>
+  <button data-act="hide">Hide UI<kbd>H</kbd></button>
+</div>
+
+<p class="hint" id="hint">
+  1–6 pick a visual · ← → step · A auto-cycle · S size (normal / large / from the notch)<br>
+  H hides this UI — keys keep working, so you can switch while recording<br>
+  <a href="showreel.html" style="color:inherit; text-decoration:underline">All six at once →</a>
+</p>
+
+<script>
+  var CLIPS = [
+    { key: "sunset",   name: "Edge Glow · Sunset",   color: "linear-gradient(135deg,#ff4d67,#ffb457)" },
+    { key: "aurora",   name: "Edge Glow · Aurora",   color: "linear-gradient(135deg,#3ddc84,#2bd4c4)" },
+    { key: "spectrum", name: "Edge Glow · Spectrum", color: "conic-gradient(#ff5f5f,#ffd05f,#5fff8f,#5fb0ff,#b45fff,#ff5f5f)" },
+    { key: "ocean",    name: "Edge Glow · Ocean",    color: "linear-gradient(135deg,#2e7cf6,#39c2ff)" },
+    { key: "compact",  name: "Compact captions",     color: "#f5f5f7" },
+    { key: "siriwave", name: "Waveform · Siri",      color: "linear-gradient(90deg,#4be38b,#57a7ff,#e35757)" },
+  ];
+
+  var video = document.getElementById("clip");
+  var caption = document.getElementById("caption");
+  var chips = document.getElementById("chips");
+  var ext = video.canPlayType('video/webm; codecs="vp9"') !== "" ? ".webm" : ".mov";
+  var index = 0;
+  var cycleTimer = null;
+
+  CLIPS.forEach(function (c, i) {
+    var b = document.createElement("button");
+    b.dataset.index = i;
+    b.innerHTML = '<span class="dot" style="--c:' + c.color + '"></span>' + c.name +
+                  '<kbd>' + (i + 1) + '</kbd>';
+    chips.appendChild(b);
+  });
+
+  function show(i) {
+    index = (i + CLIPS.length) % CLIPS.length;
+    var c = CLIPS[index];
+    video.src = "assets/hud-" + c.key + ext;
+    video.load();
+    video.play().catch(function () {});
+    caption.innerHTML = '<span class="dot" style="--c:' + c.color + '"></span>' + c.name;
+    chips.querySelectorAll("button").forEach(function (b) {
+      b.classList.toggle("active", +b.dataset.index === index);
+    });
+  }
+
+  function step(delta) { show(index + delta); }
+
+  // Auto-cycle holds each visual for its own full loop, so a hands-off
+  // recording shows every one from reveal to collapse.
+  function toggleCycle() {
+    var btn = document.getElementById("cycleBtn");
+    if (cycleTimer) {
+      clearInterval(cycleTimer);
+      cycleTimer = null;
+      btn.classList.remove("active");
+      return;
+    }
+    btn.classList.add("active");
+    cycleTimer = setInterval(function () { step(1); }, 12000);
+  }
+
+  var actions = {
+    cycle: toggleCycle,
+    restart: function () { video.currentTime = 0; video.play().catch(function () {}); },
+    size: function () {
+      var b = document.body;
+      if (!b.classList.contains("big") && !b.classList.contains("notch")) b.classList.add("big");
+      else if (b.classList.contains("big")) { b.classList.remove("big"); b.classList.add("notch"); }
+      else b.classList.remove("notch");
+    },
+    bg: function () { document.body.classList.toggle("plain"); },
+    labels: function () { document.body.classList.toggle("nolabels"); },
+    hide: function () {
+      document.getElementById("controls").classList.add("hidden");
+      document.getElementById("hint").classList.add("hidden");
+    },
+  };
+
+  document.getElementById("controls").addEventListener("click", function (e) {
+    var chip = e.target.closest("button[data-index]");
+    if (chip) { show(+chip.dataset.index); return; }
+    var btn = e.target.closest("button[data-act]");
+    if (btn) actions[btn.dataset.act]();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var k = e.key.toLowerCase();
+    if (k >= "1" && k <= "6") return show(+k - 1);
+    if (e.key === "ArrowRight" || k === "n") return step(1);
+    if (e.key === "ArrowLeft" || k === "p") return step(-1);
+    if (k === "a") return actions.cycle();
+    if (k === "r") return actions.restart();
+    if (k === "s") return actions.size();
+    if (k === "b") return actions.bg();
+    if (k === "t") return actions.labels();
+    if (k === "h") {
+      document.getElementById("controls").classList.toggle("hidden");
+      document.getElementById("hint").classList.toggle("hidden");
+    }
+    if (k === "f") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+  });
+
+  show(0);
+</script>
+
+</body>
+</html>
