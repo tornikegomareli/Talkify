@@ -203,8 +203,17 @@ fi
 # ----------------------------------------------------------------- publish
 
 step "Committing and tagging"
-git add Casks/talkify.rb Talkify.xcodeproj/project.pbxproj Talkify/Info.plist 2>/dev/null || true
-git commit -q -m "Release $VERSION" || echo "  nothing to commit"
+# Stage each path that exists: a single git add with one missing pathspec
+# fails wholesale and would silently stage nothing.
+for path in Casks/talkify.rb Talkify.xcodeproj/project.pbxproj Talkify/Info.plist; do
+  [[ -e "$path" ]] && git add "$path"
+done
+if git diff --cached --quiet; then
+  echo "  nothing staged — version and cask already match"
+else
+  git commit -q -m "Release $VERSION"
+  echo "  committed $(git diff --name-only HEAD~1 HEAD | tr '\n' ' ')"
+fi
 git tag -a "$TAG" -m "Talkify $VERSION"
 git push -q origin main
 git push -q origin "$TAG"
