@@ -104,5 +104,6 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 
 ## License
 
-<!-- PLACEHOLDER: pick a license before publishing (MIT/Apache-2.0/GPL) and add the LICENSE file -->
-TBD.
+MIT. See [LICENSE](LICENSE).
+
+Two bundled assets are development-only and are excluded from the release Settings picker: the **Pop** sound set (CC-BY-NC, see `Talkify/Resources/Sounds/LICENSE-SOUNDS.txt`) and the **Siri orb** artwork (unlicensed, see `LICENSE-ARTWORK.txt`). Neither is covered by the MIT grant above.
