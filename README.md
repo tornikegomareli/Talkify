@@ -3,7 +3,7 @@
   <h1 align="center">Talkify</h1>
 </p>
 
-Hold a key, speak, release — your words land in whatever you were typing. Native macOS dictation that lives in the notch, powered entirely by on-device Apple Speech. No cloud, no accounts, no telemetry.
+Beautiful and fastest way to do voice dictation on macOS 
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-6-orange.svg" />
