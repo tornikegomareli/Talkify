@@ -114,10 +114,6 @@ Modules as folders, one-directional callbacks wired in the composition root, and
 
 PRs welcome. `main` is protected — changes come in through a pull request with green CI (build + full test suite on macOS). Read `CONTEXT.md` first: its terminology is binding, and a few visuals are feel-tested picks that shouldn't be "fixed" casually.
 
-## Pre-release caveats
-
-Two bundled assets are development-only and will be replaced before any binary release: the **Pop** sound set (CC-BY-NC, see `Talkify/Resources/Sounds/LICENSE-SOUNDS.txt`) and the **Siri orb** prototype artwork (unlicensed, see `LICENSE-ARTWORK.txt`). Both are excluded from release builds' Settings.
-
 ## License
 
 <!-- PLACEHOLDER: pick a license before publishing (MIT/Apache-2.0/GPL) and add the LICENSE file -->
