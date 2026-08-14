@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settingsWindowController: SettingsWindowController?
   private var usageTracker: UsageTracker?
   private let settingsRuntimeState = SettingsRuntimeState()
+  private let updaterService = SparkleUpdaterService()
 
   static func main() {
     let application = NSApplication.shared
@@ -44,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let statusItemController = StatusItemController(
       toggleDictation: { dictationController.toggleFromMenu() },
       toggleReadAloud: { readAloudController.toggle() },
-      openSettings: { [weak self] in self?.showSettings() }
+      openSettings: { [weak self] in self?.showSettings() },
+      checkForUpdates: { [weak self] in self?.updaterService.checkForUpdates() }
     )
     self.statusItemController = statusItemController
 
@@ -77,6 +79,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     applyKeyBindings()
     observeKeyBindings()
     observeLanguages()
+
+    // A background check is postponed while a session is running, so an update
+    // window can never take focus mid-dictation and move the insertion target.
+    updaterService.isBusy = { [weak settingsRuntimeState] in
+      settingsRuntimeState?.isDictating ?? false
+    }
+
+    // Last: a scheduled check can show a window, and it must never land
+    // before the status item and dictation are wired.
+    updaterService.start()
   }
 
   /// Rebinding in Settings updates the event tap and the status menu
@@ -135,7 +147,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings: settings,
         sounds: DictationHUDSounds(),
         runtimeState: settingsRuntimeState,
-        usageTracker: usageTracker
+        usageTracker: usageTracker,
+        updater: updaterService
       )
     }
     settingsWindowController?.show()

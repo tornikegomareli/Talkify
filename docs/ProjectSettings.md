@@ -17,6 +17,19 @@ Values from the old `Project.swift`, needed when scaffolding the new plain `Talk
 - `NSPrincipalClass` = `NSApplication`
 - `NSHighResolutionCapable` is not set: it is default-true for apps linked against modern SDKs, and Xcode's generated Info.plist has no `INFOPLIST_KEY_` for it
 
+### Sparkle keys (Talkify/Info.plist)
+
+The app target keeps `GENERATE_INFOPLIST_FILE = YES` **and** sets
+`INFOPLIST_FILE = Talkify/Info.plist`; Xcode merges the generated keys into that
+file. The plist exists only because Sparkle reads `SUPublicEDKey` from the bundle
+and Xcode's `INFOPLIST_KEY_<name>` passthrough silently drops keys it does not
+recognise — the Sparkle keys never reached the bundle that way.
+
+- `SUFeedURL` = `https://raw.githubusercontent.com/tornikegomareli/Talkify/main/appcast.xml`
+- `SUPublicEDKey` = public half of the EdDSA signing key; the private half is in the login Keychain, shared with Camus (Sparkle intends one key per developer)
+- `SUEnableAutomaticChecks` = true, `SUScheduledCheckInterval` = 86400 (daily)
+- `SUAllowsAutomaticUpdates` = true (automatic *downloading* still defaults off)
+
 ## Entitlements (Talkify.entitlements)
 
 ```xml

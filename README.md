@@ -43,6 +43,11 @@ brew install --cask talkify
 
 Or grab [**Talkify.dmg**](https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg) from the latest release.
 
+Either way, Talkify keeps itself current: it checks once a day, verifies every
+update against an EdDSA signature before installing, and never interrupts a
+dictation session to do it. Downloading automatically is off until you ask for
+it, and checks can be turned off entirely in Settings → Updates.
+
 Build from source:
 
 ```bash

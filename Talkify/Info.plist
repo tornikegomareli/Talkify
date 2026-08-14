@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sparkle only. Every other key is still generated from build settings
+	     (GENERATE_INFOPLIST_FILE stays on and merges into this file), because
+	     Sparkle reads SUPublicEDKey straight from the bundle and Xcode's
+	     INFOPLIST_KEY_ passthrough silently drops keys it does not know. -->
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/tornikegomareli/Talkify/main/appcast.xml</string>
+	<!-- Public half of the EdDSA signing key. The private half lives in the
+	     login Keychain and is never in the repository. -->
+	<key>SUPublicEDKey</key>
+	<string>CS7EqGMvprKkjontSt/uLAG3gkw4CSwaMKVLd+W1UV4=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<!-- Once a day. Talkify is a menu-bar app people leave running for weeks,
+	     so anything shorter is noise. -->
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<!-- Downloading happens only when the user opts in; the default stays off
+	     so an update never replaces the binary unasked. -->
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+</dict>
+</plist>

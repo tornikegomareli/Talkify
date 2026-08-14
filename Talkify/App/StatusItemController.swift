@@ -6,6 +6,7 @@ final class StatusItemController: NSObject {
   private let toggleDictation: () -> Void
   private let toggleReadAloud: () -> Void
   private let openSettings: () -> Void
+  private let checkForUpdates: () -> Void
   private let dictationItem: NSMenuItem
   private let readAloudItem: NSMenuItem
   private var blinkTimer: Timer?
@@ -19,11 +20,13 @@ final class StatusItemController: NSObject {
   init(
     toggleDictation: @escaping () -> Void,
     toggleReadAloud: @escaping () -> Void,
-    openSettings: @escaping () -> Void
+    openSettings: @escaping () -> Void,
+    checkForUpdates: @escaping () -> Void
   ) {
     self.toggleDictation = toggleDictation
     self.toggleReadAloud = toggleReadAloud
     self.openSettings = openSettings
+    self.checkForUpdates = checkForUpdates
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     dictationItem = NSMenuItem(title: "Start Dictation", action: nil, keyEquivalent: "")
     readAloudItem = NSMenuItem(title: "Read Selected Text", action: nil, keyEquivalent: "")
@@ -50,6 +53,14 @@ final class StatusItemController: NSObject {
     )
     settingsItem.target = self
     menu.addItem(settingsItem)
+
+    let updatesItem = NSMenuItem(
+      title: "Check for Updates…",
+      action: #selector(checkForUpdatesItem),
+      keyEquivalent: ""
+    )
+    updatesItem.target = self
+    menu.addItem(updatesItem)
 
     menu.addItem(NSMenuItem(
       title: "Quit Talkify",
@@ -145,6 +156,10 @@ final class StatusItemController: NSObject {
 
   @objc private func toggleReadAloudItem() {
     toggleReadAloud()
+  }
+
+  @objc private func checkForUpdatesItem() {
+    checkForUpdates()
   }
 
   @objc private func openSettingsItem() {
