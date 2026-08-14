@@ -45,6 +45,7 @@ APPCAST="$REPO_ROOT/appcast.xml"
 CASK="$REPO_ROOT/Casks/talkify.rb"
 TEAM_ID="539293JFA3"
 NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
+SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Techzy LLC ($TEAM_ID)}"
 
 step() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
@@ -99,10 +100,22 @@ if $DRY_RUN; then
   step "Skipping the version bump (dry run)"
 else
   step "Setting version to $VERSION"
-  xcrun agvtool new-marketing-version "$VERSION" >/dev/null
+  # Written straight into the project rather than through agvtool. Since the
+  # target gained a real Info.plist for Sparkle, agvtool reads an empty
+  # CFBundleShortVersionString from it and silently leaves MARKETING_VERSION
+  # alone, which shipped an app that called itself 0.1.0.
   BUILD_NUMBER="$(git rev-list --count HEAD)"
-  xcrun agvtool new-version -all "$BUILD_NUMBER" >/dev/null
-  echo "  marketing $VERSION, build $BUILD_NUMBER"
+  /usr/bin/sed -i '' \
+    -e "s/^\(\s*\)MARKETING_VERSION = .*;$/\1MARKETING_VERSION = $VERSION;/" \
+    -e "s/^\(\s*\)CURRENT_PROJECT_VERSION = .*;$/\1CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/" \
+    Talkify.xcodeproj/project.pbxproj
+
+  # Every configuration must agree, or Debug and Release disagree about what
+  # version is running.
+  STRAY="$(grep -c "MARKETING_VERSION = $VERSION;" Talkify.xcodeproj/project.pbxproj)"
+  TOTAL="$(grep -c "MARKETING_VERSION = " Talkify.xcodeproj/project.pbxproj)"
+  [[ "$STRAY" == "$TOTAL" ]] || fail "only $STRAY of $TOTAL MARKETING_VERSION entries became $VERSION"
+  echo "  marketing $VERSION, build $BUILD_NUMBER ($TOTAL configurations)"
 fi
 
 step "Archiving Release"
@@ -124,6 +137,16 @@ cp -R "$APP_IN_ARCHIVE" "$EXPORT_DIR/Talkify.app"
 APP="$EXPORT_DIR/Talkify.app"
 echo "  archived $(du -sh "$APP" | cut -f1)"
 
+if ! $DRY_RUN; then
+  BUILT_SHORT="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+    "$APP/Contents/Info.plist" 2>/dev/null || echo "")"
+  BUILT_BUILD="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" \
+    "$APP/Contents/Info.plist" 2>/dev/null || echo "")"
+  [[ "$BUILT_SHORT" == "$VERSION" ]] \
+    || fail "the built app reports version '$BUILT_SHORT', not $VERSION"
+  echo "  reports $BUILT_SHORT ($BUILT_BUILD)"
+fi
+
 # Ad-hoc sign if the archive came out unsigned, so Gatekeeper's message is
 # "unidentified developer" rather than "damaged".
 if ! codesign -dv "$APP" >/dev/null 2>&1; then
@@ -131,6 +154,47 @@ if ! codesign -dv "$APP" >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP"
 fi
 codesign -dv "$APP" 2>&1 | grep -E "Authority|Signature" | sed 's/^/  /' || true
+
+# ----------------------------------------------------------------- resigning
+
+# Sparkle ships prebuilt helpers inside its framework — Updater.app, Autoupdate
+# and two XPC services — and Xcode does not re-sign the contents of a prebuilt
+# framework. They arrive ad-hoc signed with no team and no secure timestamp,
+# which Apple's notary service rejects outright.
+#
+# codesign seals a bundle by hashing its contents, so this runs strictly
+# inside-out: helpers, then the framework, then the app. Signing the app first
+# would invalidate its seal the moment a helper changed.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+if [[ -d "$SPARKLE" ]]; then
+  if security find-identity -v -p codesigning 2>/dev/null | grep -q "$TEAM_ID"; then
+    step "Re-signing Sparkle's helpers"
+    for target in \
+      "$SPARKLE/Versions/B/XPCServices/Downloader.xpc" \
+      "$SPARKLE/Versions/B/XPCServices/Installer.xpc" \
+      "$SPARKLE/Versions/B/Updater.app" \
+      "$SPARKLE/Versions/B/Autoupdate" \
+      "$SPARKLE" \
+      "$APP"; do
+      [[ -e "$target" ]] || continue
+      codesign --force --options runtime --timestamp \
+        --sign "$SIGN_IDENTITY" "$target" 2>&1 | sed 's/^/  /'
+    done
+
+    # Every nested binary must now carry the team, or notarization fails again
+    # after the DMG and the notary round-trip have already been paid for.
+    codesign --verify --deep --strict "$APP" || fail "the re-signed app fails verification"
+    while IFS= read -r nested; do
+      codesign -dvv "$nested" 2>&1 | grep -q "TeamIdentifier=$TEAM_ID" \
+        || fail "$(basename "$nested") is still not signed with the team identity"
+    done < <(find "$SPARKLE" -maxdepth 4 \
+      \( -name "*.xpc" -o -name "Updater.app" -o -name "Autoupdate" \) 2>/dev/null)
+    echo "  helpers, framework and app signed with $TEAM_ID"
+  else
+    echo "  no Developer ID identity — Sparkle's helpers stay ad-hoc signed"
+    echo "  (notarization will reject this build)"
+  fi
+fi
 
 # --------------------------------------------------------------------- dmg
 
@@ -158,7 +222,6 @@ hdiutil verify "$DMG" >/dev/null 2>&1 || fail "the DMG failed verification"
 # Sign the container too, so Gatekeeper can vouch for the DMG itself and not
 # only the app inside. This must happen BEFORE notarization: signing a stapled
 # DMG rewrites the file and throws the ticket away.
-SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Techzy LLC ($TEAM_ID)}"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$TEAM_ID"; then
   codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
   echo "  container signed"
