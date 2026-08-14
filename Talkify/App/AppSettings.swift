@@ -22,6 +22,9 @@ final class AppSettings {
     static let readAloudVoice = "readAloudVoice"
     static let dictationTriggerBinding = "dictationTriggerBinding"
     static let readAloudBinding = "readAloudBinding"
+    static let recognitionLocale = "recognitionLocale"
+    static let secondaryRecognitionLocale = "recognitionLocaleSecondary"
+    static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
   }
 
   @ObservationIgnored
@@ -69,6 +72,42 @@ final class AppSettings {
     didSet { Self.store(readAloudBinding, in: defaults, key: Keys.readAloudBinding) }
   }
 
+  /// The dictation language, as a locale identifier; empty means follow the
+  /// Mac's own language, which is what every session did before the Language
+  /// section existed.
+  var recognitionLocaleIdentifier: String {
+    didSet {
+      defaults.set(recognitionLocaleIdentifier, forKey: Keys.recognitionLocale)
+      // Choosing the second language as the first leaves one language behind
+      // two keys, so the second turns off rather than becoming a duplicate.
+      if !recognitionLocaleIdentifier.isEmpty,
+       recognitionLocaleIdentifier == secondaryRecognitionLocaleIdentifier {
+        secondaryRecognitionLocaleIdentifier = ""
+      }
+    }
+  }
+
+  /// The second language, with its own trigger key. Empty means off, which
+  /// is the default: one key, one language, exactly as before.
+  var secondaryRecognitionLocaleIdentifier: String {
+    didSet {
+      defaults.set(
+        secondaryRecognitionLocaleIdentifier,
+        forKey: Keys.secondaryRecognitionLocale
+      )
+    }
+  }
+
+  var secondaryTriggerBinding: KeyBinding {
+    didSet { Self.store(secondaryTriggerBinding, in: defaults, key: Keys.secondaryTriggerBinding) }
+  }
+
+  /// True once a second language is chosen. The second trigger is ignored
+  /// while this is false, so an unused binding cannot start a session.
+  var isSecondLanguageEnabled: Bool {
+    !secondaryRecognitionLocaleIdentifier.isEmpty
+  }
+
   /// Transient, never persisted: true while a Shortcuts key recorder is
   /// armed, so global trigger handling pauses and the rebind keystroke
   /// cannot start a session.
@@ -90,6 +129,12 @@ final class AppSettings {
     readAloudBinding = Self.storedBinding(
       in: defaults, key: Keys.readAloudBinding
     ) ?? .optionEscape
+    recognitionLocaleIdentifier = defaults.string(forKey: Keys.recognitionLocale) ?? ""
+    secondaryRecognitionLocaleIdentifier =
+      defaults.string(forKey: Keys.secondaryRecognitionLocale) ?? ""
+    secondaryTriggerBinding = Self.storedBinding(
+      in: defaults, key: Keys.secondaryTriggerBinding
+    ) ?? .rightOptionTrigger
   }
 
   private static func stored<Value: RawRepresentable<String>>(

@@ -13,6 +13,7 @@ final class DictationHUDController {
   /// WWDC23 "Animate with springs": don't wait for settling.
   private static let dismissDuration = Duration.milliseconds(350)
   private static let latchedText = "Listening (latched)"
+  private static let listeningText = "Listening…"
 
   private enum Mode {
     case hidden
@@ -28,6 +29,8 @@ final class DictationHUDController {
   private let content = DictationHUDContent()
   private let sounds: DictationHUDSounds
   private var mode = Mode.hidden
+  /// Remembered so a download line can restore the right session text.
+  private var sessionIsLatched = false
   private var messageDismissTask: Task<Void, Never>?
   private var orderOutTask: Task<Void, Never>?
   private var lastLevelAt = ContinuousClock.now
@@ -100,21 +103,32 @@ final class DictationHUDController {
   func showListening(
     on displayID: CGDirectDisplayID?,
     isLatched: Bool,
-    settings: DictationSessionSettings
+    settings: DictationSessionSettings,
+    languageTag: String? = nil
   ) {
     guard let screen = selectScreen(targetDisplayID: displayID) else { return }
     sessionSettings = settings
     renderedSettings = settings
+    content.languageTag = languageTag
     cancelMessageDismiss()
     mode = .session
     startVoiceVisual()
-    present(isLatched ? Self.latchedText : "Listening…", on: screen)
+    sessionIsLatched = isLatched
+    present(isLatched ? Self.latchedText : Self.listeningText, on: screen)
     sounds.playBegin(using: settings.soundSet)
   }
 
   func showLatched() {
     guard case .session = mode else { return }
     content.text = Self.latchedText
+  }
+
+  /// A session waiting on its language model. The band says what it is waiting
+  /// for instead of sitting on "Listening…" while nothing arrives; passing nil
+  /// restores whatever the session was saying before.
+  func showModelDownload(_ text: String?) {
+    guard case .session = mode else { return }
+    content.text = text ?? (sessionIsLatched ? Self.latchedText : Self.listeningText)
   }
 
   func showLiveText(_ text: String) {

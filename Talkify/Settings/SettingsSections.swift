@@ -16,6 +16,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
   case appearance
   case sounds
   case readAloud
+  case language
   case shortcuts
   case insights
 
@@ -27,6 +28,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .appearance: "Appearance"
     case .sounds: "Sounds"
     case .readAloud: "Read Aloud"
+    case .language: "Language"
     case .shortcuts: "Shortcuts"
     case .insights: "Insights"
     }
@@ -37,6 +39,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .appearance: "Customize the Direct Dictation HUD"
     case .sounds: "Choose and preview Direct Dictation sounds"
     case .readAloud: "Choose the voice that reads selected text"
+    case .language: "Pick your dictation languages and their keys"
     case .shortcuts: "Rebind the Direct Dictation and Read Aloud keys"
     case .insights: "Review your local Direct Dictation activity"
     }
@@ -47,6 +50,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .appearance: "sparkles"
     case .sounds: "waveform"
     case .readAloud: "speaker.wave.2"
+    case .language: "globe"
     case .shortcuts: "keyboard"
     case .insights: "chart.bar.xaxis"
     }
