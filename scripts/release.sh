@@ -106,14 +106,14 @@ else
   # alone, which shipped an app that called itself 0.1.0.
   BUILD_NUMBER="$(git rev-list --count HEAD)"
   /usr/bin/sed -i '' \
-    -e "s/^\(\s*\)MARKETING_VERSION = .*;$/\1MARKETING_VERSION = $VERSION;/" \
-    -e "s/^\(\s*\)CURRENT_PROJECT_VERSION = .*;$/\1CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/" \
+    -e "s/^\([[:space:]]*\)MARKETING_VERSION = .*;$/\1MARKETING_VERSION = $VERSION;/" \
+    -e "s/^\([[:space:]]*\)CURRENT_PROJECT_VERSION = .*;$/\1CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/" \
     Talkify.xcodeproj/project.pbxproj
 
   # Every configuration must agree, or Debug and Release disagree about what
   # version is running.
-  STRAY="$(grep -c "MARKETING_VERSION = $VERSION;" Talkify.xcodeproj/project.pbxproj)"
-  TOTAL="$(grep -c "MARKETING_VERSION = " Talkify.xcodeproj/project.pbxproj)"
+  STRAY="$(grep -c "MARKETING_VERSION = $VERSION;" Talkify.xcodeproj/project.pbxproj || true)"
+  TOTAL="$(grep -c "MARKETING_VERSION = " Talkify.xcodeproj/project.pbxproj || true)"
   [[ "$STRAY" == "$TOTAL" ]] || fail "only $STRAY of $TOTAL MARKETING_VERSION entries became $VERSION"
   echo "  marketing $VERSION, build $BUILD_NUMBER ($TOTAL configurations)"
 fi
