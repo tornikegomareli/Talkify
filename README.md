@@ -74,11 +74,30 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 |---|---|
 | Dictate | Hold **fn**, speak, release |
 | Hands-free session | Quick-tap **fn**, speak, tap again to finish |
+| Dictate in your second language | Hold **right ⌥** instead |
 | Cancel mid-session | **Esc** |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Everything else | Menu bar ghost → Settings |
 
 The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**
+
+## Two languages, two keys
+
+Pick a second language in **Settings → Language** and it gets its own key. Hold
+**fn** for English, hold **right ⌥** for German, with no setting to change in
+between. Both keys are rebindable, and either can be the one you use most.
+
+Apple Speech transcribes one language per session and offers no way to detect
+which language you are speaking, so Talkify does not guess. Guessing would mean
+transcribing first and inferring the language from the result, and in the wrong
+language that result is fluent nonsense rather than an error. A key per language
+is instant and never wrong.
+
+Both languages stay loaded, so the second answers as fast as the first, and the
+notch shows a small tag naming the one that is listening. macOS ships 30
+locales across German, English, Spanish, French, Italian, Japanese, Korean,
+Portuguese, Cantonese and Chinese; a language you have not used before downloads
+its model once, with progress shown in Settings and in the notch.
 
 ## Architecture
 
