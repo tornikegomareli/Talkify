@@ -184,11 +184,24 @@ if [[ -d "$SPARKLE" ]]; then
     # Every nested binary must now carry the team, or notarization fails again
     # after the DMG and the notary round-trip have already been paid for.
     codesign --verify --deep --strict "$APP" || fail "the re-signed app fails verification"
-    while IFS= read -r nested; do
-      codesign -dvv "$nested" 2>&1 | grep -q "TeamIdentifier=$TEAM_ID" \
-        || fail "$(basename "$nested") is still not signed with the team identity"
-    done < <(find "$SPARKLE" -maxdepth 4 \
-      \( -name "*.xpc" -o -name "Updater.app" -o -name "Autoupdate" \) 2>/dev/null)
+
+    # The output is captured rather than piped into grep -q: with pipefail set,
+    # grep exiting early on a match kills codesign with SIGPIPE and the pipeline
+    # reports failure for a binary that is in fact signed correctly.
+    for nested in \
+      "$SPARKLE/Versions/B/XPCServices/Downloader.xpc" \
+      "$SPARKLE/Versions/B/XPCServices/Installer.xpc" \
+      "$SPARKLE/Versions/B/Updater.app" \
+      "$SPARKLE/Versions/B/Autoupdate" \
+      "$SPARKLE" \
+      "$APP"; do
+      [[ -e "$nested" ]] || continue
+      INFO="$(codesign -dvv "$nested" 2>&1 || true)"
+      [[ "$INFO" == *"TeamIdentifier=$TEAM_ID"* ]] \
+        || fail "$(basename "$nested") is not signed with team $TEAM_ID"
+      [[ "$INFO" == *"flags=0x10000(runtime)"* || "$INFO" == *"runtime"* ]] \
+        || fail "$(basename "$nested") is missing the hardened runtime"
+    done
     echo "  helpers, framework and app signed with $TEAM_ID"
   else
     echo "  no Developer ID identity — Sparkle's helpers stay ad-hoc signed"
