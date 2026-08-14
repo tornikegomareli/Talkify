@@ -156,17 +156,25 @@ private final class UserDriverDelegate: NSObject, SPUStandardUserDriverDelegate 
   /// `LSUIElement` Sparkle's window opens unfocused or off-screen, so it needs
   /// the switch to place and focus itself; the policy reverts when the session
   /// ends, keeping Talkify out of the Dock.
+  /// Sparkle drives its user driver on the main thread but its protocol is not
+  /// annotated for it, so the isolation is asserted rather than assumed
+  /// silently — the alternative is hopping to the main actor and changing the
+  /// policy after the window has already been placed.
   func standardUserDriverWillHandleShowingUpdate(
     _ handleShowingUpdate: Bool,
     forUpdate update: SUAppcastItem,
     state: SPUUserUpdateState
   ) {
     guard state.userInitiated else { return }
-    NSApp.setActivationPolicy(.regular)
-    NSApp.activate(ignoringOtherApps: true)
+    MainActor.assumeIsolated {
+      NSApp.setActivationPolicy(.regular)
+      NSApp.activate(ignoringOtherApps: true)
+    }
   }
 
   func standardUserDriverWillFinishUpdateSession() {
-    NSApp.setActivationPolicy(.accessory)
+    MainActor.assumeIsolated {
+      _ = NSApp.setActivationPolicy(.accessory)
+    }
   }
 }

@@ -25,9 +25,22 @@
 		9E87DA73302384C5007A1A70 /* TalkifyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalkifyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9ESPARK04000000000000004 /* Exceptions for "Talkify" folder in "Talkify" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9E87DA65302384C5007A1A70 /* Talkify */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9E87DA68302384C5007A1A70 /* Talkify */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9ESPARK04000000000000004 /* Exceptions for "Talkify" folder in "Talkify" target */,
+			);
 			path = Talkify;
 			sourceTree = "<group>";
 		};

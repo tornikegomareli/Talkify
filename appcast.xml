@@ -9,9 +9,10 @@
           scripts/release.sh regenerates this file with generate_appcast and
           commits it as part of a release, so it is not edited by hand.
 
-          It starts with no items on purpose: an empty channel makes a check
-          report "you're up to date", while a missing file makes it report a
-          failure. The first release replaces this with a signed entry.
+          Before the first release the channel is empty on purpose: an empty
+          channel makes a check report "you're up to date", while a missing file
+          makes it report a failure. Each release appends a signed <item> below
+          and keeps the five most recent.
         -->
     </channel>
 </rss>
