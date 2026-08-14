@@ -13,6 +13,28 @@ struct UpdatesTests {
     #expect(updater.lastCheckedAt == nil)
   }
 
+  /// Starting the real updater against the real app bundle. This is the check
+  /// that catches a broken configuration: Sparkle refuses to run when
+  /// `SUPublicEDKey` is missing or malformed, or when `SUFeedURL` is absent, and
+  /// `canCheckForUpdates` stays false. Nothing here contacts the network — the
+  /// assertion is about Sparkle accepting the bundle, not about the feed.
+  @Test func sparkleAcceptsTheShippedConfiguration() async throws {
+    let bundle = Bundle.main
+    let key = bundle.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
+    let feed = bundle.object(forInfoDictionaryKey: "SUFeedURL") as? String
+    #expect(key?.isEmpty == false, "SUPublicEDKey is missing from the built bundle")
+    #expect(feed?.hasPrefix("https://") == true, "SUFeedURL is missing or not https")
+    // An EdDSA public key is 32 bytes, base64-encoded.
+    #expect(Data(base64Encoded: key ?? "")?.count == 32)
+
+    let updater = SparkleUpdaterService()
+    updater.start()
+    // Never check on a schedule from a test run.
+    updater.automaticallyChecksForUpdates = false
+
+    #expect(updater.canCheckForUpdates, "Sparkle started but refuses to check — bad configuration")
+  }
+
   @Test func theUpdatesSectionIsRegistered() {
     #expect(SettingsSection.allCases.contains(.updates))
     #expect(SettingsSection.updates.title == "Updates")
