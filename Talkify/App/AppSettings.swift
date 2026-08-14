@@ -76,7 +76,15 @@ final class AppSettings {
   /// Mac's own language, which is what every session did before the Language
   /// section existed.
   var recognitionLocaleIdentifier: String {
-    didSet { defaults.set(recognitionLocaleIdentifier, forKey: Keys.recognitionLocale) }
+    didSet {
+      defaults.set(recognitionLocaleIdentifier, forKey: Keys.recognitionLocale)
+      // Choosing the second language as the first leaves one language behind
+      // two keys, so the second turns off rather than becoming a duplicate.
+      if !recognitionLocaleIdentifier.isEmpty,
+       recognitionLocaleIdentifier == secondaryRecognitionLocaleIdentifier {
+        secondaryRecognitionLocaleIdentifier = ""
+      }
+    }
   }
 
   /// The second language, with its own trigger key. Empty means off, which

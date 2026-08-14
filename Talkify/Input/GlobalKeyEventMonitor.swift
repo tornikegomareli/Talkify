@@ -160,7 +160,7 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
       stateLock.withLock {
         guard let (slot, binding) = modifierTrigger(forKeyCode: keyCode) else { return }
-        let isDown = event.flags.contains(binding.modifierKeyMask)
+        let isDown = Self.isModifierKeyDown(binding, flags: event.flags)
 
         if isDown {
           // Another language's key is already held; ignore this one rather
@@ -262,6 +262,24 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       return (.secondary, secondary)
     }
     return nil
+  }
+
+  /// Whether the bound modifier key itself is down.
+  ///
+  /// The shared flag cannot answer this for a side-specific key: with left ⌥
+  /// held, releasing right ⌥ leaves `.maskAlternate` set. The per-key device
+  /// bits can, so they decide whenever this keyboard reports them. If the
+  /// shared flag says down while both device bits are clear, nothing is
+  /// reporting them and the shared flag is all there is.
+  static func isModifierKeyDown(_ binding: KeyBinding, flags: CGEventFlags) -> Bool {
+    let sharedDown = flags.contains(binding.modifierKeyMask)
+    guard let masks = KeyBinding.deviceMasks(forKeyCode: binding.keyCode) else {
+      return sharedDown
+    }
+    if sharedDown, flags.rawValue & masks.pair == 0 {
+      return true
+    }
+    return flags.rawValue & masks.own != 0
   }
 
   /// Exact-modifier match: ⌥⎋ means Option and only Option; a bare key

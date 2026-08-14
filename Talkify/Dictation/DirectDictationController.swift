@@ -133,9 +133,12 @@ final class DirectDictationController {
     )
     primaryLocale = primary
 
+    // Resolved strictly: a stored pick this Mac cannot transcribe drops the
+    // second language instead of quietly becoming the system default, which
+    // would dictate in a language the user never chose.
     var secondary: Locale?
     if settings.isSecondLanguageEnabled {
-      secondary = try? await speechService.resolveLocale(
+      secondary = await speechService.supportedLocale(
         identifier: settings.secondaryRecognitionLocaleIdentifier
       )
     }

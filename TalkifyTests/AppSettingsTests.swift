@@ -128,9 +128,30 @@ struct AppSettingsTests {
     #expect(state.languageDownloads.isEmpty)
   }
 
+  /// The name is localized for whoever is reading it, so the expectation comes
+  /// from the same source rather than hardcoding English. What the test pins is
+  /// the behaviour: the region is dropped, and both German regions read alike.
   @Test func languagesAreNamedWithoutTheirRegionForProse() {
-    #expect(SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_DE")) == "German")
-    #expect(SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_CH")) == "German")
+    let expected = Locale.current.localizedString(forLanguageCode: "de")?.localizedCapitalized
+    let germany = SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_DE"))
+    let switzerland = SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_CH"))
+
+    #expect(germany == switzerland)
+    #expect(!germany.contains("_"))
+    if let expected {
+      #expect(germany == expected)
+    }
+  }
+
+  @Test func pickingTheSecondLanguageAsTheFirstTurnsTheSecondOff() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.recognitionLocaleIdentifier = "en_US"
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+    #expect(settings.isSecondLanguageEnabled)
+
+    settings.recognitionLocaleIdentifier = "de_DE"
+    #expect(!settings.isSecondLanguageEnabled)
+    #expect(settings.secondaryRecognitionLocaleIdentifier == "")
   }
 
   @Test func languageTagsAreTwoLetterUppercase() {

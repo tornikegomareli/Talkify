@@ -41,6 +41,9 @@ actor SpeechRecognitionService {
     case missingAudioFormat
     case sessionAlreadyActive
     case noActiveSession
+    /// Every language slot the system allows is already held by a language a
+    /// key points at. The cap is device-dependent and can be 1.
+    case tooManyLanguages(cap: Int)
 
     var errorDescription: String? {
       switch self {
@@ -54,6 +57,10 @@ actor SpeechRecognitionService {
         "A dictation session is already active."
       case .noActiveSession:
         "No dictation session is active."
+      case let .tooManyLanguages(cap):
+        cap == 1
+          ? "This Mac can keep only one dictation language ready at a time."
+          : "This Mac can keep only \(cap) dictation languages ready at a time."
       }
     }
   }
@@ -101,6 +108,10 @@ actor SpeechRecognitionService {
   /// request for the same language. Both callers await the same build.
   private var buildTasks: [Locale: Task<PreparedSession, any Error>] = [:]
   private var downloadHandler: (@Sendable (ModelDownload) -> Void)?
+  /// Locales a trigger key currently points at, set by `retainOnly`. These are
+  /// protected from eviction: the whole point of keeping them reserved is that
+  /// their key answers instantly.
+  private var boundLocales: Set<Locale> = []
 
   /// Reports language model downloads, so a wait that can take minutes is
   /// visible instead of looking like a stall.
@@ -112,13 +123,21 @@ actor SpeechRecognitionService {
   /// actually supports, falling back to the system language and then to
   /// English, the way a missing preference always behaved.
   func resolveLocale(identifier: String?) async throws -> Locale {
-    if let identifier, !identifier.isEmpty,
-     let supported = await SpeechTranscriber.supportedLocale(
-       equivalentTo: Locale(identifier: identifier)
-     ) {
+    if let identifier, let supported = await supportedLocale(identifier: identifier) {
       return supported
     }
     return try await defaultLocale()
+  }
+
+  /// Strict resolution: nil when the identifier names nothing Apple Speech
+  /// supports. The second language must use this rather than falling back to
+  /// the system default — a key silently dictating in a language the user never
+  /// picked produces fluent nonsense instead of an error (CONTEXT.md).
+  func supportedLocale(identifier: String) async -> Locale? {
+    guard !identifier.isEmpty else { return nil }
+    return await SpeechTranscriber.supportedLocale(
+      equivalentTo: Locale(identifier: identifier)
+    )
   }
 
   func prewarm(locale: Locale) async throws {
@@ -132,20 +151,37 @@ actor SpeechRecognitionService {
   private func ensureWarm(locale: Locale) async throws {
     if preparedSessions[locale] != nil { return }
 
+    let task: Task<PreparedSession, any Error>
     if let existing = buildTasks[locale] {
-      _ = try await existing.value
-      return
+      task = existing
+    } else {
+      task = Task { try await makePreparedSession(locale: locale) }
+      buildTasks[locale] = task
     }
 
-    let task = Task { try await makePreparedSession(locale: locale) }
-    buildTasks[locale] = task
-
     do {
-      preparedSessions[locale] = try await task.value
-      buildTasks[locale] = nil
+      let prepared = try await task.value
+      // Every awaiter caches, not only whoever created the task. Continuations
+      // resume in an unspecified order, so if only the creator wrote here a
+      // waiter that resumed first would find an empty cache and report Apple
+      // Speech as unavailable for what was really a race with a prewarm.
+      if preparedSessions[locale] == nil {
+        preparedSessions[locale] = prepared
+      }
+      clearBuildTask(task, for: locale)
     } catch {
-      buildTasks[locale] = nil
+      clearBuildTask(task, for: locale)
       throw error
+    }
+  }
+
+  /// Clears the build slot only when it still holds this task. A discard can
+  /// cancel one build while a later call installs another under the same
+  /// locale; clearing blindly would drop the newer task's entry and let a third
+  /// build start, which is exactly the duplicate install this map prevents.
+  private func clearBuildTask(_ task: Task<PreparedSession, any Error>, for locale: Locale) {
+    if buildTasks[locale] == task {
+      buildTasks[locale] = nil
     }
   }
 
@@ -154,6 +190,7 @@ actor SpeechRecognitionService {
   /// reservation slot or keep a stale analyzer alive.
   func retainOnly(locales: [Locale]) async {
     let keep = Set(locales)
+    boundLocales = keep
     for locale in Set(preparedSessions.keys).union(buildTasks.keys) where !keep.contains(locale) {
       discard(locale: locale)
     }
@@ -374,9 +411,21 @@ actor SpeechRecognitionService {
   private func reserve(locale: Locale) async throws {
     if reservedLocales.contains(locale) { return }
 
+    // The cap is device-dependent and can be as low as 1. Only locales that no
+    // key points at any more may be evicted: releasing a bound one would drop
+    // the language the user is about to press, cancel a download in flight, and
+    // fail its awaiter with a cancellation.
     let cap = max(1, AssetInventory.maximumReservedLocales)
-    while reservedLocales.count >= cap, let oldest = reservedLocales.first {
+    var evictable = reservedLocales.filter { !boundLocales.contains($0) }
+    while reservedLocales.count >= cap, let oldest = evictable.first {
+      evictable.removeFirst()
       await release(locale: oldest)
+    }
+
+    guard reservedLocales.count < cap else {
+      // Every slot is held by another bound language. Say so plainly rather
+      // than evicting one and leaving two keys fighting over one slot.
+      throw RecognitionError.tooManyLanguages(cap: cap)
     }
 
     _ = try await AssetInventory.reserve(locale: locale)

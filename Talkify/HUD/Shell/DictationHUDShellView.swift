@@ -93,6 +93,11 @@ struct DictationHUDShellView: View {
         textBand
       }
     }
+    // The tag hangs off the shell, not the text band: Waveform and Edge Glow
+    // hide the band for the whole listening phase, which is exactly when the
+    // live language needs naming. Padded below the housing so it clears the
+    // camera, and an overlay so it never changes the fixed window's size.
+    .overlay(alignment: .topLeading) { languageTag }
     .frame(width: size.width)
     .frame(minHeight: size.height, alignment: .top)
     .animation(
@@ -192,7 +197,6 @@ struct DictationHUDShellView: View {
     .padding(.horizontal, content.languageTag == nil ? 24 : 46)
     .padding(.vertical, 9)
     .frame(minHeight: HUDNotchGeometry.textBandHeight)
-    .overlay(alignment: .topLeading) { languageTag }
   }
 
   @ViewBuilder
@@ -206,7 +210,8 @@ struct DictationHUDShellView: View {
         .padding(.vertical, 1.5)
         .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
         .padding(.leading, 12)
-        .padding(.top, 11)
+        // Clears the housing, so the tag never sits beside the camera.
+        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5)
         .allowsHitTesting(false)
     }
   }

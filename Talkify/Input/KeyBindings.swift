@@ -54,6 +54,32 @@ struct KeyBinding: Equatable, Codable {
     isModifierKey: false, label: "⌥ ⎋", keyEquivalent: "\u{1B}"
   )
 
+  /// Which physical key a side-specific modifier binding watches, and the pair
+  /// it belongs to.
+  ///
+  /// `CGEventFlags` collapses left and right into one bit: releasing right ⌥
+  /// while left ⌥ is held leaves `.maskAlternate` set, so a trigger bound to
+  /// right ⌥ would never see its release and the session would stay open. The
+  /// low 16 bits carry per-key state (`NX_DEVICE*KEYMASK` in IOKit's
+  /// `IOLLEvent.h`), which does distinguish them.
+  ///
+  /// `pair` exists to tell "both keys are up" apart from "this keyboard does
+  /// not report device bits at all", so the monitor can fall back safely.
+  static func deviceMasks(forKeyCode keyCode: Int64) -> (own: UInt64, pair: UInt64)? {
+    switch keyCode {
+    case 55: (own: 0x0000_0008, pair: 0x0000_0018)  // left ⌘
+    case 54: (own: 0x0000_0010, pair: 0x0000_0018)  // right ⌘
+    case 58: (own: 0x0000_0020, pair: 0x0000_0060)  // left ⌥
+    case 61: (own: 0x0000_0040, pair: 0x0000_0060)  // right ⌥
+    case 59: (own: 0x0000_0001, pair: 0x0000_2001)  // left ⌃
+    case 62: (own: 0x0000_2000, pair: 0x0000_2001)  // right ⌃
+    case 56: (own: 0x0000_0002, pair: 0x0000_0006)  // left ⇧
+    case 60: (own: 0x0000_0004, pair: 0x0000_0006)  // right ⇧
+    // fn has no left/right twin, so its shared flag is already unambiguous.
+    default: nil
+    }
+  }
+
   static func modifierMask(forKeyCode keyCode: Int64) -> CGEventFlags {
     switch keyCode {
     case 63: .maskSecondaryFn

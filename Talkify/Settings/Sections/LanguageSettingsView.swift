@@ -28,7 +28,7 @@ struct LanguageSettingsView: View {
           description: settings.isSecondLanguageEnabled
             ? "Its own key, so you never switch a setting to switch language"
             : "Off. Choose one to dictate in two languages",
-          options: [""] + languages.map(\.id),
+          options: [""] + secondaryOptions,
           optionLabel: secondaryLabel(for:),
           selection: $settings.secondaryRecognitionLocaleIdentifier,
           controlWidth: 260
@@ -84,6 +84,15 @@ struct LanguageSettingsView: View {
     .task {
       languages = await SpeechLanguageCatalog.available()
     }
+  }
+
+  /// The first language is not offered as the second: picking it would show the
+  /// key row for a language that is already covered, and the key would do
+  /// nothing new.
+  private var secondaryOptions: [String] {
+    languages
+      .map(\.id)
+      .filter { $0 != settings.recognitionLocaleIdentifier }
   }
 
   /// Downloads in flight, named for the reader. Sorted by name so the rows
