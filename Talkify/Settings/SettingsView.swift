@@ -8,6 +8,7 @@ struct SettingsView: View {
   let sounds: DictationHUDSounds
   let runtimeState: SettingsRuntimeState
   let usageTracker: UsageTracker
+  let updater: SparkleUpdaterService
   let onClose: () -> Void
 
   @Environment(\.colorSchemeContrast) private var contrast
@@ -36,7 +37,8 @@ struct SettingsView: View {
             settings: settings,
             sounds: sounds,
             usageTracker: usageTracker,
-            runtimeState: runtimeState
+            runtimeState: runtimeState,
+            updater: updater
           )
           .id(selectedSection)
           .transition(.opacity)
@@ -221,6 +223,7 @@ private struct SettingsContent: View {
   let sounds: DictationHUDSounds
   let usageTracker: UsageTracker
   let runtimeState: SettingsRuntimeState
+  let updater: SparkleUpdaterService
 
   @Environment(\.colorSchemeContrast) private var contrast
 
@@ -246,6 +249,8 @@ private struct SettingsContent: View {
           LanguageSettingsView(settings: settings, runtimeState: runtimeState)
         case .shortcuts:
           ShortcutsSettingsView(settings: settings)
+        case .updates:
+          UpdatesSettingsView(updater: updater)
         case .insights:
           InsightsSettingsView(tracker: usageTracker)
         }
@@ -268,6 +273,9 @@ private struct SettingsContent: View {
       fileURL: FileManager.default.temporaryDirectory
         .appending(path: "TalkifySettingsPreview-usage.json")
     )),
+    // Never started, so the preview shows the pane's disabled state rather
+    // than reaching for the network.
+    updater: SparkleUpdaterService(),
     onClose: {}
   )
 }

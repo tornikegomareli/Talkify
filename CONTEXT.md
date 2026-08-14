@@ -14,7 +14,8 @@ The first implementation milestone contains only **Direct Dictation**. Other fea
 - AppKit is the application shell: lifecycle, menu bar status item, and non-activating panels such as the HUD
 - SwiftUI renders windowed UI such as settings and onboarding, hosted inside the AppKit shell
 - Talkify uses Swift 6 with complete strict concurrency
-- Talkify uses Apple frameworks only and has no third-party dependencies
+- Talkify uses Apple frameworks only, with one exception: Sparkle, for updating itself
+- Sparkle is the single third-party dependency and is confined to `Talkify/Updates/`; nothing else imports it, and speech, insertion, and the HUD stay pure Apple frameworks
 
 ## Language
 
@@ -196,6 +197,11 @@ _Avoid_: Transcript history, cloud analytics
 - Talkify cannot download synthesis voices (no public API); the Read Aloud section deep-links System Settings and the voice list refreshes live when a download finishes
 - Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
 - Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors
+- Talkify updates itself with Sparkle; the appcast is a static file in the repository and there is no Talkify server
+- Every update is verified against an EdDSA signature before installation, and an update that fails verification is discarded
+- Update checks run daily and may be turned off; downloading updates automatically is opt-in and installing always waits for the user
+- An update never interrupts an active **Direct Dictation** session
+- Sparkle's own windows require the regular activation policy: under `LSUIElement` they open unfocused or off-screen, so the policy switches for the update session and reverts when it ends
 - **Live Captions** consume exactly one **Caption Source** and never microphone audio
 - A **Live Captions** session starts only after the user confirms its **Caption Source**
 - **Live Captions** display text without saving it

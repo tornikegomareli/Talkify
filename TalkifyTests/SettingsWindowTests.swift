@@ -13,7 +13,8 @@ struct SettingsWindowTests {
       usageTracker: UsageTracker(store: UsageStore(
         fileURL: FileManager.default.temporaryDirectory
           .appending(path: "TalkifySettingsWindowTests-" + UUID().uuidString + ".json")
-      ))
+      )),
+      updater: SparkleUpdaterService()
     )
     let window = try #require(controller.window)
     #expect(window.title == "Talkify Settings")
@@ -27,8 +28,11 @@ struct SettingsWindowTests {
   }
 
   @Test func settingsSectionsStayFocusedOnImplementedFeatures() {
-    #expect(SettingsSection.allCases == [.appearance, .sounds, .readAloud, .language, .shortcuts, .insights])
-    #expect(SettingsSectionGroup.settings.sections == [.appearance, .sounds, .readAloud, .language, .shortcuts, .insights])
+    let expected: [SettingsSection] = [
+      .appearance, .sounds, .readAloud, .language, .shortcuts, .updates, .insights,
+    ]
+    #expect(SettingsSection.allCases == expected)
+    #expect(SettingsSectionGroup.settings.sections == expected)
   }
 
   @Test func appearanceOptionsFollowTheSelectedVisual() {

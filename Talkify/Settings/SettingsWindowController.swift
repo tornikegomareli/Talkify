@@ -20,7 +20,8 @@ final class SettingsWindowController: NSWindowController {
     settings: AppSettings,
     sounds: DictationHUDSounds,
     runtimeState: SettingsRuntimeState,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    updater: SparkleUpdaterService
   ) {
     let window = TalkifySettingsWindow(
       contentRect: NSRect(origin: .zero, size: Self.windowSize),
@@ -34,6 +35,7 @@ final class SettingsWindowController: NSWindowController {
         sounds: sounds,
         runtimeState: runtimeState,
         usageTracker: usageTracker,
+        updater: updater,
         onClose: { [weak window] in window?.close() }
       )
     )

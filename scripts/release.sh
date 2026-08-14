@@ -38,6 +38,10 @@ ARCHIVE="$BUILD_DIR/Talkify.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 STAGE_DIR="$BUILD_DIR/dmg"
 DMG="$BUILD_DIR/Talkify.dmg"
+# Sparkle needs its own directory holding only the update ZIP.
+SPARKLE_DIR="$BUILD_DIR/sparkle"
+SPARKLE_ZIP="$SPARKLE_DIR/Talkify-$TAG.zip"
+APPCAST="$REPO_ROOT/appcast.xml"
 CASK="$REPO_ROOT/Casks/talkify.rb"
 TEAM_ID="539293JFA3"
 NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
@@ -183,6 +187,50 @@ SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 echo "  $DMG ($(du -h "$DMG" | cut -f1))"
 echo "  sha256 $SHA"
 
+# ----------------------------------------------------------------- sparkle
+
+# Sparkle updates from a ZIP, not the DMG: it is what BinaryDelta and
+# generate_appcast expect, and it unpacks without mounting anything.
+#
+# Notarizing the DMG notarizes the app inside it, so the app can be stapled
+# directly from Apple's records — no second submission and no extra wait. A
+# stapled app validates with no network, which matters on a laptop that wakes
+# up, updates, and relaunches before Wi-Fi is back.
+step "Packaging the Sparkle update"
+if [[ "${SKIP_NOTARIZE:-0}" != "1" ]]; then
+  xcrun stapler staple "$APP" && echo "  app stapled"
+fi
+
+rm -rf "$SPARKLE_DIR"
+mkdir -p "$SPARKLE_DIR"
+# ditto keeps the bundle's symlinks and resource forks intact; `zip` does not,
+# and a mangled bundle fails its signature check after the update lands.
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$SPARKLE_ZIP"
+echo "  $(basename "$SPARKLE_ZIP") ($(du -h "$SPARKLE_ZIP" | cut -f1))"
+
+SPARKLE_BIN="$(find "$HOME/Library/Developer/Xcode/DerivedData"/Talkify-*/SourcePackages/artifacts/sparkle/Sparkle/bin \
+  -name generate_appcast 2>/dev/null | head -1)"
+[[ -n "$SPARKLE_BIN" ]] || fail "Sparkle's tools are missing. Build once in Xcode to fetch them."
+SPARKLE_BIN="$(dirname "$SPARKLE_BIN")"
+
+# The private key lives in the login Keychain (see scripts/setup-sparkle-keys.sh),
+# so the tools find it without a key file on disk. The Keychain WILL prompt for
+# access the first time and blocks until it is answered — choose Always Allow so
+# later releases run unattended. This step cannot be run headlessly until then.
+# Only the ZIP is in SPARKLE_DIR: generate_appcast refuses two archives that
+# report the same bundle version, which the DMG would.
+"$SPARKLE_BIN/generate_appcast" \
+  --download-url-prefix "https://github.com/tornikegomareli/Talkify/releases/download/$TAG/" \
+  --link "https://usetalkify.app" \
+  --full-release-notes-url "https://github.com/tornikegomareli/Talkify/releases" \
+  --maximum-versions 5 \
+  -o "$APPCAST" \
+  "$SPARKLE_DIR"
+
+[[ -s "$APPCAST" ]] || fail "generate_appcast produced no appcast"
+grep -q "sparkle:edSignature" "$APPCAST" || fail "the appcast has no EdDSA signature"
+echo "  appcast written, signature present"
+
 # -------------------------------------------------------------------- cask
 
 step "Updating the Homebrew cask"
@@ -196,6 +244,8 @@ grep -E "^  (version|sha256)" "$CASK" | sed 's/^/  /'
 if $DRY_RUN; then
   step "Dry run — nothing published"
   echo "  DMG:  $DMG"
+  echo "  ZIP:  $SPARKLE_ZIP"
+  echo "  appcast: $APPCAST (uncommitted)"
   echo "  cask updated locally; revert with: git checkout -- Casks/talkify.rb"
   exit 0
 fi
@@ -205,7 +255,7 @@ fi
 step "Committing and tagging"
 # Stage each path that exists: a single git add with one missing pathspec
 # fails wholesale and would silently stage nothing.
-for path in Casks/talkify.rb Talkify.xcodeproj/project.pbxproj Talkify/Info.plist; do
+for path in Casks/talkify.rb Talkify.xcodeproj/project.pbxproj Talkify/Info.plist appcast.xml; do
   [[ -e "$path" ]] && git add "$path"
 done
 if git diff --cached --quiet; then
@@ -241,10 +291,31 @@ PREV_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
   fi
 } > "$NOTES_FILE"
 
-gh release create "$TAG" "$DMG" \
+# The ZIP ships alongside the DMG because the appcast's enclosure URL points
+# at it. Without it every existing install would poll a 404 forever.
+gh release create "$TAG" "$DMG" "$SPARKLE_ZIP" \
   --title "Talkify $VERSION" \
   --notes-file "$NOTES_FILE"
+
+# The feed is only live once the appcast on main names a release that exists,
+# so check the URL Sparkle will actually poll rather than assuming.
+step "Verifying the update feed"
+FEED="https://raw.githubusercontent.com/tornikegomareli/Talkify/main/appcast.xml"
+if curl -fsS "$FEED" | grep -q "$TAG"; then
+  echo "  $FEED serves $TAG"
+else
+  echo "  WARNING: $FEED does not mention $TAG yet."
+  echo "  raw.githubusercontent.com caches for a few minutes; re-check before"
+  echo "  announcing, and confirm appcast.xml was pushed to main."
+fi
+ENCLOSURE="$(grep -o 'url="[^"]*\.zip"' "$APPCAST" | head -1 | cut -d'"' -f2)"
+if [[ -n "$ENCLOSURE" ]] && curl -fsSI "$ENCLOSURE" >/dev/null 2>&1; then
+  echo "  enclosure reachable"
+else
+  echo "  WARNING: the appcast enclosure is not reachable: $ENCLOSURE"
+fi
 
 step "Done"
 echo "  release:  $(gh release view "$TAG" --json url -q .url)"
 echo "  download: https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg"
+echo "  feed:     $FEED"

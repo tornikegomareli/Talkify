@@ -3,3 +3,9 @@
 xcuserdata/
 *.xcuserstate
 *.profraw
+
+# Sparkle: an exported private signing key must never be committed. The key
+# normally stays in the login Keychain; setup-sparkle-keys.sh --export writes
+# this file only when you are backing it up.
+talkify-sparkle-private-key.txt
+sparkle_eddsa_private_key

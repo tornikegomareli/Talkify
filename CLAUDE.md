@@ -16,7 +16,8 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 - Plain committed `Talkify.xcodeproj` (no Tuist, no generation), Swift 6, strict concurrency complete
 - AppKit is the shell: lifecycle, status item, non-activating panels
 - SwiftUI for windowed UI (Settings, onboarding), hosted in the AppKit shell
-- Apple Speech only (`SpeechAnalyzer`/`SpeechTranscriber`), no Whisper, no third-party dependencies
+- Apple Speech only (`SpeechAnalyzer`/`SpeechTranscriber`), no Whisper
+- Exactly one third-party dependency: Sparkle, for self-updating, quarantined behind `Talkify/Updates/SparkleUpdaterService.swift`. Adding a second is a decision to raise, not to make.
 - Scaffolding values (bundle ID, entitlements, signing, Info.plist keys): `docs/ProjectSettings.md`
 
 ## Layout (modules as folders; communication is one-directional callbacks wired in App/)
@@ -27,6 +28,7 @@ Buildable and working end to end: hold Fn, speak, release — text lands in the 
 - `Talkify/HUD/` — the NotchIsland-style HUD, split: root holds the controller, panel, sounds, and pure geometry seams (`HUDPlacement`, `HUDNotchGeometry`, tested); `Shell/` the surface view, its shared `DictationHUDContent` model, and layout enums; `Visuals/` the voice visuals and their styles/palettes/tokens; `Shaders/` the four Metal files (ADR-0002). Canvas previews live next to the views; the harness uses a volatile defaults suite.
 - `Talkify/ReadAloud/` — speaking selected text: controller, `VoiceCatalog`, and the read-only `FocusedSelectionReader` (never touches insertion).
 - `Talkify/Settings/` — the borderless Settings window: shell (`SettingsView`), navigation model (`SettingsSections`), `Sections/` one file per pane, `Components/` the reusable design system (`SettingsTheme/Card/Row/PickerRow/ButtonStyle`, key recorder, drag handle).
+- `Talkify/Updates/` — Sparkle, wrapped so nothing else imports it: the appcast is a static file in the repo, updates are EdDSA-verified, and the activation policy flips for Sparkle's windows because they misplace themselves under `LSUIElement`.
 - `Talkify/Insights/` — local usage metrics (pure `UsageMetrics`, tested), store, tracker, and the Swift Charts section.
 - `Talkify/Resources/Sounds/` — sound sets. **Pop is CC-BY-NC and must be replaced or dropped before any release**; see `LICENSE-SOUNDS.txt`.
 - `Talkify/Assets.xcassets/Siri/` — the Siri-orb prototype artwork (voice visual under feel test). **Unlicensed, imitates Apple's Siri orb, must be replaced or dropped before any release**; see `LICENSE-ARTWORK.txt`.
