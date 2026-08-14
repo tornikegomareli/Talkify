@@ -82,6 +82,63 @@ struct AppSettingsTests {
     #expect(defaults.data(forKey: "readAloudBinding") != nil)
   }
 
+  @Test func languagesDefaultToOneFollowingTheMac() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.recognitionLocaleIdentifier == "")
+    #expect(settings.secondaryRecognitionLocaleIdentifier == "")
+    #expect(!settings.isSecondLanguageEnabled)
+    #expect(settings.secondaryTriggerBinding == .rightOptionTrigger)
+  }
+
+  @Test func secondLanguageTurnsOnWithItsPickAndOffAgain() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+
+    settings.recognitionLocaleIdentifier = "en_US"
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+    #expect(settings.isSecondLanguageEnabled)
+    #expect(defaults.string(forKey: "recognitionLocale") == "en_US")
+    #expect(defaults.string(forKey: "recognitionLocaleSecondary") == "de_DE")
+
+    settings.secondaryRecognitionLocaleIdentifier = ""
+    #expect(!settings.isSecondLanguageEnabled)
+  }
+
+  @Test func languagePicksSurviveARelaunch() {
+    let defaults = freshDefaults()
+    let first = AppSettings(defaults: defaults)
+    first.recognitionLocaleIdentifier = "fr_FR"
+    first.secondaryRecognitionLocaleIdentifier = "it_IT"
+    first.secondaryTriggerBinding = .fnTrigger
+
+    let second = AppSettings(defaults: defaults)
+    #expect(second.recognitionLocaleIdentifier == "fr_FR")
+    #expect(second.secondaryRecognitionLocaleIdentifier == "it_IT")
+    #expect(second.secondaryTriggerBinding == .fnTrigger)
+  }
+
+  @Test func downloadsAppearWhileRunningAndClearWhenDone() {
+    let state = SettingsRuntimeState()
+    #expect(state.languageDownloads.isEmpty)
+
+    state.setDownload(identifier: "de_DE", fraction: 0.4)
+    #expect(state.languageDownloads["de_DE"] == 0.4)
+
+    state.setDownload(identifier: "de_DE", fraction: nil)
+    #expect(state.languageDownloads.isEmpty)
+  }
+
+  @Test func languagesAreNamedWithoutTheirRegionForProse() {
+    #expect(SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_DE")) == "German")
+    #expect(SpeechLanguageCatalog.shortName(for: Locale(identifier: "de_CH")) == "German")
+  }
+
+  @Test func languageTagsAreTwoLetterUppercase() {
+    #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "de_DE")) == "DE")
+    #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "en_US")) == "EN")
+    #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "yue_CN")) == "YU")
+  }
+
   @Test func unknownStoredValueFallsBackToDefault() {
     let defaults = freshDefaults()
     defaults.set("Kazoo", forKey: "dictationSoundSet")

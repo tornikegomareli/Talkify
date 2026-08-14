@@ -14,6 +14,9 @@ final class DirectDictationController {
   /// active — speaking through the speaker path mid-dictation would feed
   /// the recognizer its own audio.
   var onReadAloudTriggered: (() -> Void)?
+  /// A language model downloading, as a locale identifier and progress (0…1),
+  /// or nil progress once it finishes. Settings shows it on the language row.
+  var onLanguageDownloadChange: ((String, Double?) -> Void)?
 
   private static let noSpeechTimeout = Duration.seconds(15)
 
@@ -32,6 +35,13 @@ final class DirectDictationController {
   private var isPrepared = false
   private var preparationFailureMessage: String?
   private var currentSessionSettings: DictationSessionSettings?
+  /// The languages behind the two trigger keys, resolved to locales Apple
+  /// Speech supports. `secondary` is nil unless a second language is chosen.
+  private var primaryLocale: Locale?
+  private var secondaryLocale: Locale?
+  /// Which slot's key began the session in flight, so the session runs in
+  /// the language of the key that started it even if Settings change.
+  private var activeSlot: GlobalKeyEventMonitor.TriggerSlot = .primary
 
   init(
     settings: AppSettings,
@@ -50,7 +60,38 @@ final class DirectDictationController {
 
   func start() {
     applyKeyBindings()
+    observeModelDownloads()
     requestPermissionsAndPrepare()
+  }
+
+  /// Routes model downloads to both places they matter: the Language section,
+  /// and the HUD when a session is already waiting on that very language.
+  private func observeModelDownloads() {
+    let handler: @Sendable (SpeechRecognitionService.ModelDownload) -> Void = { [weak self] download in
+      Task { @MainActor in
+        self?.receive(download)
+      }
+    }
+
+    Task { [speechService] in
+      await speechService.setDownloadHandler(handler)
+    }
+  }
+
+  private func receive(_ download: SpeechRecognitionService.ModelDownload) {
+    onLanguageDownloadChange?(download.locale.identifier, download.fraction)
+
+    // Only speak up in the HUD for the language this session is waiting on.
+    guard machine.isSessionActive, locale(for: activeSlot) == download.locale else { return }
+
+    guard let fraction = download.fraction else {
+      hudController.showModelDownload(nil)
+      return
+    }
+    let name = SpeechLanguageCatalog.shortName(for: download.locale)
+    hudController.showModelDownload(
+      "Downloading \(name)… \(Int(fraction * 100))%"
+    )
   }
 
   /// Pushes the recorded Settings bindings into the event tap; called at
@@ -58,9 +99,70 @@ final class DirectDictationController {
   func applyKeyBindings() {
     keyEventMonitor?.setBindings(
       trigger: settings.dictationTriggerBinding,
+      secondaryTrigger: settings.isSecondLanguageEnabled
+        ? settings.secondaryTriggerBinding
+        : nil,
       readAloud: settings.readAloudBinding
     )
     keyEventMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
+  }
+
+  /// Re-resolves both languages and warms them. Called whenever the Language
+  /// section changes a pick, so the key you press next is already prepared
+  /// rather than building its analyzer on the keypress.
+  func applyLanguages() {
+    Task { [weak self] in
+      guard let self else { return }
+      do {
+        try await prepareLanguages()
+        isPrepared = true
+        preparationFailureMessage = nil
+      } catch {
+        isPrepared = false
+        preparationFailed(message: error.localizedDescription)
+      }
+    }
+  }
+
+  /// Resolves both picks, drops anything no longer bound to a key, then warms
+  /// the primary language. The second warms behind it and never throws: a
+  /// model that still needs downloading must not delay the primary key.
+  private func prepareLanguages() async throws {
+    let primary = try await speechService.resolveLocale(
+      identifier: settings.recognitionLocaleIdentifier
+    )
+    primaryLocale = primary
+
+    var secondary: Locale?
+    if settings.isSecondLanguageEnabled {
+      secondary = try? await speechService.resolveLocale(
+        identifier: settings.secondaryRecognitionLocaleIdentifier
+      )
+    }
+    // A second language equal to the first is not a second language.
+    secondaryLocale = secondary == primary ? nil : secondary
+
+    let bound = [primary, secondaryLocale].compactMap(\.self)
+    await speechService.retainOnly(locales: bound)
+    try await speechService.prewarm(locale: primary)
+
+    if let secondaryLocale {
+      try? await speechService.prewarm(locale: secondaryLocale)
+    }
+  }
+
+  private func locale(for slot: GlobalKeyEventMonitor.TriggerSlot) -> Locale? {
+    switch slot {
+    case .primary: primaryLocale
+    case .secondary: secondaryLocale ?? primaryLocale
+    }
+  }
+
+  /// The HUD's language tag, shown only once a second language exists: with
+  /// one language there is nothing to disambiguate.
+  private var activeLanguageTag: String? {
+    guard secondaryLocale != nil, let locale = locale(for: activeSlot) else { return nil }
+    return SpeechLanguageCatalog.tag(for: locale)
   }
 
   func stop() {
@@ -76,6 +178,10 @@ final class DirectDictationController {
   }
 
   func toggleFromMenu() {
+    // The menu item has no language of its own, so it dictates in the first.
+    if !machine.isSessionActive {
+      activeSlot = .primary
+    }
     send(.menuToggled(now: .now))
   }
 
@@ -104,7 +210,7 @@ final class DirectDictationController {
       }
 
       do {
-        _ = try await speechService.prewarmPreferredLocale()
+        try await prepareLanguages()
       } catch {
         guard !Task.isCancelled else { return }
         preparationFailed(message: error.localizedDescription)
@@ -128,9 +234,18 @@ final class DirectDictationController {
 
   private func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
-    case .triggerPressed:
+    case let .triggerPressed(slot):
+      // While a session runs, only the key that started it controls it. The
+      // other language's key is inert until this session ends, so a latched
+      // German session cannot be stopped by the English key.
+      if machine.isSessionActive {
+        guard slot == activeSlot else { return }
+      } else {
+        activeSlot = slot
+      }
       send(.triggerPressed(now: .now))
-    case .triggerReleased:
+    case let .triggerReleased(slot):
+      guard slot == activeSlot else { return }
       send(.triggerReleased(now: .now))
     case .cancelPressed:
       send(.escapePressed)
@@ -177,7 +292,8 @@ final class DirectDictationController {
       hudController.showListening(
         on: focusedTarget?.displayID,
         isLatched: latched,
-        settings: session
+        settings: session,
+        languageTag: activeLanguageTag
       )
     case .showLatched:
       hudController.showLatched()
@@ -231,10 +347,16 @@ final class DirectDictationController {
   }
 
   private func beginRecognition() {
+    guard let locale = locale(for: activeSlot) else {
+      fail(message: "Preparing speech…", wasCancelled: false)
+      return
+    }
+
     sessionStartTask = Task { [weak self] in
       guard let self else { return }
       do {
         try await speechService.start(
+          locale: locale,
           updateHandler: { [weak self] update in
             Task { @MainActor [weak self] in
               self?.receive(update)

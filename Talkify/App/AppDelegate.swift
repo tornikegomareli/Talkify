@@ -56,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       statusItemController?.setRecording(isRecording, accent: accent)
       settingsRuntimeState?.isDictating = isRecording
     }
+    dictationController.onLanguageDownloadChange = {
+      [weak settingsRuntimeState] identifier, fraction in
+      settingsRuntimeState?.setDownload(identifier: identifier, fraction: fraction)
+    }
     readAloudController.onSpeakingStateChange = {
       [weak statusItemController] isSpeaking in
       statusItemController?.setSpeaking(isSpeaking)
@@ -72,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     applyKeyBindings()
     observeKeyBindings()
+    observeLanguages()
   }
 
   /// Rebinding in Settings updates the event tap and the status menu
@@ -81,12 +86,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     guard let settings else { return }
     withObservationTracking {
       _ = settings.dictationTriggerBinding
+      _ = settings.secondaryTriggerBinding
       _ = settings.readAloudBinding
       _ = settings.isRecordingKeybind
+      // The second trigger is only installed once a second language exists,
+      // so the pick that enables it belongs in this loop too.
+      _ = settings.secondaryRecognitionLocaleIdentifier
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.applyKeyBindings()
         self?.observeKeyBindings()
+      }
+    }
+  }
+
+  /// Changing a language in Settings re-resolves and re-warms both, so the
+  /// next keypress meets a prepared analyzer rather than a cold one.
+  private func observeLanguages() {
+    guard let settings else { return }
+    withObservationTracking {
+      _ = settings.recognitionLocaleIdentifier
+      _ = settings.secondaryRecognitionLocaleIdentifier
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.dictationController?.applyLanguages()
+        self?.observeLanguages()
       }
     }
   }

@@ -19,6 +19,10 @@ final class DictationHUDContent {
   /// False once levels stop arriving while listening: a dead microphone
   /// must look different from silence (CONTEXT.md).
   var isAudioAlive = true
+  /// The session's language as a short tag ("DE"), or nil when only one
+  /// language is set up. Recognition in the wrong language returns confident
+  /// nonsense rather than an error, so a two-key setup says which is live.
+  var languageTag: String?
   /// Bumped once per session start; one-shot effects (the ripple) trigger
   /// on the change rather than on the listening state, so they never
   /// re-fire mid-session.

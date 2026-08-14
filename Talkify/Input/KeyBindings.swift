@@ -41,6 +41,14 @@ struct KeyBinding: Equatable, Codable {
     label: "fn", keyEquivalent: ""
   )
 
+  /// Default second-language trigger: right ⌥ held, mirroring the fn hold
+  /// on the other side of the keyboard. Only ever installed once a second
+  /// language is chosen, so it costs nothing until then.
+  static let rightOptionTrigger = KeyBinding(
+    keyCode: 61, modifierFlags: 0, isModifierKey: true,
+    label: "right ⌥", keyEquivalent: ""
+  )
+
   static let optionEscape = KeyBinding(
     keyCode: 53, modifierFlags: CGEventFlags.maskAlternate.rawValue,
     isModifierKey: false, label: "⌥ ⎋", keyEquivalent: "\u{1B}"

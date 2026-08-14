@@ -26,6 +26,10 @@ _Avoid_: Voice typing, transcription mode
 The configured keyboard input that controls **Direct Dictation** through press, release, and tap gestures.
 _Avoid_: Hotkey, shortcut
 
+**Dictation Language**:
+The locale a **Direct Dictation** session transcribes, chosen by the user and bound to a **Dictation Trigger**.
+_Avoid_: Locale setting, speech language
+
 **Live Captions**:
 Ephemeral text produced from a selected application's live audio and displayed while that audio continues.
 _Avoid_: Subtitles, meeting transcription
@@ -144,7 +148,11 @@ _Avoid_: Transcript history, cloud analytics
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
 - Version 1 inserts raw finalized text without filler-word or AI cleanup
 - Text cleanup is a later feature and must not affect the first implementation
-- Version 1 uses one user-selected recognition language and does not auto-detect languages
+- A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger key, never automatic detection
+- Talkify never detects the spoken language: Apple Speech transcribes one language per session, and a wrong guess returns confident nonsense instead of an error
+- Every bound **Dictation Language** stays prewarmed and reserved, so either trigger answers as fast as the other
+- A session runs in the language of the key that started it, and the other trigger is inert until that session ends
+- The HUD shows a language tag only while a second **Dictation Language** is configured
 - Speech models use Apple's `lingering` retention policy
 - Talkify prepares the selected speech model shortly after launch
 - Talkify does not bundle or train speech models

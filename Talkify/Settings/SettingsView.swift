@@ -35,7 +35,8 @@ struct SettingsView: View {
             section: selectedSection,
             settings: settings,
             sounds: sounds,
-            usageTracker: usageTracker
+            usageTracker: usageTracker,
+            runtimeState: runtimeState
           )
           .id(selectedSection)
           .transition(.opacity)
@@ -219,6 +220,7 @@ private struct SettingsContent: View {
   @Bindable var settings: AppSettings
   let sounds: DictationHUDSounds
   let usageTracker: UsageTracker
+  let runtimeState: SettingsRuntimeState
 
   @Environment(\.colorSchemeContrast) private var contrast
 
@@ -240,6 +242,8 @@ private struct SettingsContent: View {
           SoundsSettingsView(settings: settings, sounds: sounds)
         case .readAloud:
           ReadAloudSettingsView(settings: settings)
+        case .language:
+          LanguageSettingsView(settings: settings, runtimeState: runtimeState)
         case .shortcuts:
           ShortcutsSettingsView(settings: settings)
         case .insights:

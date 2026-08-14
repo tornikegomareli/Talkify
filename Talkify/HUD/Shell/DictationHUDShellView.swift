@@ -187,9 +187,28 @@ struct DictationHUDShellView: View {
     }
     .font(.system(size: 15, weight: .medium))
     .foregroundStyle(.white)
-    .padding(.horizontal, 24)
+    // The tag sits in the inset rather than in the flow, and the inset grows
+    // on both sides, so centered drafts stay centered and nothing overlaps.
+    .padding(.horizontal, content.languageTag == nil ? 24 : 46)
     .padding(.vertical, 9)
     .frame(minHeight: HUDNotchGeometry.textBandHeight)
+    .overlay(alignment: .topLeading) { languageTag }
+  }
+
+  @ViewBuilder
+  private var languageTag: some View {
+    if let tag = content.languageTag {
+      Text(tag)
+        .font(.system(size: 9, weight: .semibold, design: .rounded))
+        .tracking(0.5)
+        .foregroundStyle(.white.opacity(0.72))
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1.5)
+        .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
+        .padding(.leading, 12)
+        .padding(.top, 11)
+        .allowsHitTesting(false)
+    }
   }
 
   /// The Compact draft: the same long-draft semantics, leading-aligned so
