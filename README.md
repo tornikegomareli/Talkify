@@ -118,5 +118,4 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - **Snippets** — saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
 
 ## License
-
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE)
