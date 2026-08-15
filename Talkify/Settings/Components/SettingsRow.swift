@@ -46,12 +46,27 @@ struct SettingsSliderRow: View {
   let valueLabel: (Double) -> String
   var controlWidth: CGFloat = 150
 
+  /// A stepping `Slider` draws tick marks under the track. The snap happens
+  /// here instead so the slider stays continuous and the track stays clean.
+  private var steppedValue: Binding<Double> {
+    Binding(
+      get: { value },
+      set: { newValue in
+        let steps = ((newValue - range.lowerBound) / step).rounded()
+        let snapped = range.lowerBound + steps * step
+        value = min(max(snapped, range.lowerBound), range.upperBound)
+      }
+    )
+  }
+
   var body: some View {
     SettingsRow(title: title, description: description) {
       HStack(spacing: 10) {
-        Slider(value: $value, in: range, step: step)
+        Slider(value: steppedValue, in: range)
           .labelsHidden()
           .tint(SettingsTheme.accent)
+          .accessibilityLabel(title)
+          .accessibilityValue(valueLabel(value))
         Text(valueLabel(value))
           .font(.system(size: 12, weight: .medium))
           .monospacedDigit()
