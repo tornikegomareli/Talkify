@@ -11,14 +11,27 @@ enum PermissionService {
     CGPreflightListenEventAccess()
   }
 
+  /// Asks macOS to show its Accessibility prompt, at most once per launch.
+  ///
+  /// `AXIsProcessTrustedWithOptions` puts a system dialog on screen every time
+  /// it is called with the prompt option, and this used to run on every trigger
+  /// press while untrusted — so holding the key three times produced three
+  /// dialogs. Talkify explains the situation in its own dialog instead.
   @discardableResult
   static func requestAccessibilityAccess() -> Bool {
+    if hasPromptedForAccessibility {
+      return AXIsProcessTrusted()
+    }
+    hasPromptedForAccessibility = true
+
     let options = [
       "AXTrustedCheckOptionPrompt": true,
     ] as CFDictionary
 
     return AXIsProcessTrustedWithOptions(options)
   }
+
+  nonisolated(unsafe) private static var hasPromptedForAccessibility = false
 
   @discardableResult
   static func requestInputMonitoringAccess() -> Bool {

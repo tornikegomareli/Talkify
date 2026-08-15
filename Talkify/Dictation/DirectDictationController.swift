@@ -241,19 +241,17 @@ final class DirectDictationController {
       while !Task.isCancelled {
         try? await Task.sleep(for: .seconds(1))
         guard !Task.isCancelled, let self else { return }
+        // Never interrupt the dialog the user is reading.
+        guard !PermissionAlert.isPresenting else { continue }
         guard PermissionService.hasAccessibilityAccess,
            PermissionService.hasInputMonitoringAccess else { continue }
 
-        if keyEventMonitor?.start() == true {
-          permissionWatchTask = nil
-          hudController.showMessage("Talkify is ready")
-          return
-        }
-
-        // Permission reads as granted but the event tap still will not open,
-        // which macOS only clears on a fresh launch of the app.
         permissionWatchTask = nil
-        hudController.showMessage("Quit and reopen Talkify to finish")
+        if keyEventMonitor?.start() == true {
+          hudController.showMessage("Talkify is ready")
+        } else {
+          PermissionAlert.requestRelaunch()
+        }
         return
       }
     }
@@ -356,8 +354,9 @@ final class DirectDictationController {
     }
 
     if !PermissionService.hasAccessibilityAccess {
-      PermissionService.requestAccessibilityAccess()
-      hudController.showMessage("Accessibility permission required")
+      // One dialog that explains it, not the system prompt again on every press.
+      PermissionAlert.requestSetup(for: .accessibility)
+      startPermissionWatch()
       send(.beginRejected)
       return
     }
@@ -485,25 +484,24 @@ final class DirectDictationController {
   }
 
   private func installTriggerMonitor() {
-    // Named so the message matches the switch the user has to find, and both
-    // paths start the watch so granting it takes effect without a relaunch.
     guard PermissionService.hasAccessibilityAccess else {
-      hudController.showMessage("Allow Talkify in Privacy & Security → Accessibility")
+      PermissionAlert.requestSetup(for: .accessibility)
       startPermissionWatch()
       return
     }
 
     guard PermissionService.hasInputMonitoringAccess else {
       PermissionService.requestInputMonitoringAccess()
-      hudController.showMessage("Allow Talkify in Privacy & Security → Input Monitoring")
+      PermissionAlert.requestSetup(for: .inputMonitoring)
       startPermissionWatch()
       return
     }
 
-    let installed = keyEventMonitor?.start() == true
-    guard installed else {
-      startPermissionWatch()
-      hudController.showMessage("Quit and reopen Talkify to finish")
+    // Granted, but macOS decides what this process may do when it launches, so
+    // the tap can still be refused. Only a fresh launch clears that, and saying
+    // so is the whole point of the dialog.
+    guard keyEventMonitor?.start() == true else {
+      PermissionAlert.requestRelaunch()
       return
     }
   }
