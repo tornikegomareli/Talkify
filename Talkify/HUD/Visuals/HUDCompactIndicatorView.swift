@@ -10,6 +10,9 @@ struct HUDCompactIndicatorView: View {
   private static let restingHeight: CGFloat = 3
 
   let content: DictationHUDContent
+  /// The session's HUD size. The indicator is already small, so it shrinks
+  /// with the shape rather than growing proportionally louder inside it.
+  var scale: CGFloat = 1
 
   var body: some View {
     let live = content.showsVoiceVisual && content.isAudioAlive
@@ -17,12 +20,12 @@ struct HUDCompactIndicatorView: View {
       let time = context.date.timeIntervalSinceReferenceDate
       let level = content.audioLevel
       let alive = content.isAudioAlive
-      HStack(spacing: 2.5) {
+      HStack(spacing: 2.5 * scale) {
         ForEach(0..<Self.barCount, id: \.self) { index in
           Capsule()
             .fill(alive ? Color.white.opacity(0.9) : .orange.opacity(0.6))
             .frame(
-              width: 2.5,
+              width: 2.5 * scale,
               height: barHeight(
                 index: index,
                 time: time,
@@ -32,7 +35,7 @@ struct HUDCompactIndicatorView: View {
             )
         }
       }
-      .frame(height: 14)
+      .frame(height: 14 * scale)
       .opacity(content.showsVoiceVisual ? 1 : 0.45)
     }
     // Eases the bars down to resting dots when listening ends, instead
@@ -48,11 +51,11 @@ struct HUDCompactIndicatorView: View {
     level: Double,
     live: Bool
   ) -> CGFloat {
-    guard live else { return Self.restingHeight }
+    guard live else { return Self.restingHeight * scale }
     // Per-bar phase offsets keep neighbors out of sync, so the cluster
     // shimmers with speech instead of pumping as one block.
     let wobble = 0.5 + 0.5 * sin(time * 9 + Double(index) * 1.7)
-    return Self.restingHeight + CGFloat(level * wobble) * 11
+    return (Self.restingHeight + CGFloat(level * wobble) * 11) * scale
   }
 }
 

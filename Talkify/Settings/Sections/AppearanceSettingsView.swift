@@ -59,6 +59,14 @@ struct AppearanceSettingsView: View {
       }
 
       SettingsCard(title: "Motion and layout") {
+        SettingsSliderRow(
+          title: "HUD size",
+          description: "How much room the HUD takes on screen",
+          value: $settings.hudScale,
+          range: Double(HUDMetrics.minimumScale)...Double(HUDMetrics.maximumScale),
+          valueLabel: { "\(Int(($0 * 100).rounded()))%" }
+        )
+
         SettingsPickerRow(
           title: "Reveal style",
           description: "How the HUD appears when Direct Dictation starts",

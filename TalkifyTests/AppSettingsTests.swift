@@ -18,6 +18,8 @@ struct AppSettingsTests {
     #expect(settings.waveformStyle == .chartLine)
     #expect(settings.revealStyle == .slide)
     #expect(settings.longDraftStyle == .growDown)
+    // Existing users must not be resized by an upgrade.
+    #expect(settings.hudScale == Double(HUDMetrics.maximumScale))
     #expect(settings.readAloudVoiceID.isEmpty)
     #expect(settings.dictationTriggerBinding == .fnTrigger)
     #expect(settings.readAloudBinding == .optionEscape)
@@ -31,6 +33,7 @@ struct AppSettingsTests {
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
     settings.longDraftStyle = .shrinkToFit
+    settings.hudScale = 0.75
     settings.readAloudVoiceID = "com.apple.voice.premium.en-US.Zoe"
     let f5Binding = KeyBinding(
       keyCode: 96, modifierFlags: 0, isModifierKey: false,
@@ -49,6 +52,7 @@ struct AppSettingsTests {
     #expect(reloaded.waveformStyle == .dots)
     #expect(reloaded.revealStyle == .bloom)
     #expect(reloaded.longDraftStyle == .shrinkToFit)
+    #expect(reloaded.hudScale == 0.75)
     #expect(reloaded.readAloudVoiceID == "com.apple.voice.premium.en-US.Zoe")
     #expect(reloaded.dictationTriggerBinding == rightCommandTrigger)
     #expect(reloaded.readAloudBinding == f5Binding)
@@ -181,6 +185,7 @@ struct AppSettingsTests {
     settings.longDraftStyle = .tailOnly
     settings.glowPalette = .aurora
     settings.glowCenter = .siriOrb
+    settings.hudScale = 0.6
 
     #expect(snapshot.soundSet == .synth8)
     #expect(snapshot.voiceVisual == .waveform)
@@ -189,5 +194,16 @@ struct AppSettingsTests {
     #expect(snapshot.longDraftStyle == .growDown)
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
+    #expect(snapshot.hudMetrics == .standard)
+  }
+
+  /// The stored value is a plain number rather than a named case, so a
+  /// value outside the supported range has to survive the trip.
+  @Test func storedHUDSizeOutsideTheRangeComesBackClamped() {
+    let defaults = freshDefaults()
+    defaults.set(0.05, forKey: "hudScale")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.sessionSettings.hudMetrics.scale == HUDMetrics.minimumScale)
   }
 }
