@@ -176,7 +176,8 @@ _Avoid_: Transcript history, cloud analytics
 - Once speech has arrived, the session stays open until the user ends or cancels it
 - **Direct Dictation** ends by inserting text into the previously focused control
 - **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
-- Talkify sends the paste event to the original target application's process
+- If an app exposes no focused element, Talkify captures and later validates the frontmost application instead
+- Talkify sends the paste event globally only after the captured focus boundary passes validation
 - Clipboard paste restores the previous clipboard after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
