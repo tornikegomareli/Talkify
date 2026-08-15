@@ -13,6 +13,8 @@ import Observation
 final class AppSettings {
   private enum Keys {
     static let soundSet = "dictationSoundSet"
+    static let soundsEnabled = "dictationSoundsEnabled"
+    static let soundVolume = "dictationSoundVolume"
     static let voiceVisual = "hudVoiceVisual"
     static let waveformStyle = "hudWaveformStyle"
     static let revealStyle = "hudRevealStyle"
@@ -33,6 +35,20 @@ final class AppSettings {
 
   var soundSet: DictationSoundSet {
     didSet { defaults.set(soundSet.rawValue, forKey: Keys.soundSet) }
+  }
+
+  var dictationSoundsEnabled: Bool {
+    didSet { defaults.set(dictationSoundsEnabled, forKey: Keys.soundsEnabled) }
+  }
+
+  private var storedDictationSoundVolume: Double
+
+  var dictationSoundVolume: Double {
+    get { storedDictationSoundVolume }
+    set {
+      storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(newValue)
+      defaults.set(storedDictationSoundVolume, forKey: Keys.soundVolume)
+    }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -124,6 +140,9 @@ final class AppSettings {
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     soundSet = Self.stored(in: defaults, key: Keys.soundSet) ?? .synth8
+    dictationSoundsEnabled = defaults.object(forKey: Keys.soundsEnabled) as? Bool ?? true
+    let storedSoundVolume = defaults.object(forKey: Keys.soundVolume) as? Double ?? 0.5
+    storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(storedSoundVolume)
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -170,7 +189,7 @@ final class AppSettings {
 /// The preferences captured when Direct Dictation starts. A session keeps
 /// this value until its end and paste sounds have played.
 struct DictationSessionSettings: Equatable {
-  let soundSet: DictationSoundSet
+  let sounds: DictationSoundSettings
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -181,7 +200,11 @@ struct DictationSessionSettings: Equatable {
 
   @MainActor
   init(settings: AppSettings) {
-    soundSet = settings.soundSet
+    sounds = DictationSoundSettings(
+      set: settings.soundSet,
+      isEnabled: settings.dictationSoundsEnabled,
+      volume: settings.dictationSoundVolume
+    )
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

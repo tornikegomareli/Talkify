@@ -74,7 +74,7 @@ final class DictationHUDController {
     guard content.showsVoiceVisual else { return }
     if !hasPlayedBeginSound {
       hasPlayedBeginSound = true
-      sounds.playBegin(using: sessionSettings.soundSet)
+      sounds.playBegin(using: sessionSettings.sounds)
     }
     content.audioLevel = max(Double(level), content.audioLevel * 0.88)
     content.levelHistory.removeFirst()
@@ -89,7 +89,7 @@ final class DictationHUDController {
   /// Played when finalized text lands in the target, after a finished
   /// session's insertion.
   func playPasteSound() {
-    sounds.playPaste(using: sessionSettings.soundSet)
+    sounds.playPaste(using: sessionSettings.sounds)
   }
 
   func showMessage(_ text: String) {
@@ -151,7 +151,7 @@ final class DictationHUDController {
     cancelMessageDismiss()
     stopVoiceVisual()
     if case .session = mode {
-      sounds.playEnd(using: sessionSettings.soundSet)
+      sounds.playEnd(using: sessionSettings.sounds)
     }
     mode = .hidden
     content.isRevealed = false
