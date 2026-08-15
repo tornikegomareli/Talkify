@@ -15,6 +15,17 @@
           and keeps the five most recent.
         -->
         <item>
+            <title>0.3.2</title>
+            <pubDate>Sat, 15 Aug 2026 14:05:11 +0400</pubDate>
+            <link>https://usetalkify.app</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tornikegomareli/Talkify/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>118</sparkle:version>
+            <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v0.3.2/Talkify-v0.3.2.zip" length="8659205" type="application/octet-stream" sparkle:edSignature="UsdtQm/ZaCH2Oba9E8I5hSMDsjhqJ34ZQK3suy+159bv+jxyYF78dbPb7x/F4bgjoNHysVOmtgbVsAFdZFxKBw=="/>
+        </item>
+        <item>
             <title>0.3.1</title>
             <pubDate>Sat, 15 Aug 2026 13:59:18 +0400</pubDate>
             <link>https://usetalkify.app</link>
