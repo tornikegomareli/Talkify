@@ -190,7 +190,8 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
       // A non-modifier trigger key: press starts the hold gesture.
       // Autorepeat is the key being held, not pressed again.
-      if let (slot, _) = plainTrigger {
+      if let (slot, _) = plainTrigger,
+         Self.isPlainTriggerPress(flags: event.flags) {
         guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else {
           return nil
         }
@@ -280,6 +281,10 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       return true
     }
     return flags.rawValue & masks.own != 0
+  }
+
+  static func isPlainTriggerPress(flags: CGEventFlags) -> Bool {
+    flagsMatch(flags, mask: [])
   }
 
   /// Exact-modifier match: ⌥⎋ means Option and only Option; a bare key
