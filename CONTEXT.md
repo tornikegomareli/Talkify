@@ -175,9 +175,9 @@ _Avoid_: Transcript history, cloud analytics
 - If **Direct Dictation** hears no speech in the first 15 seconds, it closes and inserts nothing
 - Once speech has arrived, the session stays open until the user ends or cancels it
 - **Direct Dictation** ends by inserting text into the previously focused control
-- **Direct Dictation** tries Accessibility insertion before clipboard paste
-- Talkify remembers the working insertion route for each application to avoid repeated failed attempts
-- Clipboard paste restores the previous clipboard after the target application consumes the paste event
+- **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
+- Talkify sends the paste event to the original target application's process
+- Clipboard paste restores the previous clipboard after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
 - Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
