@@ -100,7 +100,7 @@ final class TextInsertionService {
       copyToClipboard(text)
       return
     }
-    await pasteAndRestoreClipboard(text)
+    await pasteAndRestoreClipboard(text, into: target)
   }
 
   private static func focusedElement() -> AXUIElement? {
@@ -215,7 +215,7 @@ final class TextInsertionService {
     return CFEqual(value, targetElement)
   }
 
-  private func pasteAndRestoreClipboard(_ text: String) async {
+  private func pasteAndRestoreClipboard(_ text: String, into target: Target) async {
     let pasteboard = dependencies.pasteboard
     let sourceItems = pasteboard.pasteboardItems ?? []
     var savedItems: [NSPasteboardItem] = []
@@ -235,7 +235,8 @@ final class TextInsertionService {
     pasteboard.setString(text, forType: .string)
     let insertedChangeCount = pasteboard.changeCount
 
-    guard dependencies.postPasteShortcut() else { return }
+    guard dependencies.isTargetFocused(target),
+       dependencies.postPasteShortcut() else { return }
     await dependencies.waitForPasteRead()
 
     // Reads do not change changeCount. The delay gives asynchronous editors

@@ -94,6 +94,32 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "dictated text")
   }
 
+  @Test func targetChangedWhileStagingReceivesNoPasteEvent() async {
+    let pasteboard = makePasteboard()
+    var focusCheckCount = 0
+    var postedPaste = false
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in
+        focusCheckCount += 1
+        return focusCheckCount == 1
+      },
+      postPasteShortcut: {
+        postedPaste = true
+        return true
+      },
+      waitForPasteRead: {}
+    ))
+    await service.insert("dictated text", into: makeTarget())
+
+    #expect(focusCheckCount == 2)
+    #expect(!postedPaste)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
   @Test func missingFocusedElementCapturesFrontmostApplication() async {
     let pasteboard = makePasteboard()
     let application = NSRunningApplication.current
