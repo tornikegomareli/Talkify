@@ -1,6 +1,6 @@
 cask "talkify" do
-  version "0.3.2"
-  sha256 "679440f82839589ffcab6c653a843ef8e1f47081114733305b2b892e8836a91a"
+  version "0.3.3"
+  sha256 "e5b3c9edc5e376c4d3639f67ebd2ad757908e35e126c9ad2a49ffd08612cc81b"
 
   url "https://github.com/tornikegomareli/Talkify/releases/download/v#{version}/Talkify.dmg",
       verified: "github.com/tornikegomareli/Talkify/"
