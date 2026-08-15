@@ -163,7 +163,7 @@ _Avoid_: Transcript history, cloud analytics
 - Version 1 uses the current macOS default microphone
 - Talkify follows system input-device changes between sessions; a device change during an active session may end that session
 - Version 1 has no microphone device picker
-- Onboarding requests microphone, Accessibility, and Input Monitoring permissions
+- Onboarding requests microphone, speech recognition, and Accessibility permissions
 - **Live Captions** requests system-audio permission only when first used
 - **Direct Dictation** refuses to record for a focused secure password field and shows “Secure field”
 - Pressing Escape cancels active **Direct Dictation** immediately without inserting text

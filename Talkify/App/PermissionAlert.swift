@@ -2,58 +2,27 @@ import AppKit
 
 /// The setup conversation Talkify has to have with the user.
 ///
-/// Accessibility and Input Monitoring are granted in System Settings, and macOS
-/// hands the running process a stale answer afterwards: the event tap keeps
-/// being refused until the app is launched again. A transient HUD message is the
-/// wrong place to say that, because it disappears while the user is still in
-/// System Settings. This is a real dialog that waits, names the pane to open,
-/// and can relaunch Talkify itself.
+/// Accessibility is granted in System Settings, and macOS can hand the running
+/// process a stale answer afterwards: the event tap keeps being refused until
+/// the app is launched again. A transient HUD message is the wrong place to say
+/// that, because it disappears while the user is still in System Settings. This
+/// is a real dialog that waits, names the pane to open, and can relaunch Talkify.
 @MainActor
 enum PermissionAlert {
-  enum Permission {
-    case accessibility
-    case inputMonitoring
-
-    var title: String {
-      switch self {
-      case .accessibility: "Accessibility"
-      case .inputMonitoring: "Input Monitoring"
-      }
-    }
-
-    var reason: String {
-      switch self {
-      case .accessibility:
-        "so Talkify can put your words into the app you were typing in"
-      case .inputMonitoring:
-        "so Talkify can tell when you hold the dictation key"
-      }
-    }
-
-    var settingsURL: String {
-      switch self {
-      case .accessibility:
-        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-      case .inputMonitoring:
-        "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
-      }
-    }
-  }
-
   /// True while a dialog is on screen, so a second trigger press cannot stack
   /// another one behind it.
   private(set) static var isPresenting = false
 
-  /// Asks for a permission that has not been granted yet.
-  static func requestSetup(for permission: Permission) {
+  /// Explains how to grant Accessibility after the system prompt was dismissed.
+  static func requestAccessibilitySetup() {
     guard !isPresenting else { return }
 
     let alert = NSAlert()
     alert.alertStyle = .informational
-    alert.messageText = "Talkify needs \(permission.title)"
+    alert.messageText = "Talkify needs Accessibility"
     alert.informativeText = """
       Turn Talkify on in System Settings → Privacy & Security → \
-      \(permission.title), \(permission.reason).
+      Accessibility, so Talkify can put your words into the app you were typing in.
 
       macOS only applies this when Talkify starts, so reopen it once you have \
       granted the permission.
@@ -64,7 +33,7 @@ enum PermissionAlert {
 
     switch run(alert) {
     case .alertFirstButtonReturn:
-      open(permission)
+      openAccessibilitySettings()
     case .alertSecondButtonReturn:
       relaunch()
     default:
@@ -92,8 +61,10 @@ enum PermissionAlert {
     }
   }
 
-  static func open(_ permission: Permission) {
-    guard let url = URL(string: permission.settingsURL) else { return }
+  static func openAccessibilitySettings() {
+    guard let url = URL(
+      string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    ) else { return }
     NSWorkspace.shared.open(url)
   }
 

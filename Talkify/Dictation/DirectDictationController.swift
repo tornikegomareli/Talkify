@@ -194,8 +194,6 @@ final class DirectDictationController {
     permissionTask?.cancel()
     isPrepared = false
     preparationFailureMessage = nil
-    PermissionService.requestAccessibilityAccess()
-    PermissionService.requestInputMonitoringAccess()
 
     permissionTask = Task { [weak self] in
       guard let self else { return }
@@ -214,6 +212,10 @@ final class DirectDictationController {
         return
       }
 
+      // Ask for one privacy permission at a time. Requesting Accessibility
+      // beside the microphone prompt makes macOS stack or suppress dialogs.
+      PermissionService.requestAccessibilityAccess()
+
       do {
         try await prepareLanguages()
       } catch {
@@ -229,8 +231,8 @@ final class DirectDictationController {
 
   /// Watches for a permission the user is granting right now.
   ///
-  /// Both permissions are granted in System Settings while Talkify is already
-  /// running, and macOS tells the app nothing when they change. Checking once at
+  /// Accessibility is granted in System Settings while Talkify is already
+  /// running, and macOS tells the app nothing when it changes. Checking once at
   /// launch meant the trigger key stayed dead after the user had done everything
   /// right, with no hint that a relaunch was needed. This polls instead, and
   /// installs the tap the moment it is allowed to.
@@ -243,8 +245,7 @@ final class DirectDictationController {
         guard !Task.isCancelled, let self else { return }
         // Never interrupt the dialog the user is reading.
         guard !PermissionAlert.isPresenting else { continue }
-        guard PermissionService.hasAccessibilityAccess,
-           PermissionService.hasInputMonitoringAccess else { continue }
+        guard PermissionService.hasAccessibilityAccess else { continue }
 
         permissionWatchTask = nil
         if keyEventMonitor?.start() == true {
@@ -355,7 +356,7 @@ final class DirectDictationController {
 
     if !PermissionService.hasAccessibilityAccess {
       // One dialog that explains it, not the system prompt again on every press.
-      PermissionAlert.requestSetup(for: .accessibility)
+      PermissionAlert.requestAccessibilitySetup()
       startPermissionWatch()
       send(.beginRejected)
       return
@@ -485,14 +486,7 @@ final class DirectDictationController {
 
   private func installTriggerMonitor() {
     guard PermissionService.hasAccessibilityAccess else {
-      PermissionAlert.requestSetup(for: .accessibility)
-      startPermissionWatch()
-      return
-    }
-
-    guard PermissionService.hasInputMonitoringAccess else {
-      PermissionService.requestInputMonitoringAccess()
-      PermissionAlert.requestSetup(for: .inputMonitoring)
+      PermissionService.requestAccessibilityAccess()
       startPermissionWatch()
       return
     }

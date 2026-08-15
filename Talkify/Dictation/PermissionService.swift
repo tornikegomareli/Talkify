@@ -7,10 +7,6 @@ enum PermissionService {
     AXIsProcessTrusted()
   }
 
-  static var hasInputMonitoringAccess: Bool {
-    CGPreflightListenEventAccess()
-  }
-
   /// Asks macOS to show its Accessibility prompt, at most once per launch.
   ///
   /// `AXIsProcessTrustedWithOptions` puts a system dialog on screen every time
@@ -32,11 +28,6 @@ enum PermissionService {
   }
 
   nonisolated(unsafe) private static var hasPromptedForAccessibility = false
-
-  @discardableResult
-  static func requestInputMonitoringAccess() -> Bool {
-    CGRequestListenEventAccess()
-  }
 
   static func requestMicrophoneAccess() async -> Bool {
     switch AVAudioApplication.shared.recordPermission {
