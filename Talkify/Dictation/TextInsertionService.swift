@@ -175,7 +175,8 @@ final class TextInsertionService {
     case "com.apple.Safari",
          "com.brave.Browser",
          "com.google.Chrome",
-         "company.thebrowser.dia":
+         "company.thebrowser.dia",
+         "com.todesktop.230313mzl4w4u92":
       return true
     default:
       return false
