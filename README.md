@@ -42,16 +42,11 @@ brew trust --tap tornikegomareli/talkify
 brew install --cask talkify
 ```
 
-Homebrew 6 refuses to load anything from a third-party tap until you trust it,
+Homebrew 6 refuses to load anything from a third-party tap until you trust it (Talkify will be verified cask after 100 stars),
 so the middle line is required. It is asking whether you trust this repository;
 [read the cask](Casks/talkify.rb) first if you would rather check what it does.
 
 Or grab [**Talkify.dmg**](https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg) from the latest release.
-
-Either way, Talkify keeps itself current: it checks once a day, verifies every
-update against an EdDSA signature before installing, and never interrupts a
-dictation session to do it. Downloading automatically is off until you ask for
-it, and checks can be turned off entirely in Settings → Updates.
 
 Build from source:
 
