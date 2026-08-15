@@ -6,9 +6,11 @@
 #   scripts/release.sh 0.2.0            # build, publish, update the cask
 #   scripts/release.sh 0.2.0 --dry-run  # build and package only, publish nothing
 #
-# The DMG is always named Talkify.dmg so that
-# github.com/<repo>/releases/latest/download/Talkify.dmg keeps working — that
-# is the URL the landing page's Download button uses.
+# Two copies of the same DMG ship with every release. Talkify-vX.Y.Z.dmg is the
+# one people download, so the file in their Downloads folder says which version
+# it is. Talkify.dmg is a byte-identical copy that keeps
+# github.com/<repo>/releases/latest/download/Talkify.dmg resolving — the
+# Homebrew cask, the README and the landing page's fallback all use that URL.
 #
 # Notarization uses a notarytool keychain profile, shared with Camus:
 #   NOTARY_PROFILE   keychain profile name  (default: camus-notary)
@@ -37,7 +39,9 @@ BUILD_DIR="$REPO_ROOT/.build/release"
 ARCHIVE="$BUILD_DIR/Talkify.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 STAGE_DIR="$BUILD_DIR/dmg"
-DMG="$BUILD_DIR/Talkify.dmg"
+DMG="$BUILD_DIR/Talkify-$TAG.dmg"
+# The stable-URL copy, made after the versioned one is signed and stapled.
+STABLE_DMG="$BUILD_DIR/Talkify.dmg"
 # Sparkle needs its own directory holding only the update ZIP.
 SPARKLE_DIR="$BUILD_DIR/sparkle"
 SPARKLE_ZIP="$SPARKLE_DIR/Talkify-$TAG.zip"
@@ -278,6 +282,11 @@ SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 echo "  $DMG ($(du -h "$DMG" | cut -f1))"
 echo "  sha256 $SHA"
 
+# Copied after signing, notarizing and stapling, so the stable-URL asset is the
+# same bytes with the same ticket. The cask's checksum covers both.
+cp "$DMG" "$STABLE_DMG"
+echo "  $STABLE_DMG (copy for the latest-download URL)"
+
 # ----------------------------------------------------------------- sparkle
 
 # Sparkle updates from a ZIP, not the DMG: it is what BinaryDelta and
@@ -335,6 +344,7 @@ grep -E "^  (version|sha256)" "$CASK" | sed 's/^/  /'
 if $DRY_RUN; then
   step "Dry run — nothing published"
   echo "  DMG:  $DMG"
+  echo "  copy: $STABLE_DMG"
   echo "  ZIP:  $SPARKLE_ZIP"
   echo "  appcast: $APPCAST (uncommitted)"
   echo "  cask updated locally; revert with: git checkout -- Casks/talkify.rb"
@@ -386,7 +396,7 @@ PREV_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
 
 # The ZIP ships alongside the DMG because the appcast's enclosure URL points
 # at it. Without it every existing install would poll a 404 forever.
-gh release create "$TAG" "$DMG" "$SPARKLE_ZIP" \
+gh release create "$TAG" "$DMG" "$STABLE_DMG" "$SPARKLE_ZIP" \
   --title "Talkify $VERSION" \
   --notes-file "$NOTES_FILE"
 
@@ -406,6 +416,23 @@ if [[ -n "$ENCLOSURE" ]] && curl -fsSI "$ENCLOSURE" >/dev/null 2>&1; then
   echo "  enclosure reachable"
 else
   echo "  WARNING: the appcast enclosure is not reachable: $ENCLOSURE"
+fi
+
+# The landing page reads the latest release when it builds, so it only learns
+# about this one on its next deploy. Set LANDING_DEPLOY_HOOK to the Cloudflare
+# Pages deploy hook URL and the release triggers that rebuild itself.
+step "Redeploying the landing page"
+if [[ -n "${LANDING_DEPLOY_HOOK:-}" ]]; then
+  if curl -fsS -X POST "$LANDING_DEPLOY_HOOK" >/dev/null; then
+    echo "  deploy triggered; usetalkify.app shows $VERSION once it finishes"
+  else
+    echo "  WARNING: the deploy hook did not accept the request."
+    echo "  The site keeps serving the previous version number until it rebuilds."
+  fi
+else
+  echo "  LANDING_DEPLOY_HOOK is not set — skipping."
+  echo "  usetalkify.app will keep showing the previous version until it is"
+  echo "  redeployed. Its Download button still resolves to this release."
 fi
 
 step "Done"
