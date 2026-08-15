@@ -35,6 +35,7 @@ final class DictationHUDController {
   private var orderOutTask: Task<Void, Never>?
   private var lastLevelAt = ContinuousClock.now
   private var micWatchdogTask: Task<Void, Never>?
+  private var hasPlayedBeginSound = false
 
   init(settings: AppSettings) {
     let initialSettings = settings.sessionSettings
@@ -71,6 +72,10 @@ final class DictationHUDController {
   /// and marks the microphone alive for the dead-mic watchdog.
   func showAudioLevel(_ level: Float) {
     guard content.showsVoiceVisual else { return }
+    if !hasPlayedBeginSound {
+      hasPlayedBeginSound = true
+      sounds.playBegin(using: sessionSettings.soundSet)
+    }
     content.audioLevel = max(Double(level), content.audioLevel * 0.88)
     content.levelHistory.removeFirst()
     // Light EMA against the previous bar calms per-tick jitter without
@@ -109,13 +114,13 @@ final class DictationHUDController {
     guard let screen = selectScreen(targetDisplayID: displayID) else { return }
     sessionSettings = settings
     renderedSettings = settings
+    hasPlayedBeginSound = false
     content.languageTag = languageTag
     cancelMessageDismiss()
     mode = .session
     startVoiceVisual()
     sessionIsLatched = isLatched
     present(isLatched ? Self.latchedText : Self.listeningText, on: screen)
-    sounds.playBegin(using: settings.soundSet)
   }
 
   func showLatched() {

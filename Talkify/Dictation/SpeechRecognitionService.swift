@@ -243,9 +243,13 @@ actor SpeechRecognitionService {
     )
 
     do {
-      try await prepared.analyzer.start(inputSequence: stream)
-      try Task.checkCancellation()
+      // Start capturing before SpeechAnalyzer finishes attaching to the
+      // stream. Bluetooth inputs can take hundreds of milliseconds to become
+      // ready, and the stream keeps those early buffers until the analyzer
+      // starts consuming them.
       try input.start(outputFormat: prepared.audioFormat)
+      try Task.checkCancellation()
+      try await prepared.analyzer.start(inputSequence: stream)
       try Task.checkCancellation()
     } catch {
       activeSession = nil
