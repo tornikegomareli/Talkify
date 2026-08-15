@@ -13,9 +13,11 @@ struct TextInsertionServiceTests {
 
     let service = TextInsertionService(dependencies: .init(
       pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
-      postPasteShortcut: { _ in true },
+      postPasteShortcut: { true },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       }
@@ -33,9 +35,11 @@ struct TextInsertionServiceTests {
 
     let service = TextInsertionService(dependencies: .init(
       pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
-      postPasteShortcut: { _ in true },
+      postPasteShortcut: { true },
       waitForPasteRead: {
         pasteboard.clearContents()
         pasteboard.setString("new clipboard", forType: .string)
@@ -54,9 +58,11 @@ struct TextInsertionServiceTests {
 
     let service = TextInsertionService(dependencies: .init(
       pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
-      postPasteShortcut: { _ in false },
+      postPasteShortcut: { false },
       waitForPasteRead: {
         waitedForPasteRead = true
       }
@@ -72,9 +78,11 @@ struct TextInsertionServiceTests {
     var postedPaste = false
     let service = TextInsertionService(dependencies: .init(
       pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in false },
-      postPasteShortcut: { _ in
+      postPasteShortcut: {
         postedPaste = true
         return true
       },
@@ -84,6 +92,29 @@ struct TextInsertionServiceTests {
 
     #expect(!postedPaste)
     #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  @Test func missingFocusedElementCapturesFrontmostApplication() async {
+    let pasteboard = makePasteboard()
+    let application = NSRunningApplication.current
+    var checkedProcessIdentifier: pid_t?
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { application },
+      isProcessRunning: { processIdentifier in
+        checkedProcessIdentifier = processIdentifier
+        return false
+      },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {}
+    ))
+
+    let target = service.captureFocusedTarget()
+    #expect(target != nil)
+    await service.insert("dictated text", into: target)
+    #expect(checkedProcessIdentifier == application.processIdentifier)
   }
 
   private func makePasteboard() -> NSPasteboard {

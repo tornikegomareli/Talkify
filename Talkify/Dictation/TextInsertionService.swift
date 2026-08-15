@@ -4,14 +4,14 @@ import ApplicationServices
 @MainActor
 final class TextInsertionService {
   struct Target {
-    fileprivate let element: AXUIElement
+    fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
 
     let isSecure: Bool
     let displayID: CGDirectDisplayID?
 
     init(
-      element: AXUIElement,
+      element: AXUIElement?,
       processIdentifier: pid_t,
       isSecure: Bool,
       displayID: CGDirectDisplayID?
@@ -25,14 +25,18 @@ final class TextInsertionService {
 
   struct Dependencies {
     let pasteboard: NSPasteboard
+    let focusedElement: @MainActor () -> AXUIElement?
+    let frontmostApplication: @MainActor () -> NSRunningApplication?
     let isProcessRunning: @MainActor (pid_t) -> Bool
     let isTargetFocused: @MainActor (Target) -> Bool
-    let postPasteShortcut: @MainActor (pid_t) -> Bool
+    let postPasteShortcut: @MainActor () -> Bool
     let waitForPasteRead: @MainActor () async -> Void
 
     static var live: Self {
       Self(
         pasteboard: .general,
+        focusedElement: TextInsertionService.focusedElement,
+        frontmostApplication: { NSWorkspace.shared.frontmostApplication },
         isProcessRunning: { processIdentifier in
           guard let application = NSRunningApplication(
             processIdentifier: processIdentifier
@@ -57,27 +61,26 @@ final class TextInsertionService {
   }
 
   func captureFocusedTarget() -> Target? {
-    let systemWideElement = AXUIElementCreateSystemWide()
-    var value: CFTypeRef?
+    if let element = dependencies.focusedElement() {
+      var processIdentifier: pid_t = 0
+      AXUIElementGetPid(element, &processIdentifier)
 
-    guard AXUIElementCopyAttributeValue(
-      systemWideElement,
-      kAXFocusedUIElementAttribute as CFString,
-      &value
-    ) == .success,
-    let value else {
-      return nil
+      return Target(
+        element: element,
+        processIdentifier: processIdentifier,
+        isSecure: isSecureTextField(element),
+        displayID: displayID(for: element)
+      )
     }
 
-    let element = value as! AXUIElement
-    var processIdentifier: pid_t = 0
-    AXUIElementGetPid(element, &processIdentifier)
-
+    // Some apps expose no focused AX element even while an editor has focus.
+    // Keep the application as the safest available focus boundary.
+    guard let application = dependencies.frontmostApplication() else { return nil }
     return Target(
-      element: element,
-      processIdentifier: processIdentifier,
-      isSecure: isSecureTextField(element),
-      displayID: displayID(for: element)
+      element: nil,
+      processIdentifier: application.processIdentifier,
+      isSecure: false,
+      displayID: nil
     )
   }
 
@@ -97,10 +100,21 @@ final class TextInsertionService {
       copyToClipboard(text)
       return
     }
-    await pasteAndRestoreClipboard(
-      text,
-      processIdentifier: target.processIdentifier
-    )
+    await pasteAndRestoreClipboard(text)
+  }
+
+  private static func focusedElement() -> AXUIElement? {
+    let systemWideElement = AXUIElementCreateSystemWide()
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(
+      systemWideElement,
+      kAXFocusedUIElementAttribute as CFString,
+      &value
+    ) == .success,
+    let value else {
+      return nil
+    }
+    return (value as! AXUIElement)
   }
 
   private func isSecureTextField(_ element: AXUIElement) -> Bool {
@@ -181,6 +195,11 @@ final class TextInsertionService {
   }
 
   private static func isStillFocused(_ target: Target) -> Bool {
+    guard let targetElement = target.element else {
+      return NSWorkspace.shared.frontmostApplication?.processIdentifier
+        == target.processIdentifier
+    }
+
     let systemWideElement = AXUIElementCreateSystemWide()
     var value: CFTypeRef?
 
@@ -193,13 +212,10 @@ final class TextInsertionService {
       return false
     }
 
-    return CFEqual(value, target.element)
+    return CFEqual(value, targetElement)
   }
 
-  private func pasteAndRestoreClipboard(
-    _ text: String,
-    processIdentifier: pid_t
-  ) async {
+  private func pasteAndRestoreClipboard(_ text: String) async {
     let pasteboard = dependencies.pasteboard
     let sourceItems = pasteboard.pasteboardItems ?? []
     var savedItems: [NSPasteboardItem] = []
@@ -219,7 +235,7 @@ final class TextInsertionService {
     pasteboard.setString(text, forType: .string)
     let insertedChangeCount = pasteboard.changeCount
 
-    guard dependencies.postPasteShortcut(processIdentifier) else { return }
+    guard dependencies.postPasteShortcut() else { return }
     await dependencies.waitForPasteRead()
 
     // Reads do not change changeCount. The delay gives asynchronous editors
@@ -237,7 +253,7 @@ final class TextInsertionService {
     pasteboard.setString(text, forType: .string)
   }
 
-  private static func postPasteShortcut(to processIdentifier: pid_t) -> Bool {
+  private static func postPasteShortcut() -> Bool {
     guard let source = CGEventSource(stateID: .combinedSessionState),
        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
@@ -246,8 +262,8 @@ final class TextInsertionService {
 
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
-    keyDown.postToPid(processIdentifier)
-    keyUp.postToPid(processIdentifier)
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
     return true
   }
 }
