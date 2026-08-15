@@ -31,6 +31,7 @@ final class DirectDictationController {
   private var focusedTarget: TextInsertionService.Target?
   private var noSpeechTask: Task<Void, Never>?
   private var permissionTask: Task<Void, Never>?
+  private var permissionWatchTask: Task<Void, Never>?
   private var sessionStartTask: Task<Void, Never>?
   private var isPrepared = false
   private var preparationFailureMessage: String?
@@ -171,6 +172,7 @@ final class DirectDictationController {
   func stop() {
     noSpeechTask?.cancel()
     permissionTask?.cancel()
+    permissionWatchTask?.cancel()
     sessionStartTask?.cancel()
     keyEventMonitor?.stop()
     isPrepared = false
@@ -221,17 +223,39 @@ final class DirectDictationController {
       }
 
       isPrepared = true
-      guard PermissionService.hasAccessibilityAccess else {
-        hudController.showMessage("Accessibility permission required")
-        return
-      }
-
-      guard PermissionService.hasInputMonitoringAccess else {
-        hudController.showMessage("Input Monitoring permission required")
-        return
-      }
-
       installTriggerMonitor()
+    }
+  }
+
+  /// Watches for a permission the user is granting right now.
+  ///
+  /// Both permissions are granted in System Settings while Talkify is already
+  /// running, and macOS tells the app nothing when they change. Checking once at
+  /// launch meant the trigger key stayed dead after the user had done everything
+  /// right, with no hint that a relaunch was needed. This polls instead, and
+  /// installs the tap the moment it is allowed to.
+  private func startPermissionWatch() {
+    guard permissionWatchTask == nil else { return }
+
+    permissionWatchTask = Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(1))
+        guard !Task.isCancelled, let self else { return }
+        guard PermissionService.hasAccessibilityAccess,
+           PermissionService.hasInputMonitoringAccess else { continue }
+
+        if keyEventMonitor?.start() == true {
+          permissionWatchTask = nil
+          hudController.showMessage("Talkify is ready")
+          return
+        }
+
+        // Permission reads as granted but the event tap still will not open,
+        // which macOS only clears on a fresh launch of the app.
+        permissionWatchTask = nil
+        hudController.showMessage("Quit and reopen Talkify to finish")
+        return
+      }
     }
   }
 
@@ -461,9 +485,25 @@ final class DirectDictationController {
   }
 
   private func installTriggerMonitor() {
+    // Named so the message matches the switch the user has to find, and both
+    // paths start the watch so granting it takes effect without a relaunch.
+    guard PermissionService.hasAccessibilityAccess else {
+      hudController.showMessage("Allow Talkify in Privacy & Security → Accessibility")
+      startPermissionWatch()
+      return
+    }
+
+    guard PermissionService.hasInputMonitoringAccess else {
+      PermissionService.requestInputMonitoringAccess()
+      hudController.showMessage("Allow Talkify in Privacy & Security → Input Monitoring")
+      startPermissionWatch()
+      return
+    }
+
     let installed = keyEventMonitor?.start() == true
     guard installed else {
-      hudController.showMessage("Accessibility permission required")
+      startPermissionWatch()
+      hudController.showMessage("Quit and reopen Talkify to finish")
       return
     }
   }
