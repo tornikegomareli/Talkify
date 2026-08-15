@@ -15,7 +15,8 @@ struct VocabularySettingsView: View {
       SettingsCard(title: "Add a term") {
         SettingsRow(
           title: "New term",
-          description: "A name, an acronym, or a phrase — the way you want it spelled"
+          description: "A name or an acronym, spelled the way you want it typed. "
+            + "One or two words works best."
         ) {
           HStack(spacing: 8) {
             TextField("Talkify", text: $draft)
@@ -80,9 +81,11 @@ struct VocabularySettingsView: View {
         "Talkify hands these words to Apple Speech as a hint before you start "
           + "talking, so it leans toward them when what it hears is close. It "
           + "is a nudge, not a rule — a term you never say costs you nothing, "
-          + "and recognition still runs entirely on device. Edits apply from "
-          + "your next session; one already recording keeps the list it "
-          + "started with."
+          + "and recognition still runs entirely on device. Apple caps the "
+          + "hint at \(Vocabulary.maximumTermCount) phrases and recognizes "
+          + "short ones best, so spend them on the words it actually gets "
+          + "wrong. Edits apply from your next session; one already recording "
+          + "keeps the list it started with."
       )
       .font(.caption)
       .foregroundStyle(.white.opacity(contrast == .increased ? 0.7 : 0.45))

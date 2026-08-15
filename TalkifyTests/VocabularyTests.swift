@@ -81,9 +81,8 @@ struct VocabularyTests {
   }
 
   /// The document is a plain JSON file a user can edit by hand, and an older
-  /// build may have written it under different rules. Nothing invalid should
-  /// reach the Speech framework.
-  @Test func contextualStringsSanitizeWhatTheDocumentHolds() {
+  /// build may have written it under different rules.
+  @Test func canonicalDropsWhatTheRulesWouldHaveRejected() {
     let terms = [
       VocabularyTerm(text: "  Talkify  "),
       VocabularyTerm(text: "   "),
@@ -92,17 +91,38 @@ struct VocabularyTests {
       VocabularyTerm(text: "Core   Data")
     ]
 
-    #expect(Vocabulary.contextualStrings(for: terms) == ["Talkify", "Core Data"])
+    #expect(Vocabulary.canonical(terms).map(\.text) == ["Talkify", "Core Data"])
   }
 
-  @Test func contextualStringsStopAtTheTermCap() {
+  /// Two folded duplicates would give the section repeated `ForEach`
+  /// identifiers, and removing either one would take both.
+  @Test func canonicalLeavesNoFoldedDuplicates() {
+    let terms = [
+      VocabularyTerm(text: "Talkify"),
+      VocabularyTerm(text: "TALKIFY"),
+      VocabularyTerm(text: "  talkify  ")
+    ]
+    let canonical = Vocabulary.canonical(terms)
+    #expect(canonical.map(\.text) == ["Talkify"])
+    #expect(Set(canonical.map(\.id)).count == canonical.count)
+  }
+
+  @Test func canonicalStopsAtTheTermCap() {
     let terms = (0..<(Vocabulary.maximumTermCount + 50)).map {
       VocabularyTerm(text: "term-\($0)")
     }
-    #expect(Vocabulary.contextualStrings(for: terms).count == Vocabulary.maximumTermCount)
+    #expect(Vocabulary.canonical(terms).count == Vocabulary.maximumTermCount)
   }
 
-  @Test func contextualStringsAreEmptyForAnEmptyVocabulary() {
+  /// Apple's documented ceiling for `AnalysisContext.contextualStrings` is 100
+  /// phrases across all tags, and Talkify spends them all on one tag.
+  @Test func theTermCapMatchesApplesDocumentedPhraseLimit() {
+    #expect(Vocabulary.maximumTermCount == 100)
+  }
+
+  @Test func contextualStringsAreTheCanonicalList() {
+    let terms = [VocabularyTerm(text: "  Talkify "), VocabularyTerm(text: "talkify")]
+    #expect(Vocabulary.contextualStrings(for: terms) == ["Talkify"])
     #expect(Vocabulary.contextualStrings(for: []).isEmpty)
   }
 }

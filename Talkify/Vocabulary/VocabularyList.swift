@@ -2,8 +2,13 @@ import Foundation
 import Observation
 
 /// The Vocabulary as the app holds it: an observable list over the store, in
-/// the shape `UsageTracker` already established — the view mutates through it,
-/// the composition root observes it, and the actor behind it owns the file.
+/// the shape `UsageTracker` already established — the view calls through it,
+/// the composition root observes it, and the actor behind it owns both the
+/// file and the rules.
+///
+/// This type decides nothing about the list's contents. It forwards the edit
+/// and adopts what came back, so no rule is applied to a snapshot that another
+/// edit has already moved past.
 @MainActor
 @Observable
 final class VocabularyList {
@@ -16,6 +21,12 @@ final class VocabularyList {
   /// typed reads as broken.
   private(set) var rejection: VocabularyRejection?
 
+  /// The revision behind `terms`. Two edits in flight resume independently,
+  /// and the store answers each with the list as of its own turn — so an
+  /// answer older than what is already shown is dropped rather than assigned.
+  @ObservationIgnored
+  private var appliedRevision = -1
+
   init(store: VocabularyStore = VocabularyStore()) {
     self.store = store
   }
@@ -26,13 +37,9 @@ final class VocabularyList {
     Vocabulary.contextualStrings(for: terms)
   }
 
-  var isFull: Bool {
-    terms.count >= Vocabulary.maximumTermCount
-  }
-
   func load() async {
     do {
-      terms = try await store.load().terms
+      apply(try await store.load())
       errorMessage = nil
     } catch {
       errorMessage = error.localizedDescription
@@ -41,34 +48,40 @@ final class VocabularyList {
 
   @discardableResult
   func add(_ raw: String) async -> Bool {
-    switch Vocabulary.adding(raw, to: terms) {
-    case let .added(updated):
-      rejection = nil
-      await write(updated)
-      return errorMessage == nil
-    case let .rejected(reason):
-      rejection = reason
+    do {
+      switch try await store.add(raw) {
+      case let .added(result):
+        rejection = nil
+        errorMessage = nil
+        apply(result)
+        return true
+      case let .rejected(reason):
+        rejection = reason
+        return false
+      }
+    } catch {
+      errorMessage = error.localizedDescription
       return false
     }
   }
 
   func remove(_ term: VocabularyTerm) async {
     rejection = nil
-    await write(Vocabulary.removing(term, from: terms))
+    do {
+      apply(try await store.remove(term))
+      errorMessage = nil
+    } catch {
+      errorMessage = error.localizedDescription
+    }
   }
 
   func clearRejection() {
     rejection = nil
   }
 
-  /// Persists first and adopts second. A term that only ever reached memory
-  /// would disappear at the next launch while the section showed it as saved.
-  private func write(_ updated: [VocabularyTerm]) async {
-    do {
-      terms = try await store.replace(terms: updated).terms
-      errorMessage = nil
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+  private func apply(_ result: VocabularyRevision) {
+    guard result.revision >= appliedRevision else { return }
+    appliedRevision = result.revision
+    terms = result.terms
   }
 }

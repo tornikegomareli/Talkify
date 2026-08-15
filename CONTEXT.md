@@ -171,6 +171,7 @@ _Avoid_: Transcript history, cloud analytics
 - A running **Direct Dictation** session keeps the **Vocabulary** it started with
 - Both **Dictation Languages** are biased with the same **Vocabulary**; terms are not scoped per language
 - A **Vocabulary** that fails to apply never ends a session; that session transcribes unbiased
+- The **Vocabulary** holds at most 100 **Vocabulary Terms**, Apple's documented ceiling for contextual phrases
 - Talkify persists the **Vocabulary Terms** the user typed and nothing else about them
 - **Vocabulary** appears in Settings directly below **Language**
 - Onboarding installs the Apple-managed language asset only when it is missing and waits for completion

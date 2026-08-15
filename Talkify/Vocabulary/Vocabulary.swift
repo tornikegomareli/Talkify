@@ -48,12 +48,16 @@ enum VocabularyAddOutcome: Equatable, Sendable {
 /// Everything here is a value transformation, so the rules are covered by
 /// `VocabularyTests` without touching disk or the Speech framework.
 enum Vocabulary {
-  /// Our own guards, not documented API limits — Apple publishes no cap for
-  /// `AnalysisContext.contextualStrings`. Both exist because biasing is a hint
-  /// and not a dictionary: a list long enough to cover every word stops
-  /// steering anything in particular, and a "term" the length of a sentence
-  /// never matches what the user actually says.
-  static let maximumTermCount = 500
+  /// Apple's documented ceiling for `AnalysisContext.contextualStrings`:
+  /// "Limit the total number of phrases across all tags to no more than 100."
+  /// Talkify spends every phrase on one tag, so the list cap is that number.
+  static let maximumTermCount = 100
+
+  /// Our own guard, with no documented number behind it. Apple asks for
+  /// phrases "relatively brief, limiting them to one or two words whenever
+  /// possible" and warns that lengthy ones are less likely to be recognized —
+  /// guidance, not a limit. This only stops a pasted paragraph from taking a
+  /// slot it can never earn back.
   static let maximumTermLength = 128
 
   /// Trims the ends and collapses interior whitespace runs, so "  Core   Data "
@@ -98,22 +102,32 @@ enum Vocabulary {
     terms.filter { $0.id != term.id }
   }
 
-  /// What the analyzer receives. Sanitized again on the way out rather than
-  /// trusted: a document written by an older build, or hand-edited on disk,
-  /// must not be able to push an empty or oversized string into the Speech
-  /// framework.
-  static func contextualStrings(for terms: [VocabularyTerm]) -> [String] {
+  /// The list with every rule applied: normalized, stripped of empty and
+  /// oversized entries, folded duplicates dropped, and cut to the cap.
+  ///
+  /// The store runs this over whatever it decodes rather than trusting the
+  /// file. A document written by an older build or edited by hand can hold
+  /// entries that break things well before they reach Apple Speech: two folded
+  /// duplicates give the section repeated `ForEach` identifiers, and removing
+  /// either one would take both, since terms are removed by folded key.
+  static func canonical(_ terms: [VocabularyTerm]) -> [VocabularyTerm] {
     var seen = Set<String>()
-    var strings: [String] = []
+    var canonical: [VocabularyTerm] = []
 
     for term in terms {
       let text = normalize(term.text)
       guard !text.isEmpty, text.count <= maximumTermLength else { continue }
       guard seen.insert(foldedKey(for: text)).inserted else { continue }
-      strings.append(text)
-      if strings.count == maximumTermCount { break }
+      canonical.append(VocabularyTerm(text: text))
+      if canonical.count == maximumTermCount { break }
     }
 
-    return strings
+    return canonical
+  }
+
+  /// What the analyzer receives. Canonical by construction, so the list the
+  /// section shows and the phrases Apple Speech is given can never disagree.
+  static func contextualStrings(for terms: [VocabularyTerm]) -> [String] {
+    canonical(terms).map(\.text)
   }
 }
