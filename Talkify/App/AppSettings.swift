@@ -19,6 +19,7 @@ final class AppSettings {
     static let longDraftStyle = "hudLongDraftStyle"
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
+    static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let dictationTriggerBinding = "dictationTriggerBinding"
     static let readAloudBinding = "readAloudBinding"
@@ -56,6 +57,13 @@ final class AppSettings {
 
   var glowCenter: HUDGlowCenterStyle {
     didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
+  }
+
+  /// How large the HUD shape is, as a fraction of the standard size.
+  /// `HUDMetrics` clamps it to its supported range; a stored value outside
+  /// that range comes back clamped rather than refused.
+  var hudScale: Double {
+    didSet { defaults.set(hudScale, forKey: Keys.hudScale) }
   }
 
   /// The Read Aloud voice's `AVSpeechSynthesisVoice` identifier; empty
@@ -122,6 +130,10 @@ final class AppSettings {
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
+    // `double(forKey:)` reads a missing key as zero, which would start every
+    // existing user at the smallest HUD, so absence is checked directly.
+    hudScale = defaults.object(forKey: Keys.hudScale) as? Double
+      ?? Double(HUDMetrics.maximumScale)
     readAloudVoiceID = defaults.string(forKey: Keys.readAloudVoice) ?? ""
     dictationTriggerBinding = Self.storedBinding(
       in: defaults, key: Keys.dictationTriggerBinding
@@ -165,6 +177,7 @@ struct DictationSessionSettings: Equatable {
   let longDraftStyle: HUDLongDraftStyle
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
+  let hudMetrics: HUDMetrics
 
   @MainActor
   init(settings: AppSettings) {
@@ -175,6 +188,7 @@ struct DictationSessionSettings: Equatable {
     longDraftStyle = settings.longDraftStyle
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
+    hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }
 

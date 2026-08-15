@@ -3,38 +3,20 @@ import CoreGraphics
 /// Frames for the Direct Dictation HUD, lifted from Tilebar's NotchIsland
 /// pattern (ADR-0001): a fixed-size host window pinned to the top center whose
 /// origin moves but never resizes, and a measured-vs-simulated notch split.
+///
+/// What this type decides is what the *display* imposes: the housing
+/// footprint, whether fillets exist, and the host window. Everything the user
+/// can resize lives in `HUDMetrics`.
 enum HUDNotchGeometry {
   /// Stand-in footprint for a display that reports no notch (ADR-0001).
   /// The menu-bar height is not a usable substitute — auto-hidden it
   /// measures zero, which would collapse the housing to nothing.
   static let fallbackClosedSize = CGSize(width: 185, height: 32)
 
-  /// Width of the HUD shape; the housing sits centered inside it.
-  static let contentWidth: CGFloat = 540
-
-  /// Height of the strip below the housing where the draft text lives, kept
-  /// out of the housing band so text never collides with the camera.
-  static let textBandHeight: CGFloat = 36
-
-  /// The tallest the text band ever gets: the downward-growing long-draft
-  /// variant caps at a few wrapped lines. The host window is sized for this
-  /// so growth never needs a window resize.
-  static let maxTextBandHeight: CGFloat = 120
-
-  /// Height of the quiet level-meter strip (the Reduce Motion visual),
-  /// shown between the housing and the text band.
-  static let visualBandHeight: CGFloat = 24
-
-  /// Height of the waveform band. The waveform variant replaces the draft
-  /// text entirely, so it gets room to breathe.
-  static let waveBandHeight: CGFloat = 64
-
   /// Slack on the left, right, and bottom so the shell's drawn shadow is not
   /// clipped by the fixed window frame. Nothing is added at the top: that
   /// edge is the top of the screen and the shape is flush against it.
   static let shadowPadding: CGFloat = 44
-
-  static let bottomCornerRadius: CGFloat = 20
 
   /// The notch this display actually reports, or nil when there is nothing
   /// to measure. Width comes from the two auxiliary areas by subtraction so
@@ -58,7 +40,9 @@ enum HUDNotchGeometry {
     return CGSize(width: width, height: screen.safeAreaTop)
   }
 
-  /// The housing footprint, falling back to the simulated stand-in.
+  /// The housing footprint, falling back to the simulated stand-in. Never
+  /// scaled by the HUD size: this height is hardware on a notched display,
+  /// and the menu bar's clearance on every other one.
   static func closedSize(for screen: HUDScreenSnapshot) -> CGSize {
     measuredClosedSize(for: screen) ?? fallbackClosedSize
   }
@@ -73,30 +57,38 @@ enum HUDNotchGeometry {
   /// clamped so a narrow display never gets a shape wider than its window.
   static func contentSize(
     for screen: HUDScreenSnapshot,
+    metrics: HUDMetrics,
     visualBandHeight: CGFloat,
     includesTextBand: Bool
   ) -> CGSize {
     CGSize(
-      width: min(contentWidth, windowFrame(for: screen).width),
+      width: min(metrics.contentWidth, windowFrame(for: screen).width),
       height: closedSize(for: screen).height
         + visualBandHeight
-        + (includesTextBand ? textBandHeight : 0)
+        + (includesTextBand ? metrics.textBandHeight : 0)
     )
   }
 
   /// Size of the concave corner that flares the shape into the bezel, and
   /// zero on a display with no housing to flare into — there the curve reads
   /// as two detached tabs (ADR-0001: the simulated notch omits fillets).
+  /// Unscaled: the flare has to match a physical bezel curve.
   static func filletSize(for screen: HUDScreenSnapshot) -> CGFloat {
     hasMeasuredNotch(for: screen) ? 11 : 0
   }
 
   /// The host window's frame: content size plus shadow slack, centered and
   /// pinned to the top, clamped to the screen width.
+  ///
+  /// Sized for the standard metrics whatever the user's HUD size, so the
+  /// window stays fixed per display (ADR-0001) and a smaller shape simply
+  /// centers itself inside it. The window is invisible and click-through, so
+  /// the unused slack costs nothing.
   static func windowFrame(for screen: HUDScreenSnapshot) -> CGRect {
-    let width = min(contentWidth + shadowPadding * 2, screen.frame.width)
+    let metrics = HUDMetrics.standard
+    let width = min(metrics.contentWidth + shadowPadding * 2, screen.frame.width)
     let height = closedSize(for: screen).height
-      + max(waveBandHeight, visualBandHeight + maxTextBandHeight)
+      + max(metrics.waveBandHeight, metrics.visualBandHeight + metrics.maxTextBandHeight)
       + shadowPadding
 
     return CGRect(

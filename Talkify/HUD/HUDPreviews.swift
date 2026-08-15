@@ -42,6 +42,8 @@ struct HUDShellPreviewHarness: View {
   var waveformStyle = HUDWaveformStyle.chartLine
   var glowCenter = HUDGlowCenterStyle.particles
   var longDraft = HUDLongDraftStyle.growDown
+  /// The HUD size, 0.6–1 of the standard shape.
+  var hudScale = 1.0
   /// false previews the dead-microphone state.
   var micAlive = true
   /// true toggles the session on and off every ~3 seconds so the canvas
@@ -62,6 +64,7 @@ struct HUDShellPreviewHarness: View {
       .task {
         content.text = text
         settings.longDraftStyle = longDraft
+        settings.hudScale = hudScale
         content.isRevealed = true
         guard let visual else { return }
         settings.voiceVisual = visual
@@ -107,4 +110,19 @@ extension AppSettings {
 
 #Preview("Waveform · dead mic") {
   HUDShellPreviewHarness(visual: .waveform, micAlive: false)
+}
+
+// Issue #24: the shape a user picks when the HUD is covering work rather
+// than hardware. Side by side with the standard size on the same display.
+
+#Preview("Smallest · external") {
+  HUDShellPreviewHarness(screen: HUDPreviewScreen.external, visual: .waveform, hudScale: 0.6)
+}
+
+#Preview("Smallest · external · glow") {
+  HUDShellPreviewHarness(screen: HUDPreviewScreen.external, visual: .glow, hudScale: 0.6)
+}
+
+#Preview("Smallest · external · compact") {
+  HUDShellPreviewHarness(screen: HUDPreviewScreen.external, visual: .compact, hudScale: 0.6)
 }

@@ -11,6 +11,7 @@ import SwiftUI
 struct HUDParticleCloudView: View {
   let content: DictationHUDContent
   let settings: DictationSessionSettings
+  let cornerRadius: CGFloat
   let topFilletRadius: CGFloat
 
   /// Reset on every session start, in the same runloop turn as the glow
@@ -37,7 +38,7 @@ struct HUDParticleCloudView: View {
           atArcFraction: HUDEdgeGlowView.sweepFraction(
             at: context.date.timeIntervalSince(sweepStart)
           ),
-          cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+          cornerRadius: cornerRadius,
           topFilletRadius: topFilletRadius,
           inset: 0,
           in: size

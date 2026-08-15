@@ -95,6 +95,10 @@ _Avoid_: Transcript history, cloud analytics
 - Displays without a physical notch show a simulated notch: the same surface with a stand-in footprint
 - The simulated notch omits the corner fillets that hug a physical housing
 - The HUD behaves identically on every display; only the notch measurement differs
+- **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
+- **HUD size** is a Settings slider from 60% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
+- The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
 - The HUD is display-only: mouse clicks pass through it and it never takes focus
 - The HUD's display is locked when the session starts and does not follow windows
@@ -105,7 +109,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, and sound set
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, and sound set
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
@@ -133,7 +137,8 @@ _Avoid_: Transcript history, cloud analytics
 - Settings uses normal window level; it activates when opened but does not stay above other applications
 - The fixed Settings surface can be moved by dragging its header; controls and content remain non-draggable
 - Settings closes with a top-left `xmark` control or Escape; VoiceOver labels are deferred for this milestone
-- Settings controls use native SwiftUI Pickers, Toggles, and Buttons with Talkify's dark styling
+- Settings controls use native SwiftUI Pickers, Toggles, Sliders, and Buttons with Talkify's dark styling
+- A Settings preference uses a slider only when it has no natural set of named choices; a slider still steps, so every stored value can be picked again
 - Voice visual uses a trailing menu picker so the control scales when more visual styles are added
 - Related Settings rows share rounded cards with subtle separators instead of separate floating cards
 - The modal uses a near-black surface with restrained material highlights and borders; desktop content is not visible through it
@@ -259,6 +264,7 @@ _Avoid_: Transcript history, cloud analytics
 - Direct Dictation and Sounds Preview use the existing fixed playback level; Settings has no volume preference
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
+- The Appearance preview shows the picked **HUD size** directly, because the size applies on every display including the preview's notched reference
 - The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 

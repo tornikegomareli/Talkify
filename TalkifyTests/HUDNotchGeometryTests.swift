@@ -50,19 +50,23 @@ struct HUDNotchGeometryTests {
   @Test func contentSizeAddsTextBandBelowHousing() {
     let size = HUDNotchGeometry.contentSize(
       for: notched,
+      metrics: .standard,
       visualBandHeight: 0,
       includesTextBand: true
     )
-    #expect(size == CGSize(width: 540, height: 32 + HUDNotchGeometry.textBandHeight))
+    #expect(size == CGSize(width: 540, height: 32 + HUDMetrics.standard.textBandHeight))
   }
 
   @Test func contentSizeStacksVisualBandAboveText() {
     let size = HUDNotchGeometry.contentSize(
       for: notched,
-      visualBandHeight: HUDNotchGeometry.visualBandHeight,
+      metrics: .standard,
+      visualBandHeight: HUDMetrics.standard.visualBandHeight,
       includesTextBand: true
     )
-    let expected = 32 + HUDNotchGeometry.visualBandHeight + HUDNotchGeometry.textBandHeight
+    let expected = 32
+      + HUDMetrics.standard.visualBandHeight
+      + HUDMetrics.standard.textBandHeight
     #expect(size.height == expected)
   }
 
@@ -71,7 +75,8 @@ struct HUDNotchGeometryTests {
     // listening; that layout must fit the window without a resize.
     let content = HUDNotchGeometry.contentSize(
       for: notched,
-      visualBandHeight: HUDNotchGeometry.waveBandHeight,
+      metrics: .standard,
+      visualBandHeight: HUDMetrics.standard.waveBandHeight,
       includesTextBand: false
     )
     let window = HUDNotchGeometry.windowFrame(for: notched)
@@ -81,23 +86,74 @@ struct HUDNotchGeometryTests {
   @Test func waveOnlyContentSizeDropsTextBand() {
     let size = HUDNotchGeometry.contentSize(
       for: notched,
-      visualBandHeight: HUDNotchGeometry.waveBandHeight,
+      metrics: .standard,
+      visualBandHeight: HUDMetrics.standard.waveBandHeight,
       includesTextBand: false
     )
-    #expect(size.height == 32 + HUDNotchGeometry.waveBandHeight)
+    #expect(size.height == 32 + HUDMetrics.standard.waveBandHeight)
   }
 
   @Test func windowFrameIsTopCenterWithShadowSlack() {
     let frame = HUDNotchGeometry.windowFrame(for: notched)
     let expectedWidth: CGFloat = 540 + 44 * 2
     let tallestBands = max(
-      HUDNotchGeometry.waveBandHeight,
-      HUDNotchGeometry.visualBandHeight + HUDNotchGeometry.maxTextBandHeight
+      HUDMetrics.standard.waveBandHeight,
+      HUDMetrics.standard.visualBandHeight + HUDMetrics.standard.maxTextBandHeight
     )
     #expect(frame.width == expectedWidth)
     #expect(frame.height == 32 + tallestBands + 44)
     #expect(frame.midX == notched.frame.midX)
     #expect(frame.maxY == notched.frame.maxY)
+  }
+
+  /// Issue #24: the shape shrinks so it stops covering usable screen, but
+  /// the housing band does not — it is hardware here and menu-bar clearance
+  /// on a display with no notch.
+  @Test func hudSizeShrinksTheShapeButNotTheHousing() {
+    let small = HUDMetrics(scale: 0.6)
+    let size = HUDNotchGeometry.contentSize(
+      for: external,
+      metrics: small,
+      visualBandHeight: small.waveBandHeight,
+      includesTextBand: false
+    )
+    let standard = HUDNotchGeometry.contentSize(
+      for: external,
+      metrics: .standard,
+      visualBandHeight: HUDMetrics.standard.waveBandHeight,
+      includesTextBand: false
+    )
+
+    #expect(size.width < standard.width)
+    #expect(size.height < standard.height)
+    #expect(size.height == 32 + small.waveBandHeight)
+  }
+
+  /// The shape has to stay wider than the housing it descends from, or it
+  /// stops covering the notch it is supposed to hug.
+  @Test func smallestShapeStillCoversTheHousing() {
+    let smallest = HUDMetrics(scale: HUDMetrics.minimumScale)
+    #expect(smallest.contentWidth > HUDNotchGeometry.closedSize(for: notched).width)
+    #expect(smallest.contentWidth > HUDNotchGeometry.fallbackClosedSize.width)
+  }
+
+  /// ADR-0001's fixed host window: the frame is the standard envelope
+  /// whatever the user's HUD size, so a smaller shape centers inside it
+  /// instead of resizing the window mid-session.
+  @Test func windowFrameIgnoresHUDSize() {
+    let frame = HUDNotchGeometry.windowFrame(for: external)
+    let smallest = HUDMetrics(scale: HUDMetrics.minimumScale)
+    let content = HUDNotchGeometry.contentSize(
+      for: external,
+      metrics: smallest,
+      visualBandHeight: smallest.visualBandHeight,
+      includesTextBand: true
+    )
+
+    let standardWidth: CGFloat = 540 + 44 * 2
+    #expect(frame.width == standardWidth)
+    #expect(content.width < frame.width)
+    #expect(content.height < frame.height)
   }
 
   @Test func windowFrameClampsToNarrowScreen() {
@@ -122,14 +178,14 @@ struct HUDNotchGeometryTests {
     let size = CGSize(width: 600, height: 120)
     let start = HUDGlowSilhouetteShape.point(
       atArcFraction: 0,
-      cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+      cornerRadius: HUDMetrics.standard.bottomCornerRadius,
       topFilletRadius: HUDNotchGeometry.filletSize(for: notched),
       inset: 28,
       in: size
     )
     let end = HUDGlowSilhouetteShape.point(
       atArcFraction: 1,
-      cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+      cornerRadius: HUDMetrics.standard.bottomCornerRadius,
       topFilletRadius: HUDNotchGeometry.filletSize(for: notched),
       inset: 28,
       in: size

@@ -32,6 +32,37 @@ struct SettingsRow<Control: View>: View {
   }
 }
 
+/// A SettingsRow whose control is a slider over a continuous range, with the
+/// current value read out beside it. For preferences with no natural set of
+/// named choices, where a picker would only invent arbitrary steps.
+struct SettingsSliderRow: View {
+  let title: String
+  var description = ""
+  @Binding var value: Double
+  let range: ClosedRange<Double>
+  /// The slider still steps: a stored value the user cannot land on again
+  /// makes the preference feel unrepeatable.
+  var step: Double = 0.05
+  let valueLabel: (Double) -> String
+  var controlWidth: CGFloat = 150
+
+  var body: some View {
+    SettingsRow(title: title, description: description) {
+      HStack(spacing: 10) {
+        Slider(value: $value, in: range, step: step)
+          .labelsHidden()
+          .tint(SettingsTheme.accent)
+        Text(valueLabel(value))
+          .font(.system(size: 12, weight: .medium))
+          .monospacedDigit()
+          .foregroundStyle(.white.opacity(0.62))
+          .frame(width: 36, alignment: .trailing)
+      }
+      .frame(width: controlWidth)
+    }
+  }
+}
+
 /// The repeated shape of most preference rows: a SettingsRow whose control
 /// is the standard trailing menu picker.
 struct SettingsPickerRow<Value: Hashable>: View {

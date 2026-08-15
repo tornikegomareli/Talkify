@@ -16,9 +16,16 @@ struct DictationHUDShellView: View {
   let settings: DictationSessionSettings
   let content: DictationHUDContent
 
+  /// The shape's dimensions at the session's HUD size. Everything the user
+  /// can resize is read from here; the housing band and fillets are not.
+  private var metrics: HUDMetrics {
+    settings.hudMetrics
+  }
+
   private var size: CGSize {
     HUDNotchGeometry.contentSize(
       for: screen,
+      metrics: metrics,
       visualBandHeight: visualBandHeight,
       includesTextBand: showsTextBand
     )
@@ -33,11 +40,11 @@ struct DictationHUDShellView: View {
   /// fit the fixed window.
   private var visualBandHeight: CGFloat {
     guard content.showsVoiceVisual else { return 0 }
-    if reduceMotion { return HUDNotchGeometry.visualBandHeight }
+    if reduceMotion { return metrics.visualBandHeight }
     // Compact has no band of its own: its indicator lives inside the
     // text band, beside the draft.
     if settings.voiceVisual == .compact { return 0 }
-    return HUDNotchGeometry.waveBandHeight
+    return metrics.waveBandHeight
   }
 
   /// Waveform and Edge Glow replace the draft text entirely while
@@ -63,8 +70,8 @@ struct DictationHUDShellView: View {
 
   private var housingShape: UnevenRoundedRectangle {
     UnevenRoundedRectangle(
-      bottomLeadingRadius: HUDNotchGeometry.bottomCornerRadius,
-      bottomTrailingRadius: HUDNotchGeometry.bottomCornerRadius,
+      bottomLeadingRadius: metrics.bottomCornerRadius,
+      bottomTrailingRadius: metrics.bottomCornerRadius,
       style: .continuous
     )
   }
@@ -180,9 +187,9 @@ struct DictationHUDShellView: View {
   private var textBand: some View {
     Group {
       if showsCompactBand {
-        HStack(alignment: .top, spacing: 10) {
-          HUDCompactIndicatorView(content: content)
-            .padding(.top, 3)
+        HStack(alignment: .top, spacing: 10 * metrics.scale) {
+          HUDCompactIndicatorView(content: content, scale: metrics.scale)
+            .padding(.top, 3 * metrics.scale)
           compactDraftText
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -190,28 +197,28 @@ struct DictationHUDShellView: View {
         draftText
       }
     }
-    .font(.system(size: 15, weight: .medium))
+    .font(.system(size: 15 * metrics.scale, weight: .medium))
     .foregroundStyle(.white)
     // The tag sits in the inset rather than in the flow, and the inset grows
     // on both sides, so centered drafts stay centered and nothing overlaps.
-    .padding(.horizontal, content.languageTag == nil ? 24 : 46)
-    .padding(.vertical, 9)
-    .frame(minHeight: HUDNotchGeometry.textBandHeight)
+    .padding(.horizontal, (content.languageTag == nil ? 24 : 46) * metrics.scale)
+    .padding(.vertical, 9 * metrics.scale)
+    .frame(minHeight: metrics.textBandHeight)
   }
 
   @ViewBuilder
   private var languageTag: some View {
     if let tag = content.languageTag {
       Text(tag)
-        .font(.system(size: 9, weight: .semibold, design: .rounded))
+        .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))
         .tracking(0.5)
         .foregroundStyle(.white.opacity(0.72))
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1.5)
+        .padding(.horizontal, 4 * metrics.scale)
+        .padding(.vertical, 1.5 * metrics.scale)
         .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
-        .padding(.leading, 12)
+        .padding(.leading, 12 * metrics.scale)
         // Clears the housing, so the tag never sits beside the camera.
-        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5)
+        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
         .allowsHitTesting(false)
     }
   }
@@ -290,7 +297,7 @@ struct DictationHUDShellView: View {
           duration: HUDRippleModifier.duration
         )
       }
-      .shadow(color: .black.opacity(0.35), radius: 11, y: 4)
+      .shadow(color: .black.opacity(0.35), radius: 11 * metrics.scale, y: 4 * metrics.scale)
   }
 
   /// The Edge Glow particle cloud, clipped to the housing so no mote leaks
@@ -302,6 +309,7 @@ struct DictationHUDShellView: View {
       HUDParticleCloudView(
         content: content,
         settings: settings,
+        cornerRadius: metrics.bottomCornerRadius,
         topFilletRadius: filletSize
       )
         .clipShape(housingShape)
@@ -318,7 +326,7 @@ struct DictationHUDShellView: View {
      settings.voiceVisual == .glow,
      settings.glowCenter == .siriOrb,
      content.showsVoiceVisual {
-      HUDSiriOrbView(content: content, side: size.height - 8)
+      HUDSiriOrbView(content: content, side: size.height - 8 * metrics.scale)
     }
   }
 
@@ -333,6 +341,7 @@ struct DictationHUDShellView: View {
       HUDEdgeGlowView(
         content: content,
         settings: settings,
+        metrics: metrics,
         topFilletRadius: filletSize
       )
     }

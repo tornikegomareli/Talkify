@@ -32,7 +32,12 @@ struct HUDEdgeGlowView: View {
 
   let content: DictationHUDContent
   let settings: DictationSessionSettings
+  let metrics: HUDMetrics
   let topFilletRadius: CGFloat
+
+  /// The beam's own dimensions follow the HUD size: the same 6pt stroke and
+  /// 28pt spill read as a much heavier beam once the shape is smaller.
+  private var spill: CGFloat { Self.spill * metrics.scale }
 
   /// Reset on every session start so the sweep begins at bottom-center,
   /// directly under the housing.
@@ -60,17 +65,19 @@ struct HUDEdgeGlowView: View {
         // halo never starves, flaring with speech — and body, the
         // strokes swelling up to double.
         let amplitude = alive ? 1.8 + 1.2 * level : 1.5
-        let lineWidth = Self.lineWidth * (1 + level)
-        let blurRadius = Self.blurRadius * (1 + 0.5 * level)
+        let lineWidth = Self.lineWidth * Double(metrics.scale) * (1 + level)
+        let blurRadius = Self.blurRadius * Double(metrics.scale) * (1 + 0.5 * level)
         let origin = Self.sweepOrigin(
           at: context.date.timeIntervalSince(sweepStart),
           in: size,
-          topFilletRadius: topFilletRadius
+          cornerRadius: metrics.bottomCornerRadius,
+          topFilletRadius: topFilletRadius,
+          inset: spill
         )
         HUDGlowSilhouetteShape(
-          cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+          cornerRadius: metrics.bottomCornerRadius,
           topFilletRadius: topFilletRadius,
-          inset: Self.spill
+          inset: spill
         )
         .glow(
           fill: alive
@@ -103,8 +110,8 @@ struct HUDEdgeGlowView: View {
         }
       }
     }
-    .padding(.horizontal, -Self.spill)
-    .padding(.bottom, -Self.spill)
+    .padding(.horizontal, -spill)
+    .padding(.bottom, -spill)
     .allowsHitTesting(false)
     .accessibilityHidden(true)
     .onChange(of: content.sessionEpoch) {
@@ -135,13 +142,15 @@ struct HUDEdgeGlowView: View {
   nonisolated private static func sweepOrigin(
     at t: TimeInterval,
     in size: CGSize,
-    topFilletRadius: CGFloat
+    cornerRadius: CGFloat,
+    topFilletRadius: CGFloat,
+    inset: CGFloat
   ) -> CGPoint {
     HUDGlowSilhouetteShape.point(
       atArcFraction: sweepFraction(at: t),
-      cornerRadius: HUDNotchGeometry.bottomCornerRadius,
+      cornerRadius: cornerRadius,
       topFilletRadius: topFilletRadius,
-      inset: spill,
+      inset: inset,
       in: size
     )
   }
