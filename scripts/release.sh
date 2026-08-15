@@ -46,6 +46,7 @@ CASK="$REPO_ROOT/Casks/talkify.rb"
 TEAM_ID="539293JFA3"
 NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Techzy LLC ($TEAM_ID)}"
+ENTITLEMENTS="$REPO_ROOT/Talkify.entitlements"
 
 step() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
@@ -169,17 +170,28 @@ SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
 if [[ -d "$SPARKLE" ]]; then
   if security find-identity -v -p codesigning 2>/dev/null | grep -q "$TEAM_ID"; then
     step "Re-signing Sparkle's helpers"
+    # Sparkle's helpers carry empty entitlement dictionaries, so they are signed
+    # without any.
     for target in \
       "$SPARKLE/Versions/B/XPCServices/Downloader.xpc" \
       "$SPARKLE/Versions/B/XPCServices/Installer.xpc" \
       "$SPARKLE/Versions/B/Updater.app" \
       "$SPARKLE/Versions/B/Autoupdate" \
-      "$SPARKLE" \
-      "$APP"; do
+      "$SPARKLE"; do
       [[ -e "$target" ]] || continue
       codesign --force --options runtime --timestamp \
         --sign "$SIGN_IDENTITY" "$target" 2>&1 | sed 's/^/  /'
     done
+
+    # The app MUST be re-signed with its entitlements. codesign --force replaces
+    # the signature wholesale and drops any entitlements it is not given, and
+    # under the hardened runtime an app without com.apple.security.device.audio-input
+    # can never be granted the microphone: the prompt appears and the toggle
+    # does nothing. v0.3.0 shipped that way.
+    [[ -f "$ENTITLEMENTS" ]] || fail "missing $ENTITLEMENTS"
+    codesign --force --options runtime --timestamp \
+      --entitlements "$ENTITLEMENTS" \
+      --sign "$SIGN_IDENTITY" "$APP" 2>&1 | sed 's/^/  /'
 
     # Every nested binary must now carry the team, or notarization fails again
     # after the DMG and the notary round-trip have already been paid for.
@@ -202,7 +214,10 @@ if [[ -d "$SPARKLE" ]]; then
       [[ "$INFO" == *"flags=0x10000(runtime)"* || "$INFO" == *"runtime"* ]] \
         || fail "$(basename "$nested") is missing the hardened runtime"
     done
-    echo "  helpers, framework and app signed with $TEAM_ID"
+    SIGNED_ENTITLEMENTS="$(codesign -d --entitlements :- "$APP" 2>/dev/null || true)"
+    [[ "$SIGNED_ENTITLEMENTS" == *"com.apple.security.device.audio-input"* ]] \
+      || fail "the signed app has no microphone entitlement — dictation would never work"
+    echo "  helpers, framework and app signed with $TEAM_ID, entitlements intact"
   else
     echo "  no Developer ID identity — Sparkle's helpers stay ad-hoc signed"
     echo "  (notarization will reject this build)"
