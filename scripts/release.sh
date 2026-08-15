@@ -15,6 +15,11 @@
 # Notarization uses a notarytool keychain profile, shared with Camus:
 #   NOTARY_PROFILE   keychain profile name  (default: camus-notary)
 #   SKIP_NOTARIZE=1  sign and package without notarizing (local testing only)
+#
+# The landing page names the current release, so it is rebuilt and uploaded
+# once the release exists:
+#   LANDING_REPO     path to the talkify-landing checkout
+#                    (default: ../talkify-landing; skipped if it is missing)
 
 set -euo pipefail
 
@@ -51,6 +56,9 @@ TEAM_ID="539293JFA3"
 NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Techzy LLC ($TEAM_ID)}"
 ENTITLEMENTS="$REPO_ROOT/Talkify.entitlements"
+# The landing page's checkout, deployed after the release so the site names
+# this version. Only a sibling clone by default; override to point elsewhere.
+LANDING_REPO="${LANDING_REPO:-$REPO_ROOT/../talkify-landing}"
 
 step() { printf '\n\033[1;33m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
@@ -419,20 +427,60 @@ else
 fi
 
 # The landing page reads the latest release when it builds, so it only learns
-# about this one on its next deploy. Set LANDING_DEPLOY_HOOK to the Cloudflare
-# Pages deploy hook URL and the release triggers that rebuild itself.
+# about this one when it is rebuilt and re-uploaded. The Pages project is
+# direct upload rather than git-connected, so there is no deploy hook to fire:
+# the files have to be built here and pushed. Nothing below is fatal — the
+# release is already published, and a landing page one version behind is worth
+# less than a script that exits non-zero after doing the irreversible part.
 step "Redeploying the landing page"
-if [[ -n "${LANDING_DEPLOY_HOOK:-}" ]]; then
-  if curl -fsS -X POST "$LANDING_DEPLOY_HOOK" >/dev/null; then
-    echo "  deploy triggered; usetalkify.app shows $VERSION once it finishes"
-  else
-    echo "  WARNING: the deploy hook did not accept the request."
-    echo "  The site keeps serving the previous version number until it rebuilds."
-  fi
-else
-  echo "  LANDING_DEPLOY_HOOK is not set — skipping."
-  echo "  usetalkify.app will keep showing the previous version until it is"
+deploy_landing() {
+  # Asking git rather than looking for a .git directory: in a worktree .git is
+  # a file, and this repo is worked on in worktrees.
+  git -C "$LANDING_REPO" rev-parse --git-dir >/dev/null 2>&1 || {
+    echo "  no landing checkout at $LANDING_REPO — skipping."
+    return 1
+  }
+
+  local branch
+  branch="$(git -C "$LANDING_REPO" rev-parse --abbrev-ref HEAD)"
+  [[ "$branch" == "main" ]] || {
+    echo "  landing checkout is on '$branch', not main — skipping."
+    return 1
+  }
+
+  # Tracked changes only. The landing repo carries an AGENTS.md that Next
+  # rewrites on every `next dev`, so counting untracked files would block
+  # every release.
+  [[ -z "$(git -C "$LANDING_REPO" status --porcelain --untracked-files=no)" ]] || {
+    echo "  landing checkout has uncommitted changes — skipping."
+    return 1
+  }
+
+  [[ "$(git -C "$LANDING_REPO" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)" == "0" ]] || {
+    echo "  landing checkout has unpushed commits — skipping."
+    return 1
+  }
+
+  (cd "$LANDING_REPO" && npm run build >/dev/null) || {
+    echo "  the landing build failed — skipping the upload."
+    return 1
+  }
+  (cd "$LANDING_REPO" && npx wrangler pages deploy out \
+    --project-name=talkify --branch=main >/dev/null) || {
+    echo "  wrangler could not upload the build."
+    return 1
+  }
+
+  echo "  usetalkify.app rebuilt; it now names $VERSION"
+  return 0
+}
+
+if ! deploy_landing; then
+  echo "  usetalkify.app keeps naming the previous version until it is"
   echo "  redeployed. Its Download button still resolves to this release."
+  echo "  To do it by hand:"
+  echo "    cd $LANDING_REPO && npm run build"
+  echo "    npx wrangler pages deploy out --project-name=talkify --branch=main"
 fi
 
 step "Done"
