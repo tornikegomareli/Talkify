@@ -25,6 +25,7 @@ final class DirectDictationController {
   private let hudController: DictationHUDController
   private let textInsertionService = TextInsertionService()
   private let usageTracker: UsageTracker
+  private let vocabulary: VocabularyList
 
   private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
@@ -47,11 +48,13 @@ final class DirectDictationController {
   init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    vocabulary: VocabularyList
   ) {
     self.settings = settings
     self.hudController = hudController
     self.usageTracker = usageTracker
+    self.vocabulary = vocabulary
     keyEventMonitor = GlobalKeyEventMonitor { [weak self] event in
       Task { @MainActor [weak self] in
         self?.handle(event)
@@ -125,6 +128,16 @@ final class DirectDictationController {
     }
   }
 
+  /// Re-biases the warm analyzers after the Vocabulary section edits the list.
+  /// Cheap and off the keypress path, so it runs on every edit rather than
+  /// waiting for the next session.
+  func applyVocabulary() {
+    Task { [weak self] in
+      guard let self else { return }
+      await speechService.setVocabulary(vocabulary.contextualStrings)
+    }
+  }
+
   /// Resolves both picks, drops anything no longer bound to a key, then warms
   /// the primary language. The second warms behind it and never throws: a
   /// model that still needs downloading must not delay the primary key.
@@ -147,6 +160,10 @@ final class DirectDictationController {
     secondaryLocale = secondary == primary ? nil : secondary
 
     let bound = [primary, secondaryLocale].compactMap(\.self)
+    // Before the warm-up, not after: a session prepared without the Vocabulary
+    // would have to be re-biased, and both languages should be warmed once,
+    // already biased.
+    await speechService.setVocabulary(vocabulary.contextualStrings)
     await speechService.retainOnly(locales: bound)
     try await speechService.prewarm(locale: primary)
 

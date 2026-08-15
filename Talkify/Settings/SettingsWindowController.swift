@@ -21,6 +21,7 @@ final class SettingsWindowController: NSWindowController {
     sounds: DictationHUDSounds,
     runtimeState: SettingsRuntimeState,
     usageTracker: UsageTracker,
+    vocabulary: VocabularyList,
     updater: SparkleUpdaterService
   ) {
     let window = TalkifySettingsWindow(
@@ -35,6 +36,7 @@ final class SettingsWindowController: NSWindowController {
         sounds: sounds,
         runtimeState: runtimeState,
         usageTracker: usageTracker,
+        vocabulary: vocabulary,
         updater: updater,
         onClose: { [weak window] in window?.close() }
       )

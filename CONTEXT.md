@@ -51,6 +51,14 @@ _Avoid_: Live Captions
 An Apple-managed, on-device language asset used by the Speech framework.
 _Avoid_: Bundled model, Talkify model, Whisper model
 
+**Vocabulary**:
+The user-authored list of terms Apple Speech is biased toward during **Direct Dictation**.
+_Avoid_: Custom dictionary, training data, learned words
+
+**Vocabulary Term**:
+One entry in the **Vocabulary**: a word or short phrase, spelled the way the user wants it inserted.
+_Avoid_: Keyword, hint, phrase count
+
 **Read Aloud**:
 Speaking the focused application's selected text out loud with an Apple system voice.
 _Avoid_: TTS mode, Speak selection
@@ -156,7 +164,15 @@ _Avoid_: Transcript history, cloud analytics
 - The HUD shows a language tag only while a second **Dictation Language** is configured
 - Speech models use Apple's `lingering` retention policy
 - Talkify prepares the selected speech model shortly after launch
-- Talkify does not bundle or train speech models
+- Talkify biases recognition with a user-authored **Vocabulary**; it does not bundle, train, or modify **Speech Models**
+- The **Vocabulary** is written by the user alone: Talkify never adds a **Vocabulary Term** from what was dictated
+- **Vocabulary Terms** are applied while a **Dictation Language** is prewarmed, never on the **Dictation Trigger** press
+- Editing the **Vocabulary** re-biases the prewarmed languages immediately, without a relaunch
+- A running **Direct Dictation** session keeps the **Vocabulary** it started with
+- Both **Dictation Languages** are biased with the same **Vocabulary**; terms are not scoped per language
+- A **Vocabulary** that fails to apply never ends a session; that session transcribes unbiased
+- Talkify persists the **Vocabulary Terms** the user typed and nothing else about them
+- **Vocabulary** appears in Settings directly below **Language**
 - Onboarding installs the Apple-managed language asset only when it is missing and waits for completion
 - Talkify uses Apple Speech exclusively and has no Whisper fallback
 - Language selectors show only locales supported by Apple Speech

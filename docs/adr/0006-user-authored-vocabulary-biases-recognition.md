@@ -1,0 +1,20 @@
+# User-authored Vocabulary biases recognition
+
+Talkify lets the user write a Vocabulary: a list of Vocabulary Terms — names, acronyms, jargon — that Apple Speech is biased toward. Talkify hands the list to each prepared `SpeechAnalyzer` as `AnalysisContext.contextualStrings` under the `.general` tag, through `SpeechAnalyzer.setContext`.
+
+The list is authored by the user and only by the user. Talkify does not derive terms from what was dictated, does not observe what the user edits after insertion, and does not keep a record of any session in order to learn. The stored document holds the terms as typed and nothing else, which keeps the feature inside the existing rule that Talkify persists no recognized text.
+
+Biasing is not training. No Speech Model is bundled, modified, or written to; the terms are a per-session input to an Apple-managed asset, and removing a term removes its whole effect. `SFCustomLanguageModelData` — which reaches further, into phrase-count weighting and pronunciation overrides — is available on the same stack and is deliberately not used yet.
+
+## Consequences
+
+- Terms are applied while a language is prewarmed, never on the Dictation Trigger press. `setContext` is async, and the warm session exists so that pressing the key meets an analyzer with nothing left to do.
+- Editing the Vocabulary re-biases every warm analyzer immediately, so a term added seconds ago is live for the next session without a relaunch.
+- A session already recording keeps the Vocabulary it started with, matching how Dictation session settings snapshot the rest of its preferences.
+- Both Dictation Languages are biased with the same list. Terms are not scoped per language: a name is spelled the same way whichever language the sentence around it is in.
+- Applying the Vocabulary can fail without ending a session. Biasing is a hint, so a failure leaves the analyzer transcribing unbiased — which is exactly the behavior of an empty Vocabulary.
+- The list is capped at 500 terms of at most 128 characters. Neither is a documented API limit; both are guards. A list long enough to cover every word stops steering anything in particular, and a "term" the length of a sentence never matches what the user says.
+- Terms are compared case-insensitively, so "Talkify" and "talkify" are one entry. They are compared with diacritics intact, because telling "resume" from "résumé" is the reason someone adds the accented spelling.
+- Terms are stored as a struct rather than a bare string, so pronunciation and weighting can join the document later without a migration.
+- The insertion path is untouched. This decision is independent of the insertion latency benchmark and adds nothing to what that measures.
+- Learning terms automatically, per-application scoping, and cleanup of the transcribed text need a durable record of what was said and remain out of scope.
