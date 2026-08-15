@@ -61,7 +61,9 @@ final class TextInsertionService {
     }
 
     let route = target.bundleIdentifier.flatMap { routesByBundleIdentifier[$0] }
-    if route != .paste, insertThroughAccessibility(text, target: target) {
+    if route != .paste,
+       !Self.prefersPaste(bundleIdentifier: target.bundleIdentifier),
+       insertThroughAccessibility(text, target: target) {
       remember(.accessibility, for: target.bundleIdentifier)
       return
     }
@@ -166,6 +168,18 @@ final class TextInsertionService {
       kAXSelectedTextAttribute as CFString,
       text as CFString
     ) == .success
+  }
+
+  nonisolated static func prefersPaste(bundleIdentifier: String?) -> Bool {
+    switch bundleIdentifier {
+    case "com.apple.Safari",
+         "com.brave.Browser",
+         "com.google.Chrome",
+         "company.thebrowser.dia":
+      return true
+    default:
+      return false
+    }
   }
 
   private func isStillFocused(_ target: Target) -> Bool {
