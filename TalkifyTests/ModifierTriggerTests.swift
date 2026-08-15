@@ -73,4 +73,9 @@ struct ModifierTriggerTests {
       #expect(l.pair == l.own | r.own)
     }
   }
+
+  @Test func commandModifiedKeyIsNotAPlainTriggerPress() {
+    #expect(!GlobalKeyEventMonitor.isPlainTriggerPress(flags: .maskCommand))
+    #expect(GlobalKeyEventMonitor.isPlainTriggerPress(flags: []))
+  }
 }

@@ -302,7 +302,7 @@ footer{border-top:1px solid var(--line-soft);padding:40px 0 70px;color:var(--fai
       <div class="step"><span class="t">0 ms</span><h4>Press Fn</h4><p>The session starts immediately. The app has already prewarmed the speech model, so there is nothing to wait for.</p></div>
       <div class="step"><span class="t">&lt; 250 ms release</span><h4>Tap to latch</h4><p>A quick tap leaves dictation running hands-free until the next press. Holding keeps it open only while held.</p></div>
       <div class="step"><span class="t">while speaking</span><h4>HUD reacts</h4><p>The shape shows a live voice visual instead of the draft text. Volatile words render instantly; only finalized text is ever inserted.</p></div>
-      <div class="step"><span class="t">on release</span><h4>Insert</h4><p>Accessibility insertion first, clipboard paste as fallback, then the clipboard is restored. The working route is remembered per app.</p></div>
+      <div class="step"><span class="t">on release</span><h4>Insert</h4><p>The text is pasted into the captured target, then the previous clipboard is restored if it has not changed.</p></div>
       <div class="step"><span class="t">escape / 15 s</span><h4>Bail out</h4><p>Escape cancels without inserting. No speech in the first 15 seconds and the session closes silently.</p></div>
     </div>
     <p class="note" style="margin-top:16px">Refusals and errors use the same surface: a secure password field shows <span class="mono">“Secure field”</span>, missing permissions show their own line. Messages clear themselves after about two seconds. There is no notification, no alert, no second window.</p>
@@ -580,7 +580,7 @@ footer{border-top:1px solid var(--line-soft);padding:40px 0 70px;color:var(--fai
       <table class="state-table">
         <thead><tr><th>Area</th><th>Where it stands</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>Direct Dictation</td><td>Trigger, latching, prewarm, insertion routes, clipboard restore</td><td><span class="pill ship">Shipping</span></td></tr>
+          <tr><td>Direct Dictation</td><td>Trigger, latching, prewarm, focus-validated paste, guarded clipboard restore</td><td><span class="pill ship">Shipping</span></td></tr>
           <tr><td>HUD surface</td><td>Placement, geometry, fillets, reveal, messages</td><td><span class="pill ship">Shipping</span></td></tr>
           <tr><td>Voice visuals</td><td>9 waveform styles, glow triptych, 6 palettes, 3 centers</td><td><span class="pill ship">Shipping</span></td></tr>
           <tr><td>Settings</td><td>Appearance and Sounds, live preview, immediate apply</td><td><span class="pill ship">Shipping</span></td></tr>

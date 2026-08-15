@@ -4,45 +4,83 @@ import ApplicationServices
 @MainActor
 final class TextInsertionService {
   struct Target {
-    fileprivate let element: AXUIElement
+    fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
-    fileprivate let bundleIdentifier: String?
 
     let isSecure: Bool
     let displayID: CGDirectDisplayID?
+
+    init(
+      element: AXUIElement?,
+      processIdentifier: pid_t,
+      isSecure: Bool,
+      displayID: CGDirectDisplayID?
+    ) {
+      self.element = element
+      self.processIdentifier = processIdentifier
+      self.isSecure = isSecure
+      self.displayID = displayID
+    }
   }
 
-  private enum Route {
-    case accessibility
-    case paste
+  struct Dependencies {
+    let pasteboard: NSPasteboard
+    let focusedElement: @MainActor () -> AXUIElement?
+    let frontmostApplication: @MainActor () -> NSRunningApplication?
+    let isProcessRunning: @MainActor (pid_t) -> Bool
+    let isTargetFocused: @MainActor (Target) -> Bool
+    let postPasteShortcut: @MainActor () -> Bool
+    let waitForPasteRead: @MainActor () async -> Void
+
+    static var live: Self {
+      Self(
+        pasteboard: .general,
+        focusedElement: TextInsertionService.focusedElement,
+        frontmostApplication: { NSWorkspace.shared.frontmostApplication },
+        isProcessRunning: { processIdentifier in
+          guard let application = NSRunningApplication(
+            processIdentifier: processIdentifier
+          ) else {
+            return false
+          }
+          return !application.isTerminated
+        },
+        isTargetFocused: TextInsertionService.isStillFocused,
+        postPasteShortcut: TextInsertionService.postPasteShortcut,
+        waitForPasteRead: {
+          try? await Task.sleep(for: .milliseconds(500))
+        }
+      )
+    }
   }
 
-  private var routesByBundleIdentifier: [String: Route] = [:]
+  private let dependencies: Dependencies
+
+  init(dependencies: Dependencies = .live) {
+    self.dependencies = dependencies
+  }
 
   func captureFocusedTarget() -> Target? {
-    let systemWideElement = AXUIElementCreateSystemWide()
-    var value: CFTypeRef?
+    if let element = dependencies.focusedElement() {
+      var processIdentifier: pid_t = 0
+      AXUIElementGetPid(element, &processIdentifier)
 
-    guard AXUIElementCopyAttributeValue(
-      systemWideElement,
-      kAXFocusedUIElementAttribute as CFString,
-      &value
-    ) == .success,
-    let value else {
-      return nil
+      return Target(
+        element: element,
+        processIdentifier: processIdentifier,
+        isSecure: isSecureTextField(element),
+        displayID: displayID(for: element)
+      )
     }
 
-    let element = value as! AXUIElement
-    var processIdentifier: pid_t = 0
-    AXUIElementGetPid(element, &processIdentifier)
-
-    let application = NSRunningApplication(processIdentifier: processIdentifier)
+    // Some apps expose no focused AX element even while an editor has focus.
+    // Keep the application as the safest available focus boundary.
+    guard let application = dependencies.frontmostApplication() else { return nil }
     return Target(
-      element: element,
-      processIdentifier: processIdentifier,
-      bundleIdentifier: application?.bundleIdentifier,
-      isSecure: isSecureTextField(element),
-      displayID: displayID(for: element)
+      element: nil,
+      processIdentifier: application.processIdentifier,
+      isSecure: false,
+      displayID: nil
     )
   }
 
@@ -53,27 +91,30 @@ final class TextInsertionService {
       return
     }
 
-    guard let application = NSRunningApplication(
-      processIdentifier: target.processIdentifier
-    ), !application.isTerminated else {
+    guard dependencies.isProcessRunning(target.processIdentifier) else {
       copyToClipboard(text)
       return
     }
 
-    let route = target.bundleIdentifier.flatMap { routesByBundleIdentifier[$0] }
-    if route != .paste,
-       !Self.prefersPaste(bundleIdentifier: target.bundleIdentifier),
-       insertThroughAccessibility(text, target: target) {
-      remember(.accessibility, for: target.bundleIdentifier)
-      return
-    }
-
-    remember(.paste, for: target.bundleIdentifier)
-    guard isStillFocused(target) else {
+    guard dependencies.isTargetFocused(target) else {
       copyToClipboard(text)
       return
     }
-    await pasteAndRestoreClipboard(text)
+    await pasteAndRestoreClipboard(text, into: target)
+  }
+
+  private static func focusedElement() -> AXUIElement? {
+    let systemWideElement = AXUIElementCreateSystemWide()
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(
+      systemWideElement,
+      kAXFocusedUIElementAttribute as CFString,
+      &value
+    ) == .success,
+    let value else {
+      return nil
+    }
+    return (value as! AXUIElement)
   }
 
   private func isSecureTextField(_ element: AXUIElement) -> Bool {
@@ -153,37 +194,12 @@ final class TextInsertionService {
     return CGRect(origin: position, size: size)
   }
 
-  private func insertThroughAccessibility(_ text: String, target: Target) -> Bool {
-    var isSettable: DarwinBoolean = false
-    let settableResult = AXUIElementIsAttributeSettable(
-      target.element,
-      kAXSelectedTextAttribute as CFString,
-      &isSettable
-    )
-
-    guard settableResult == .success, isSettable.boolValue else { return false }
-
-    return AXUIElementSetAttributeValue(
-      target.element,
-      kAXSelectedTextAttribute as CFString,
-      text as CFString
-    ) == .success
-  }
-
-  nonisolated static func prefersPaste(bundleIdentifier: String?) -> Bool {
-    switch bundleIdentifier {
-    case "com.apple.Safari",
-         "com.brave.Browser",
-         "com.google.Chrome",
-         "company.thebrowser.dia",
-         "com.todesktop.230313mzl4w4u92":
-      return true
-    default:
-      return false
+  private static func isStillFocused(_ target: Target) -> Bool {
+    guard let targetElement = target.element else {
+      return NSWorkspace.shared.frontmostApplication?.processIdentifier
+        == target.processIdentifier
     }
-  }
 
-  private func isStillFocused(_ target: Target) -> Bool {
     let systemWideElement = AXUIElementCreateSystemWide()
     var value: CFTypeRef?
 
@@ -196,11 +212,11 @@ final class TextInsertionService {
       return false
     }
 
-    return CFEqual(value, target.element)
+    return CFEqual(value, targetElement)
   }
 
-  private func pasteAndRestoreClipboard(_ text: String) async {
-    let pasteboard = NSPasteboard.general
+  private func pasteAndRestoreClipboard(_ text: String, into target: Target) async {
+    let pasteboard = dependencies.pasteboard
     let sourceItems = pasteboard.pasteboardItems ?? []
     var savedItems: [NSPasteboardItem] = []
     savedItems.reserveCapacity(sourceItems.count)
@@ -219,9 +235,12 @@ final class TextInsertionService {
     pasteboard.setString(text, forType: .string)
     let insertedChangeCount = pasteboard.changeCount
 
-    postPasteShortcut()
-    try? await Task.sleep(for: .milliseconds(150))
+    guard dependencies.isTargetFocused(target),
+       dependencies.postPasteShortcut() else { return }
+    await dependencies.waitForPasteRead()
 
+    // Reads do not change changeCount. The delay gives asynchronous editors
+    // time to read; this guard protects newer clipboard contents.
     guard pasteboard.changeCount == insertedChangeCount else { return }
     pasteboard.clearContents()
     if !savedItems.isEmpty {
@@ -230,27 +249,23 @@ final class TextInsertionService {
   }
 
   private func copyToClipboard(_ text: String) {
-    let pasteboard = NSPasteboard.general
+    let pasteboard = dependencies.pasteboard
     pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
   }
 
-  private func postPasteShortcut() {
+  private static func postPasteShortcut() -> Bool {
     guard let source = CGEventSource(stateID: .combinedSessionState),
        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
-      return
+      return false
     }
 
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
-  }
-
-  private func remember(_ route: Route, for bundleIdentifier: String?) {
-    guard let bundleIdentifier else { return }
-    routesByBundleIdentifier[bundleIdentifier] = route
+    return true
   }
 }
 
