@@ -8,7 +8,7 @@ cask "talkify" do
   desc "Lightning-fast, local first voice dictation from the notch"
   homepage "https://github.com/tornikegomareli/Talkify"
 
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
   depends_on arch: :arm64
 
   app "Talkify.app"

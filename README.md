@@ -38,8 +38,13 @@ With Homebrew:
 
 ```bash
 brew tap tornikegomareli/talkify https://github.com/tornikegomareli/Talkify
+brew trust --tap tornikegomareli/talkify
 brew install --cask talkify
 ```
+
+Homebrew 6 refuses to load anything from a third-party tap until you trust it,
+so the middle line is required. It is asking whether you trust this repository;
+[read the cask](Casks/talkify.rb) first if you would rather check what it does.
 
 Or grab [**Talkify.dmg**](https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg) from the latest release.
 

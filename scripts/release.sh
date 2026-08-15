@@ -353,6 +353,8 @@ PREV_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
   echo
   echo '```'
   echo "brew tap tornikegomareli/talkify https://github.com/tornikegomareli/Talkify"
+  # Homebrew 6 will not load a cask from a third-party tap until it is trusted.
+  echo "brew trust --tap tornikegomareli/talkify"
   echo "brew install --cask talkify"
   echo '```'
   echo
