@@ -109,7 +109,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, and sound set
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, and sound volume
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
@@ -148,7 +148,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings section changes use a short crossfade or no transition, and Reduce Motion removes the transition
 - The Settings sidebar stays fixed while the selected section's content pane scrolls
 - Appearance controls are conditional: Waveform settings belong to Waveform, and Glow settings belong to Edge Glow; hidden values remain persisted
-- Sounds Preview plays the selected Begin and End pair; the Paste sound remains an internal insertion event
+- Sounds Preview plays the selected Begin and End pair at the chosen volume; the Paste sound remains an internal insertion event
 - Settings preserves its selected section and window frame while the app runs, and opens on Appearance after a fresh launch
 - The voice-reactive visual must make silence and a dead microphone look different
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
@@ -186,7 +186,7 @@ _Avoid_: Transcript history, cloud analytics
 - **Insights** never stores recognized text or target application identifiers
 - A completed **Direct Dictation** session with nonempty inserted text updates **Insights**
 - **Insights** shows words, sessions, speaking time, weighted words per minute, Voice Momentum, 14-day activity, streaks, and a 16-week heatmap
-- Settings lets the user choose the session sounds, the voice-reactive visual, the waveform style, and the edge glow's color palette
+- Settings lets the user choose the session sounds, mute them, adjust their volume, choose the voice-reactive visual, the waveform style, and the edge glow's color palette
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
 - Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
 - A marked-text input method (system-dictation-style provisional text in any field) remains a considered route, deferred: it needs a separate installable input-source bundle, System Settings enablement, and cross-process wiring
@@ -247,7 +247,7 @@ _Avoid_: Transcript history, cloud analytics
 - The custom Settings surface is a borderless AppKit window hosting SwiftUI, not a sheet attached to the status menu
 - Settings labels use the domain term Direct Dictation where scope matters and avoid Voice typing or Transcription
 - DirectDictationController creates Dictation session settings at session start and passes them to DictationHUDController
-- Direct Dictation uses the captured sound set for Begin, End, and Paste; Settings Preview reads the live AppSettings sound set only
+- Direct Dictation uses the captured sound set, enabled state, and volume for Begin, End, and Paste; Settings Preview reads the live AppSettings sound preferences
 - The session snapshot is captured after target and permission guards pass, immediately before the HUD begins listening
 - The borderless Settings header shows the close control on the leading edge (matching native macOS window controls) and centers the Talkify identity: the ghost icon and the app name
 - The sidebar retains the `SETTINGS` group label even when the header also shows Settings; it distinguishes navigation groups
@@ -261,8 +261,8 @@ _Avoid_: Transcript history, cloud analytics
 - The active-session notice text is: “Changes apply to the next Direct Dictation session.”
 - Sounds Preview disables itself while the Begin/End pair plays so repeated clicks cannot overlap playback
 - Sounds Preview waits for the selected Begin sound's actual duration before playing End
-- Changing the sound set stops an active preview before the next selection can play
-- Direct Dictation and Sounds Preview use the existing fixed playback level; Settings has no volume preference
+- Changing any sound preference stops an active preview before the next selection can play
+- Direct Dictation and Sounds Preview use the selected volume; Settings can mute all Direct Dictation sounds
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
 - The Appearance preview shows the picked **HUD size** directly, because the size applies on every display including the preview's notched reference

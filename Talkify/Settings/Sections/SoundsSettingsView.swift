@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The Sounds section: the session sound set and its begin/end preview.
+/// The Sounds section: session playback controls and the begin/end preview.
 /// Preview disables itself while playing, waits out the Begin sound's real
-/// duration, and a set change stops playback (CONTEXT.md).
+/// duration, and a preference change stops playback (CONTEXT.md).
 struct SoundsSettingsView: View {
   @Bindable var settings: AppSettings
   let sounds: DictationHUDSounds
@@ -12,6 +12,15 @@ struct SoundsSettingsView: View {
 
   var body: some View {
     SettingsCard(title: "Direct Dictation") {
+      SettingsRow(
+        title: "Play sounds",
+        description: "Play cues when dictation begins, ends, and inserts text"
+      ) {
+        Toggle("Play Direct Dictation sounds", isOn: $settings.dictationSoundsEnabled)
+          .labelsHidden()
+          .toggleStyle(.switch)
+      }
+
       SettingsPickerRow(
         title: "Sound set",
         description: "The sounds used when a session begins and ends",
@@ -19,6 +28,16 @@ struct SoundsSettingsView: View {
         optionLabel: { $0.rawValue },
         selection: $settings.soundSet
       )
+      .disabled(!settings.dictationSoundsEnabled)
+
+      SettingsSliderRow(
+        title: "Volume",
+        description: "The volume of all Direct Dictation sounds",
+        value: $settings.dictationSoundVolume,
+        range: DictationSoundSettings.volumeRange,
+        valueLabel: { "\(Int(($0 * 100).rounded()))%" }
+      )
+      .disabled(!settings.dictationSoundsEnabled)
 
       SettingsRow(
         title: "Preview",
@@ -31,11 +50,19 @@ struct SoundsSettingsView: View {
         }
         .buttonStyle(SettingsButtonStyle())
         .disabled(
-          isPreviewing || !sounds.hasPreviewSounds(for: settings.soundSet)
+          isPreviewing
+            || !settings.dictationSoundsEnabled
+            || !sounds.hasPreviewSounds(for: settings.soundSet)
         )
       }
     }
     .onChange(of: settings.soundSet) {
+      cancelPreview()
+    }
+    .onChange(of: settings.dictationSoundsEnabled) {
+      cancelPreview()
+    }
+    .onChange(of: settings.dictationSoundVolume) {
       cancelPreview()
     }
     .onDisappear {
@@ -44,15 +71,15 @@ struct SoundsSettingsView: View {
   }
 
   private func playPreview() {
-    let set = settings.soundSet
-    let delay = max(sounds.beginDuration(for: set), 0) + 0.1
+    let soundSettings = settings.sessionSettings.sounds
+    let delay = max(sounds.beginDuration(for: soundSettings.set), 0) + 0.1
     isPreviewing = true
-    sounds.playBegin(using: set)
+    sounds.playBegin(using: soundSettings)
 
     previewTask = Task { @MainActor in
       try? await Task.sleep(for: .seconds(delay))
       guard !Task.isCancelled else { return }
-      sounds.playEnd(using: set)
+      sounds.playEnd(using: soundSettings)
       isPreviewing = false
       previewTask = nil
     }

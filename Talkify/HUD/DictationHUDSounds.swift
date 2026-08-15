@@ -38,10 +38,28 @@ enum DictationSoundSet: String, CaseIterable {
   }
 }
 
+struct DictationSoundSettings: Equatable {
+  static let volumeRange = 0.0...1.0
+
+  let set: DictationSoundSet
+  let isEnabled: Bool
+  let volume: Double
+
+  init(set: DictationSoundSet, isEnabled: Bool, volume: Double) {
+    self.set = set
+    self.isEnabled = isEnabled
+    self.volume = Self.normalizedVolume(volume)
+  }
+
+  static func normalizedVolume(_ volume: Double) -> Double {
+    min(max(volume, volumeRange.lowerBound), volumeRange.upperBound)
+  }
+}
+
 /// The sounds that bracket a Direct Dictation session: begin when listening
 /// starts, end when the session closes, paste when text lands in the target.
-/// Callers supply the captured or live set. Assets reload lazily when that
-/// set changes.
+/// Callers supply captured or live sound settings. Assets reload lazily when
+/// the selected set changes.
 @MainActor
 final class DictationHUDSounds {
   private var loadedSet: DictationSoundSet?
@@ -49,16 +67,16 @@ final class DictationHUDSounds {
   private var end: NSSound?
   private var paste: NSSound?
 
-  func playBegin(using set: DictationSoundSet) {
-    play(\.begin, using: set)
+  func playBegin(using settings: DictationSoundSettings) {
+    play(\.begin, using: settings)
   }
 
-  func playEnd(using set: DictationSoundSet) {
-    play(\.end, using: set)
+  func playEnd(using settings: DictationSoundSettings) {
+    play(\.end, using: settings)
   }
 
-  func playPaste(using set: DictationSoundSet) {
-    play(\.paste, using: set)
+  func playPaste(using settings: DictationSoundSettings) {
+    play(\.paste, using: settings)
   }
 
   func beginDuration(for set: DictationSoundSet) -> TimeInterval {
@@ -79,12 +97,13 @@ final class DictationHUDSounds {
 
   private func play(
     _ sound: KeyPath<DictationHUDSounds, NSSound?>,
-    using set: DictationSoundSet
+    using settings: DictationSoundSettings
   ) {
-    loadIfNeeded(set)
+    guard settings.isEnabled else { return }
+    loadIfNeeded(settings.set)
     guard let sound = self[keyPath: sound] else { return }
     sound.stop()
-    sound.volume = 0.5
+    sound.volume = Float(settings.volume)
     sound.play()
   }
 

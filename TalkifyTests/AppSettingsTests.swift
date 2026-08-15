@@ -14,6 +14,8 @@ struct AppSettingsTests {
   @Test func emptyStoreYieldsDefaults() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.soundSet == .synth8)
+    #expect(settings.dictationSoundsEnabled)
+    #expect(settings.dictationSoundVolume == 0.5)
     #expect(settings.voiceVisual == .waveform)
     #expect(settings.waveformStyle == .chartLine)
     #expect(settings.revealStyle == .slide)
@@ -29,6 +31,8 @@ struct AppSettingsTests {
     let defaults = freshDefaults()
     let settings = AppSettings(defaults: defaults)
     settings.soundSet = .chime
+    settings.dictationSoundsEnabled = false
+    settings.dictationSoundVolume = 0.25
     settings.voiceVisual = .glow
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
@@ -48,6 +52,8 @@ struct AppSettingsTests {
 
     let reloaded = AppSettings(defaults: defaults)
     #expect(reloaded.soundSet == .chime)
+    #expect(!reloaded.dictationSoundsEnabled)
+    #expect(reloaded.dictationSoundVolume == 0.25)
     #expect(reloaded.voiceVisual == .glow)
     #expect(reloaded.waveformStyle == .dots)
     #expect(reloaded.revealStyle == .bloom)
@@ -58,10 +64,12 @@ struct AppSettingsTests {
     #expect(reloaded.readAloudBinding == f5Binding)
   }
 
-  @Test func storedKeysMatchTheHistoricalNames() {
+  @Test func preferencesUseStableStorageKeys() {
     let defaults = freshDefaults()
     let settings = AppSettings(defaults: defaults)
     settings.soundSet = .click
+    settings.dictationSoundsEnabled = false
+    settings.dictationSoundVolume = 0.2
     settings.voiceVisual = .glow
     settings.waveformStyle = .silver
     settings.revealStyle = .drift
@@ -69,6 +77,8 @@ struct AppSettingsTests {
     settings.readAloudVoiceID = "com.apple.voice.enhanced.en-GB.Jamie"
 
     #expect(defaults.string(forKey: "dictationSoundSet") == "Click")
+    #expect(defaults.object(forKey: "dictationSoundsEnabled") as? Bool == false)
+    #expect(defaults.double(forKey: "dictationSoundVolume") == 0.2)
     #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow")
     #expect(defaults.string(forKey: "hudWaveformStyle") == "Silver")
     #expect(defaults.string(forKey: "hudRevealStyle") == "Drift")
@@ -187,7 +197,7 @@ struct AppSettingsTests {
     settings.glowCenter = .siriOrb
     settings.hudScale = 0.6
 
-    #expect(snapshot.soundSet == .synth8)
+    #expect(snapshot.sounds.set == .synth8)
     #expect(snapshot.voiceVisual == .waveform)
     #expect(snapshot.waveformStyle == .chartLine)
     #expect(snapshot.revealStyle == .slide)
@@ -195,6 +205,22 @@ struct AppSettingsTests {
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
     #expect(snapshot.hudMetrics == .standard)
+  }
+
+  @Test func sessionSnapshotCapturesSoundPreferences() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.soundSet = .chime
+    settings.dictationSoundsEnabled = false
+    settings.dictationSoundVolume = 0.25
+
+    let snapshot = settings.sessionSettings
+    settings.soundSet = .click
+    settings.dictationSoundsEnabled = true
+    settings.dictationSoundVolume = 0.75
+
+    #expect(snapshot.sounds.set == .chime)
+    #expect(!snapshot.sounds.isEnabled)
+    #expect(snapshot.sounds.volume == 0.25)
   }
 
   /// The stored value is a plain number rather than a named case, so a
@@ -205,5 +231,27 @@ struct AppSettingsTests {
 
     let settings = AppSettings(defaults: defaults)
     #expect(settings.sessionSettings.hudMetrics.scale == HUDMetrics.minimumScale)
+  }
+
+  @Test func storedSoundVolumeOutsideTheRangeComesBackClamped() {
+    let defaults = freshDefaults()
+    defaults.set(1.4, forKey: "dictationSoundVolume")
+    #expect(AppSettings(defaults: defaults).dictationSoundVolume == 1)
+
+    defaults.set(-0.4, forKey: "dictationSoundVolume")
+    #expect(AppSettings(defaults: defaults).dictationSoundVolume == 0)
+  }
+
+  @Test func assignedSoundVolumeOutsideTheRangeIsClampedBeforePersistence() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+
+    settings.dictationSoundVolume = 1.4
+    #expect(settings.dictationSoundVolume == 1)
+    #expect(defaults.double(forKey: "dictationSoundVolume") == 1)
+
+    settings.dictationSoundVolume = -0.4
+    #expect(settings.dictationSoundVolume == 0)
+    #expect(defaults.double(forKey: "dictationSoundVolume") == 0)
   }
 }
