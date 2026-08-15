@@ -14,6 +14,7 @@ struct SettingsWindowTests {
         fileURL: FileManager.default.temporaryDirectory
           .appending(path: "TalkifySettingsWindowTests-" + UUID().uuidString + ".json")
       )),
+      vocabulary: VocabularyList(),
       updater: SparkleUpdaterService()
     )
     let window = try #require(controller.window)
@@ -29,7 +30,7 @@ struct SettingsWindowTests {
 
   @Test func settingsSectionsStayFocusedOnImplementedFeatures() {
     let expected: [SettingsSection] = [
-      .appearance, .sounds, .readAloud, .language, .shortcuts, .updates, .insights,
+      .appearance, .sounds, .readAloud, .language, .vocabulary, .shortcuts, .updates, .insights,
     ]
     #expect(SettingsSection.allCases == expected)
     #expect(SettingsSectionGroup.settings.sections == expected)
