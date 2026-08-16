@@ -18,8 +18,11 @@ struct DictationHUDShellView: View {
 
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
+  ///
+  /// Held to this display's floor: the picked size applies everywhere, except
+  /// where it would leave the shape narrower than the housing it descends from.
   private var metrics: HUDMetrics {
-    settings.hudMetrics
+    settings.hudMetrics.atLeast(HUDNotchGeometry.minimumScale(for: screen))
   }
 
   private var size: CGSize {

@@ -11,10 +11,15 @@ import CoreGraphics
 /// scales. The housing height is hardware on a notched display and menu-bar
 /// clearance everywhere else, and a fillet exists to meet a physical bezel.
 struct HUDMetrics: Equatable {
-  /// The smallest shape the user can pick. The shape still has to cover the
-  /// housing it descends from, and the widest measured notch is about 200
-  /// points wide — at this scale the shape is well clear of that.
-  static let minimumScale: CGFloat = 0.6
+  /// The smallest shape the user can pick.
+  ///
+  /// At this scale the shape is 216 points wide, which clears a 185-point
+  /// notch and both its fillets. A display reporting a wider housing than that
+  /// raises its own floor — see `HUDNotchGeometry.minimumScale(for:)` — so this
+  /// is the floor for the reference geometry and for every display without a
+  /// notch, which is where a smaller HUD is actually wanted: there every point
+  /// the shape covers is screen the user was working in.
+  static let minimumScale: CGFloat = 0.4
   static let maximumScale: CGFloat = 1
 
   /// The unscaled shape. The host window is sized from this, so the window
@@ -25,6 +30,12 @@ struct HUDMetrics: Equatable {
 
   init(scale: CGFloat) {
     self.scale = min(max(scale, Self.minimumScale), Self.maximumScale)
+  }
+
+  /// The same size, never smaller than `floor`. Used to hold a shape wide
+  /// enough for the housing of the display it is actually on.
+  func atLeast(_ floor: CGFloat) -> HUDMetrics {
+    scale >= floor ? self : HUDMetrics(scale: floor)
   }
 
   /// Width of the HUD shape; the housing sits centered inside it.

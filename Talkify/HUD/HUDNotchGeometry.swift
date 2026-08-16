@@ -69,6 +69,30 @@ enum HUDNotchGeometry {
     )
   }
 
+  /// Breathing room each side of the housing, so the shape reads as wider than
+  /// what it descends from rather than exactly as wide as it.
+  static let housingShoulder: CGFloat = 4
+
+  /// The smallest scale this display can show.
+  ///
+  /// A shape narrower than the housing stops reading as the notch growing and
+  /// becomes a tab floating under it, and its fillets land inside the cutout
+  /// where there is no bezel to flare into. So a measured notch sets its own
+  /// floor from its real width. A display without a notch has nothing to cover
+  /// and keeps the global minimum.
+  ///
+  /// This only ever raises the floor, and on the common notches it does not
+  /// raise it at all — it exists so an unusually wide housing cannot produce a
+  /// detached tab.
+  static func minimumScale(for screen: HUDScreenSnapshot) -> CGFloat {
+    guard hasMeasuredNotch(for: screen) else { return HUDMetrics.minimumScale }
+    let needed = closedSize(for: screen).width
+      + filletSize(for: screen) * 2
+      + housingShoulder * 2
+    let scale = needed / HUDMetrics.standard.contentWidth
+    return min(max(scale, HUDMetrics.minimumScale), HUDMetrics.maximumScale)
+  }
+
   /// Size of the concave corner that flares the shape into the bezel, and
   /// zero on a display with no housing to flare into — there the curve reads
   /// as two detached tabs (ADR-0001: the simulated notch omits fillets).

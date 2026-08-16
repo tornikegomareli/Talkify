@@ -29,4 +29,70 @@ struct HUDMetricsTests {
     #expect(HUDMetrics(scale: 4).scale == HUDMetrics.maximumScale)
     #expect(HUDMetrics(scale: 0).scale == HUDMetrics.minimumScale)
   }
+
+  @Test func atLeastRaisesASmallerScaleAndLeavesALargerOneAlone() {
+    #expect(HUDMetrics(scale: 0.4).atLeast(0.5).scale == 0.5)
+    #expect(HUDMetrics(scale: 0.8).atLeast(0.5).scale == 0.8)
+    #expect(HUDMetrics(scale: 0.5).atLeast(0.5).scale == 0.5)
+  }
+}
+
+/// The smallest HUD each display can show. The picked size applies everywhere
+/// except where it would leave the shape narrower than the housing it descends
+/// from, which reads as a tab floating under the notch.
+@Suite("Per-display HUD floor")
+struct HUDMinimumScaleTests {
+  private func screen(notchWidth: CGFloat?) -> HUDScreenSnapshot {
+    let width: CGFloat = 1512
+    guard let notchWidth else {
+      return HUDScreenSnapshot(
+        id: 2,
+        frame: CGRect(x: 0, y: 0, width: width, height: 982),
+        safeAreaTop: 0,
+        auxiliaryTopLeftArea: nil,
+        auxiliaryTopRightArea: nil
+      )
+    }
+    let side = (width - notchWidth) / 2
+    return HUDScreenSnapshot(
+      id: 1,
+      frame: CGRect(x: 0, y: 0, width: width, height: 982),
+      safeAreaTop: 32,
+      auxiliaryTopLeftArea: CGRect(x: 0, y: 0, width: side, height: 32),
+      auxiliaryTopRightArea: CGRect(x: width - side, y: 0, width: side, height: 32)
+    )
+  }
+
+  /// Where a smaller HUD is actually wanted: every point it covers is screen
+  /// the user was working in, and there is no housing to stay wider than.
+  @Test func aDisplayWithoutANotchKeepsTheGlobalMinimum() {
+    #expect(HUDNotchGeometry.minimumScale(for: screen(notchWidth: nil)) == HUDMetrics.minimumScale)
+  }
+
+  /// The common case. The floor must not rise here, or the Appearance preview
+  /// would stop following the slider partway down.
+  @Test func aStandardNotchDoesNotRaiseTheFloor() {
+    #expect(HUDNotchGeometry.minimumScale(for: screen(notchWidth: 185)) == HUDMetrics.minimumScale)
+  }
+
+  /// The case the per-display floor exists for.
+  @Test func anUnusuallyWideNotchRaisesItsOwnFloor() {
+    let floor = HUDNotchGeometry.minimumScale(for: screen(notchWidth: 240))
+    #expect(floor > HUDMetrics.minimumScale)
+
+    // Whatever it lands on has to actually cover the housing and its fillets.
+    let shapeWidth = HUDMetrics(scale: floor).contentWidth
+    #expect(shapeWidth >= 240 + 11 * 2)
+  }
+
+  /// Every notch the floor allows leaves the shape wider than its housing, so
+  /// the fillets always have bezel to flare into.
+  @Test(arguments: [140.0, 160.0, 185.0, 200.0, 220.0, 260.0])
+  func theShapeAlwaysCoversItsHousing(notchWidth: Double) {
+    let display = screen(notchWidth: notchWidth)
+    let floor = HUDNotchGeometry.minimumScale(for: display)
+    let shapeWidth = HUDMetrics(scale: floor).contentWidth
+    let housing = HUDNotchGeometry.closedSize(for: display).width
+    #expect(shapeWidth >= housing + HUDNotchGeometry.filletSize(for: display) * 2)
+  }
 }
