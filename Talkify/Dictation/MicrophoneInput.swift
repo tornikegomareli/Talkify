@@ -79,6 +79,11 @@ final class MicrophoneInput: @unchecked Sendable {
 
   func start(outputFormat: AVAudioFormat) throws {
     let inputNode = audioEngine.inputNode
+    let hardwareFormat = inputNode.inputFormat(forBus: 0)
+    guard Self.hasUsableHardwareInput(hardwareFormat) else {
+      throw InputError.unavailable
+    }
+
     let inputFormat = inputNode.outputFormat(forBus: 0)
     guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
       throw InputError.unavailable
@@ -107,6 +112,10 @@ final class MicrophoneInput: @unchecked Sendable {
       inputNode.removeTap(onBus: 0)
       throw error
     }
+  }
+
+  static func hasUsableHardwareInput(_ format: AVAudioFormat) -> Bool {
+    format.channelCount > 0 && format.sampleRate > 0
   }
 
   func stop() {
