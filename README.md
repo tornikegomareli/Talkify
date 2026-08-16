@@ -75,11 +75,41 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Dictate | Hold **fn**, speak, release |
 | Hands-free session | Quick-tap **fn**, speak, tap again to finish |
 | Dictate in your second language | Hold **right ⌥** instead |
+| Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Everything else | Menu bar ghost → Settings |
 
 The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**
+
+## Drop a file on the notch
+
+<p align="center">
+  <img src="docs/assets/drop-transcription.gif" width="90%" alt="A transcript card in the notch being dragged out and dropped straight into another app" />
+</p>
+
+Every other transcription app hands you a file picker. Talkify has a notch, so it
+can do something they cannot: pick up an audio or video file, drag it toward the
+top of the screen, and the island opens to receive it. The file goes in through
+the notch and the transcript comes back out of it.
+
+Drop it and the shape holds the file for a moment, so the gesture ends with the
+thing you dragged visibly inside the notch rather than with the notch vanishing.
+Then it transcribes in the background — **fn** keeps working the whole time, and
+the menu bar ghost fills as the job advances.
+
+When it finishes, the island comes back holding a card. Drag the card wherever
+you want the transcript and that drop *is* the save: a folder writes the `.txt`,
+a text field takes the words. Click it instead and the text goes to the
+clipboard. Ignore it and after five seconds it saves itself next to the source
+file, or into a folder you pick in **Settings → Drop Transcription**, and tells
+you where it went. Reaching for the card stops that countdown, so it waits as
+long as you need.
+
+Only audio and video open the target — the system is asked what the file is
+rather than matching extensions — and with a second dictation language
+configured the target splits in two, so the half you drop on chooses the
+language.
 
 ## Two languages, two keys
 
@@ -105,8 +135,9 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 
 - `App/` — composition root, settings store, status item
 - `Input/` — the global key event tap and recorded bindings
-- `Dictation/` — the session machine (`DictationSessionMachine`, a pure tested reducer) and the speech/insertion services
-- `HUD/` — geometry seams, the shell, the voice visuals, and all Metal shaders
+- `Dictation/` — the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
+- `DropTranscription/` — the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
+- `CoreHUD/` — what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
 
 `CONTEXT.md` is the domain doc, decisions live in `docs/adr/`
