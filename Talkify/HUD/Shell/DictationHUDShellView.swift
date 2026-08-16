@@ -19,32 +19,33 @@ struct DictationHUDShellView: View {
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
   ///
-  /// Held to two floors: this display's, so the shape never ends up narrower
-  /// than the housing it descends from, and the draft's, so a layout built
-  /// around live text never shrinks past reading it.
+  /// Held to two floors at once: this display's, so the shape never ends up
+  /// narrower than the housing it descends from, and the selected visual's, so
+  /// a layout built around live text never shrinks past reading it.
   static func metrics(
     picked: HUDMetrics,
     screen: HUDScreenSnapshot,
-    keepsDraftText: Bool
+    visual: HUDVoiceVisualStyle,
+    reduceMotion: Bool
   ) -> HUDMetrics {
-    picked
-      .atLeast(HUDNotchGeometry.minimumScale(for: screen))
-      .atLeast(HUDMetrics.minimumScale(showingDraftText: keepsDraftText))
+    HUDMetrics(
+      scale: max(
+        picked.scale,
+        max(
+          HUDNotchGeometry.minimumScale(for: screen),
+          HUDMetrics.minimumScale(for: visual, reduceMotion: reduceMotion)
+        )
+      )
+    )
   }
 
   private var metrics: HUDMetrics {
     Self.metrics(
       picked: settings.hudMetrics,
       screen: screen,
-      keepsDraftText: keepsDraftText
+      visual: settings.voiceVisual,
+      reduceMotion: reduceMotion
     )
-  }
-
-  /// Whether this session's layout is built around draft text. Read from the
-  /// session's own settings rather than from what the HUD happens to be
-  /// showing, so the shape cannot change size partway through a session.
-  private var keepsDraftText: Bool {
-    settings.voiceVisual == .compact || reduceMotion
   }
 
   private var size: CGSize {

@@ -11,14 +11,14 @@ import CoreGraphics
 /// scales. The housing height is hardware on a notched display and menu-bar
 /// clearance everywhere else, and a fillet exists to meet a physical bezel.
 struct HUDMetrics: Equatable {
-  /// The smallest shape the user can pick.
+  /// The smallest shape the user can pick: 108 points wide.
   ///
-  /// At this scale the shape is 216 points wide, which clears a 185-point
-  /// notch and both its fillets. A display reporting a wider housing than that
-  /// raises its own floor — see `HUDNotchGeometry.minimumScale(for:)` — so this
-  /// is the floor for the reference geometry and for every display without a
-  /// notch, which is where a smaller HUD is actually wanted: there every point
-  /// the shape covers is screen the user was working in.
+  /// This is narrower than any notch, and deliberately so. It is reachable on
+  /// a display that has no housing to cover, which is where a smaller HUD is
+  /// actually wanted — there every point the shape covers is screen the user
+  /// was working in. A display with a notch raises its own floor from what it
+  /// measures (`HUDNotchGeometry.minimumScale(for:)`), and a layout built
+  /// around draft text raises one of its own (`minimumReadableScale`).
   static let minimumScale: CGFloat = 0.2
   static let maximumScale: CGFloat = 1
 
@@ -27,11 +27,15 @@ struct HUDMetrics: Equatable {
   /// sizes beneath it are for the visuals that replace the draft entirely.
   static let minimumReadableScale: CGFloat = 0.4
 
-  /// The floor for a HUD that will be showing draft text. Compact is built
-  /// around the live draft, and Reduce Motion restores it for every visual, so
-  /// both stop where the text stops being legible.
-  static func minimumScale(showingDraftText: Bool) -> CGFloat {
-    showingDraftText ? minimumReadableScale : minimumScale
+  /// The floor for a given voice visual. Compact is built around the live
+  /// draft, and Reduce Motion restores the draft for every visual, so both stop
+  /// where the text stops being legible. Waveform and Edge Glow replace the
+  /// draft entirely and go all the way down.
+  ///
+  /// Read from the session's own settings rather than from what the HUD happens
+  /// to be showing, so a shape cannot change size partway through a session.
+  static func minimumScale(for visual: HUDVoiceVisualStyle, reduceMotion: Bool) -> CGFloat {
+    visual == .compact || reduceMotion ? minimumReadableScale : minimumScale
   }
 
   /// The unscaled shape. The host window is sized from this, so the window
@@ -44,11 +48,6 @@ struct HUDMetrics: Equatable {
     self.scale = min(max(scale, Self.minimumScale), Self.maximumScale)
   }
 
-  /// The same size, never smaller than `floor`. Used to hold a shape wide
-  /// enough for the housing of the display it is actually on.
-  func atLeast(_ floor: CGFloat) -> HUDMetrics {
-    scale >= floor ? self : HUDMetrics(scale: floor)
-  }
 
   /// Width of the HUD shape; the housing sits centered inside it.
   var contentWidth: CGFloat { 540 * scale }
