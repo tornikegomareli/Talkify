@@ -36,7 +36,14 @@ struct KeyRecorderView<Label: View>: View {
       onRecordingChanged(armed)
     }
     .onDisappear {
-      isRecording = false
+      // Torn down here rather than through the binding: `onChange` is not
+      // guaranteed to run for a view being removed, and a monitor that outlives
+      // its view swallows every keystroke in the window for good.
+      stopMonitor()
+      if isRecording {
+        isRecording = false
+        onRecordingChanged(false)
+      }
     }
   }
 
@@ -102,16 +109,20 @@ struct KeyRecorderView<Label: View>: View {
         return
       }
 
-      // Everything held except what this key itself contributes.
+      // fn outranks a plain modifier, so pressing fn and then adding ⌥ keeps
+      // fn as the key instead of rebinding to a bare ⌥.
+      let keyCode = KeyBinding.chordKey(existing: chord?.keyCode, pressed: Int64(event.keyCode))
+      // Everything held except what the bound key itself contributes.
       let others = event.modifierFlags
         .intersection([.command, .option, .control, .shift])
-        .subtracting(KeyBinding.cocoaModifier(forKeyCode: Int64(event.keyCode)))
+        .subtracting(KeyBinding.cocoaModifier(forKeyCode: keyCode))
       let symbols = KeyBinding.modifierSymbols(others)
+      let keyName = KeyBinding.modifierKeyName(forKeyCode: keyCode) ?? name
       chord = KeyBinding(
-        keyCode: Int64(event.keyCode),
+        keyCode: keyCode,
         modifierFlags: KeyBinding.cgFlags(from: others).rawValue,
         isModifierKey: true,
-        label: symbols.isEmpty ? name : "\(symbols) \(name)",
+        label: symbols.isEmpty ? keyName : "\(symbols) \(keyName)",
         keyEquivalent: ""
       )
 

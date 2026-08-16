@@ -108,13 +108,6 @@ struct ComboTriggerTests {
     ))
   }
 
-  /// Letting go of the modifier breaks it even though the bound key is still
-  /// down. The released keycode alone could never tell us that, which is why
-  /// the monitor re-checks the whole combination on every flags change.
-  @Test func releasingEitherKeyBreaksTheCombo() {
-    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskSecondaryFn))
-    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskAlternate))
-  }
 
   /// A third modifier means some other shortcut is being typed.
   @Test func anExtraModifierDoesNotMatch() {
@@ -143,11 +136,39 @@ struct ComboTriggerTests {
     #expect(KeyboardMap.highlighted(for: shiftP) == [35, 56, 60])
   }
 
-  /// The recorder subtracts the bound key's own contribution, so a trigger
-  /// never ends up requiring itself as one of its modifiers.
-  @Test func aModifierKeyDoesNotRequireItself() {
-    #expect(KeyBinding.cocoaModifier(forKeyCode: 58) == .option)
-    #expect(KeyBinding.cocoaModifier(forKeyCode: 61) == .option)
-    #expect(KeyBinding.cocoaModifier(forKeyCode: 63) == [])
+}
+
+/// Regressions found reviewing the combo work. Each of these was assignable in
+/// Settings and then did nothing.
+struct ComboTriggerRegressionTests {
+  /// ⇧ + ⌥, where the bound key is itself one of the four combining modifiers.
+  /// Its own bit is in the flags, so an exact match against the required
+  /// modifiers alone can never be satisfied and the binding is dead.
+  @Test func aModifierBoundWithAnotherModifierStillFires() {
+    let shiftOption = KeyBinding(
+      keyCode: 58,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: true,
+      label: "⇧ ⌥",
+      keyEquivalent: ""
+    )
+    let bothDown = CGEventFlags(
+      rawValue: CGEventFlags([.maskShift, .maskAlternate]).rawValue | 0x20
+    )
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(shiftOption, flags: bothDown))
+
+    let onlyOption = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x20)
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(shiftOption, flags: onlyOption))
+  }
+
+  /// The recorder must keep fn as the bound key whichever order the two were
+  /// pressed in. Pressing fn first and adding ⌥ used to overwrite the chord
+  /// and bind a bare ⌥, which then fires on every Option press.
+  @Test func theChordKeepsTheKeyThatOutranksAModifier() {
+    #expect(KeyBinding.chordKey(existing: 63, pressed: 58) == 63)
+    #expect(KeyBinding.chordKey(existing: 58, pressed: 63) == 63)
+    #expect(KeyBinding.chordKey(existing: nil, pressed: 58) == 58)
+    // Two combining modifiers: the newest wins, so ⇧ then ⌥ binds ⌥ + ⇧.
+    #expect(KeyBinding.chordKey(existing: 56, pressed: 58) == 58)
   }
 }

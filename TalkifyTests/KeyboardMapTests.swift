@@ -110,18 +110,6 @@ struct KeyboardMapTests {
     #expect(KeyboardMap.caps(for: odd, layout: KeyboardLayout(shape: .ansi, legends: [:])) == ["?"])
   }
 
-  /// Legends are only read for keys whose cap the input source can change; a
-  /// key drawn without a fixed glyph must be in that list or it renders blank.
-  @Test func everyLegendKeyIsRequestedFromTheLayout() {
-    let requested = Set(KeyboardMap.legendKeyCodes)
-    for shape in [KeyboardLayout.Shape.ansi, .iso, .jis] {
-      for row in KeyboardMap.rows(for: shape) {
-        for key in row where key.glyph == nil {
-          #expect(requested.contains(key.keyCode), "keycode \(key.keyCode) has no legend source")
-        }
-      }
-    }
-  }
 }
 
 /// Reading the real keyboard. These touch the live system, so they assert the

@@ -123,8 +123,13 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     stateLock.withLock {
       triggerBinding = trigger
       // A second trigger identical to the first would make the slot
-      // ambiguous, so the primary always wins and the second is dropped.
-      secondaryTriggerBinding = secondaryTrigger == trigger ? nil : secondaryTrigger
+      // ambiguous, so the primary always wins and the second is dropped. Only
+      // the keys matter here: the same binding recorded and clicked carries a
+      // different label, and comparing whole values would miss the clash.
+      let isDuplicate = secondaryTrigger.map {
+        $0.keyCode == trigger.keyCode && $0.modifierFlags == trigger.modifierFlags
+      } ?? false
+      secondaryTriggerBinding = isDuplicate ? nil : secondaryTrigger
       readAloudBinding = readAloud
       heldSlot = nil
     }
@@ -157,6 +162,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     if type == .flagsChanged {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
       var output: Event?
+      // Only the trigger's own key is swallowed. Eating a plain ⌥ release
+      // would leave every other app believing ⌥ is still held.
+      var matchedKeyCode: Int64?
 
       stateLock.withLock {
         // A held modifier trigger ends the moment its combination breaks,
@@ -165,23 +173,27 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
         if let held = heldSlot, let binding = heldModifierBinding(held) {
           guard !Self.isTriggerHeld(binding, flags: event.flags) else { return }
           heldSlot = nil
+          matchedKeyCode = binding.keyCode
           output = .triggerReleased(held)
           return
         }
 
-        // Another language's key is already held; ignore this one rather
-        // than starting a second session on top of the first.
-        guard heldSlot == nil,
-           let (slot, binding) = modifierTrigger(forKeyCode: keyCode),
-           Self.isTriggerHeld(binding, flags: event.flags)
+        // Whichever key completed the combination starts it, not only the
+        // bound one: holding fn and adding ⌥ arrives as an ⌥ event, and gating
+        // on the bound keycode would mean the session never starts.
+        //
+        // Another language's key already held wins, rather than starting a
+        // second session on top of the first.
+        guard heldSlot == nil, let (slot, binding) = satisfiedModifierTrigger(flags: event.flags)
         else { return }
         heldSlot = slot
+        matchedKeyCode = binding.keyCode
         output = .triggerPressed(slot)
       }
 
       if let output {
         handler(output)
-        return nil
+        return matchedKeyCode == keyCode ? nil : Unmanaged.passUnretained(event)
       }
       return Unmanaged.passUnretained(event)
     }
@@ -258,6 +270,19 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     return nil
   }
 
+  /// The modifier trigger these flags currently satisfy, primary first so it
+  /// wins any overlap. Called with `stateLock` held.
+  private func satisfiedModifierTrigger(flags: CGEventFlags) -> (TriggerSlot, KeyBinding)? {
+    if triggerBinding.isModifierKey, Self.isTriggerHeld(triggerBinding, flags: flags) {
+      return (.primary, triggerBinding)
+    }
+    if let secondary = secondaryTriggerBinding,
+     secondary.isModifierKey, Self.isTriggerHeld(secondary, flags: flags) {
+      return (.secondary, secondary)
+    }
+    return nil
+  }
+
   /// The binding behind a currently held slot, when it is a modifier trigger.
   /// A plain key has its own keyUp to end on, so it is not re-evaluated here.
   private func heldModifierBinding(_ slot: TriggerSlot) -> KeyBinding? {
@@ -297,8 +322,13 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
   /// Whether the whole trigger is down: the bound key, plus exactly the
   /// modifiers it was recorded with and no others.
+  ///
+  /// The bound key's own bit is subtracted first. ⇧ bound with ⌥ required puts
+  /// both bits in the flags, and comparing that against ⌥ alone could never
+  /// match — the binding would be assignable and permanently dead.
   static func isTriggerHeld(_ binding: KeyBinding, flags: CGEventFlags) -> Bool {
-    isModifierKeyDown(binding, flags: flags) && flagsMatch(flags, mask: binding.modifiers)
+    guard isModifierKeyDown(binding, flags: flags) else { return false }
+    return flagsMatch(flags.subtracting(binding.modifierKeyMask), mask: binding.modifiers)
   }
 
   /// Exact-modifier match: ⌥⎋ means Option and only Option; a bare key

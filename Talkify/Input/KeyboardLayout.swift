@@ -33,8 +33,8 @@ struct KeyboardLayout: Equatable {
   /// right when someone plugs in an external board. The legends come from the
   /// input source, so they change when the user switches language without any
   /// hardware changing at all.
-  static func current(keyCodes: [Int64] = KeyboardMap.legendKeyCodes) -> KeyboardLayout {
-    KeyboardLayout(shape: currentShape(), legends: currentLegends(for: keyCodes))
+  static func current() -> KeyboardLayout {
+    KeyboardLayout(shape: currentShape(), legends: currentLegends(for: KeyboardMap.legendKeyCodes))
   }
 
   private static func currentShape() -> Shape {

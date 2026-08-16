@@ -22,14 +22,18 @@ enum KeyboardMap {
   }
 
   /// Keycodes whose cap comes from the input source rather than a fixed glyph.
-  /// Everything the layout could relabel, and nothing it cannot.
-  static let legendKeyCodes: [Int64] = [
-    50, 18, 19, 20, 21, 23, 22, 26, 28, 25, 29, 27, 24,
-    12, 13, 14, 15, 17, 16, 32, 34, 31, 35, 33, 30, 42,
-    0, 1, 2, 3, 5, 4, 38, 40, 37, 41, 39,
-    6, 7, 8, 9, 11, 45, 46, 43, 47, 44,
-    10,
-  ]
+  /// Derived from the rows so the two can never drift apart.
+  static let legendKeyCodes: [Int64] = {
+    var codes: Set<Int64> = []
+    for shape in [KeyboardLayout.Shape.ansi, .iso, .jis] {
+      for row in rows(for: shape) {
+        for key in row where key.glyph == nil {
+          codes.insert(key.keyCode)
+        }
+      }
+    }
+    return Array(codes)
+  }()
 
   static func rows(for shape: KeyboardLayout.Shape) -> [[Key]] {
     [functionRow, numberRow(shape), upperRow(shape), homeRow(shape), lowerRow(shape), bottomRow]
@@ -82,18 +86,14 @@ enum KeyboardMap {
     Key(123, "←"), Key(126, "↑"), Key(125, "↓"), Key(124, "→"),
   ]
 
-  /// Fixed glyphs by keycode, taken from the drawn rows so a keycap in a list
-  /// and the same key on the keyboard never disagree.
-  private static let glyphs: [Int64: String] = {
-    var glyphs: [Int64: String] = [:]
-    for row in rows(for: .ansi) {
-      for key in row where key.glyph?.isEmpty == false {
-        glyphs[key.keyCode] = key.glyph
-      }
-    }
-    glyphs[49] = "space"
-    return glyphs
-  }()
+  /// Fixed glyphs by keycode, for the caps an input source cannot relabel.
+  private static let glyphs: [Int64: String] = [
+    53: "esc", 51: "⌫", 48: "⇥", 57: "caps", 36: "↩", 49: "space",
+    56: "⇧", 60: "⇧", 63: "fn", 59: "⌃", 62: "⌃", 58: "⌥", 61: "⌥",
+    55: "⌘", 54: "⌘", 123: "←", 126: "↑", 125: "↓", 124: "→",
+    122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+    98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
+  ]
 
   /// The keycaps a binding shows: its modifiers in the order macOS writes them,
   /// then the key itself. One cap per physical key, rather than one label with
@@ -142,19 +142,20 @@ enum KeyboardMap {
     // fn cannot be a required modifier, only a bound key.
     flags.remove(.maskSecondaryFn)
 
-    let binding = KeyBinding(
-      keyCode: keyCode,
-      modifierFlags: flags.rawValue,
-      isModifierKey: KeyBinding.modifierKeyName(forKeyCode: keyCode) != nil,
-      label: "",
-      keyEquivalent: ""
-    )
+    let isModifierKey = KeyBinding.modifierKeyName(forKeyCode: keyCode) != nil
+    var caps: [String] = []
+    if flags.contains(.maskControl) { caps.append("⌃") }
+    if flags.contains(.maskAlternate) { caps.append("⌥") }
+    if flags.contains(.maskShift) { caps.append("⇧") }
+    if flags.contains(.maskCommand) { caps.append("⌘") }
+    caps.append(cap(for: keyCode, layout: layout))
+
     return KeyBinding(
       keyCode: keyCode,
       modifierFlags: flags.rawValue,
-      isModifierKey: binding.isModifierKey,
-      label: caps(for: binding, layout: layout).joined(separator: " "),
-      keyEquivalent: binding.isModifierKey ? "" : (layout.legend(for: keyCode)?.lowercased() ?? "")
+      isModifierKey: isModifierKey,
+      label: caps.joined(separator: " "),
+      keyEquivalent: isModifierKey ? "" : (layout.legend(for: keyCode)?.lowercased() ?? "")
     )
   }
 

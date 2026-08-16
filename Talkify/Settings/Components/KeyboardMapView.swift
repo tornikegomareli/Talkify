@@ -18,8 +18,8 @@ struct KeyboardMapView: View {
 
   let layout: KeyboardLayout
   let highlights: [Highlight]
-  var unit: CGFloat = 26
-  var spacing: CGFloat = 3
+  private let unit: CGFloat = 26
+  private let spacing: CGFloat = 3
   /// Set while a binding is being assigned: the keys picked so far, and what
   /// happens when one is clicked. Nil leaves the drawing display-only.
   var picked: Set<Int64> = []

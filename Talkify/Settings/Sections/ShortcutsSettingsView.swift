@@ -19,12 +19,10 @@ struct ShortcutsSettingsView: View {
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  /// `startsArmed` exists so the armed appearance can be rendered without
-  /// driving a click; nothing in the app passes it.
-  init(settings: AppSettings, startsArmed: Bool = false) {
-    self.settings = settings
-    _armed = State(initialValue: startsArmed ? .dictation : nil)
-  }
+  /// Built once: a publisher constructed inside `body` is a new subscription
+  /// on every update.
+  private static let inputSourceChanges = DistributedNotificationCenter.default()
+    .publisher(for: KeyboardLayout.inputSourceChanged)
 
   /// Which binding a row belongs to. The colors are the lit keys' colors.
   private enum Role: Hashable {
@@ -49,11 +47,7 @@ struct ShortcutsSettingsView: View {
     .task {
       layout = KeyboardLayout.current()
     }
-    .onReceive(
-      DistributedNotificationCenter.default().publisher(
-        for: KeyboardLayout.inputSourceChanged
-      )
-    ) { _ in
+    .onReceive(Self.inputSourceChanges) { _ in
       layout = KeyboardLayout.current()
     }
   }
