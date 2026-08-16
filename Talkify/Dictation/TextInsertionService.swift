@@ -1,8 +1,20 @@
 import AppKit
 import ApplicationServices
+import os
 
 @MainActor
 final class TextInsertionService {
+  /// A value copy of one pasteboard item's ordered type payloads.
+  struct ClipboardItemSnapshot: Sendable {
+    /// One pasteboard type and its byte-for-byte payload.
+    struct Entry: Sendable {
+      let type: NSPasteboard.PasteboardType
+      let data: Data
+    }
+
+    let entries: [Entry]
+  }
+
   struct Target {
     fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
@@ -25,6 +37,10 @@ final class TextInsertionService {
 
   struct Dependencies {
     let pasteboard: NSPasteboard
+    /// Reads every pasteboard item without moving AppKit item objects across threads.
+    let readClipboardItems: @Sendable () -> [ClipboardItemSnapshot]
+    /// The total time allowed for one complete clipboard snapshot.
+    let snapshotTimeout: Duration
     let focusedElement: @MainActor () -> AXUIElement?
     let frontmostApplication: @MainActor () -> NSRunningApplication?
     let isProcessRunning: @MainActor (pid_t) -> Bool
@@ -33,8 +49,25 @@ final class TextInsertionService {
     let waitForPasteRead: @MainActor () async -> Void
 
     static var live: Self {
-      Self(
-        pasteboard: .general,
+      let pasteboard = NSPasteboard.general
+      // CFPasteboard supports background access, but AppKit does not declare
+      // NSPasteboard Sendable, so this same live instance needs an unsafe capture.
+      nonisolated(unsafe) let backgroundPasteboard = pasteboard
+
+      return Self(
+        pasteboard: pasteboard,
+        readClipboardItems: {
+          let sourceItems = backgroundPasteboard.pasteboardItems ?? []
+          return sourceItems.map { sourceItem in
+            let entries = sourceItem.types.compactMap { type in
+              sourceItem.data(forType: type).map {
+                ClipboardItemSnapshot.Entry(type: type, data: $0)
+              }
+            }
+            return ClipboardItemSnapshot(entries: entries)
+          }
+        },
+        snapshotTimeout: .milliseconds(300),
         focusedElement: TextInsertionService.focusedElement,
         frontmostApplication: { NSWorkspace.shared.frontmostApplication },
         isProcessRunning: { processIdentifier in
@@ -217,19 +250,7 @@ final class TextInsertionService {
 
   private func pasteAndRestoreClipboard(_ text: String, into target: Target) async {
     let pasteboard = dependencies.pasteboard
-    let sourceItems = pasteboard.pasteboardItems ?? []
-    var savedItems: [NSPasteboardItem] = []
-    savedItems.reserveCapacity(sourceItems.count)
-
-    for sourceItem in sourceItems {
-      let savedItem = NSPasteboardItem()
-      for type in sourceItem.types {
-        if let data = sourceItem.data(forType: type) {
-          savedItem.setData(data, forType: type)
-        }
-      }
-      savedItems.append(savedItem)
-    }
+    let savedItems = await snapshotClipboardItems()
 
     pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
@@ -242,9 +263,64 @@ final class TextInsertionService {
     // Reads do not change changeCount. The delay gives asynchronous editors
     // time to read; this guard protects newer clipboard contents.
     guard pasteboard.changeCount == insertedChangeCount else { return }
+
+    // A timeout has no complete value to restore, while an empty snapshot
+    // represents a clipboard that must be restored to empty.
+    guard let savedItems else { return }
     pasteboard.clearContents()
     if !savedItems.isEmpty {
-      pasteboard.writeObjects(savedItems)
+      let pasteboardItems = savedItems.map { snapshot in
+        let item = NSPasteboardItem()
+        for entry in snapshot.entries {
+          item.setData(entry.data, forType: entry.type)
+        }
+        return item
+      }
+      pasteboard.writeObjects(pasteboardItems)
+    }
+  }
+
+  /// Reads the clipboard away from the main actor within the configured budget.
+  ///
+  /// On timeout, the snapshot is abandoned and the private queue's thread may
+  /// stay blocked until the pasteboard daemon gives up or the owner responds.
+  /// This is intentional and bounds the app impact to one private thread per
+  /// unresponsive-owner attempt. A late read is discarded without resuming the
+  /// continuation again.
+  ///
+  /// - Returns: The complete ordered snapshot, or `nil` when the budget expires.
+  private func snapshotClipboardItems() async -> [ClipboardItemSnapshot]? {
+    let readClipboardItems = dependencies.readClipboardItems
+    let timeout = dependencies.snapshotTimeout
+    let completionLock = OSAllocatedUnfairLock(initialState: false)
+    let readQueue = DispatchQueue(
+      label: "com.tgomareli.Talkify.clipboard-snapshot",
+      qos: .userInitiated
+    )
+
+    return await withCheckedContinuation { continuation in
+      let complete: @Sendable ([ClipboardItemSnapshot]?) -> Void = { snapshot in
+        // The pasteboard read and timeout can finish together; only the winner
+        // owns the continuation.
+        let shouldResume = completionLock.withLock { didComplete in
+          if didComplete {
+            return false
+          }
+          didComplete = true
+          return true
+        }
+        if shouldResume {
+          continuation.resume(returning: snapshot)
+        }
+      }
+
+      readQueue.async {
+        complete(readClipboardItems())
+      }
+      Task {
+        try? await Task.sleep(for: timeout)
+        complete(nil)
+      }
     }
   }
 
