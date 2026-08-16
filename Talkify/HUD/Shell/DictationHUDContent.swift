@@ -23,6 +23,11 @@ final class DictationHUDContent {
   /// language is set up. Recognition in the wrong language returns confident
   /// nonsense rather than an error, so a two-key setup says which is live.
   var languageTag: String?
+  /// True from the moment the HUD starts retracting until it is off screen.
+  /// The layout is pinned to whatever it was showing: the voice visual stops
+  /// reacting so a glow can drain, but the bands must not resize underneath a
+  /// shape that is already sliding away.
+  var isDismissing = false
   /// Bumped once per session start; one-shot effects (the ripple) trigger
   /// on the change rather than on the listening state, so they never
   /// re-fire mid-session.

@@ -110,6 +110,8 @@ _Avoid_: Transcript history, cloud analytics
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
 - The HUD is the only surface for dictation status and error messages
 - HUD status and error messages dismiss themselves after about two seconds
+- The HUD writes nothing while it retracts and its bands do not resize: the shape leaves exactly as it stood, and its text and layout reset only once it is off screen
+- The wait between the last word and the recognized text is silent — no label stands in for it, and the voice visual comes to rest rather than reading the silence as a dead microphone
 - The HUD shows a live visual that reacts to microphone audio while listening
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation

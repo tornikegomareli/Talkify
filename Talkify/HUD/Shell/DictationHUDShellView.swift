@@ -65,7 +65,7 @@ struct DictationHUDShellView: View {
   /// waveform compresses to the slim strip so strip + wrapped text still
   /// fit the fixed window.
   private var visualBandHeight: CGFloat {
-    guard content.showsVoiceVisual else { return 0 }
+    guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     // Compact has no band of its own: its indicator lives inside the
     // text band, beside the draft.
@@ -77,8 +77,14 @@ struct DictationHUDShellView: View {
   /// listening; Compact is built around it. With Reduce Motion the draft
   /// text always shows.
   private var showsTextBand: Bool {
-    if !content.showsVoiceVisual || reduceMotion { return true }
+    if !keepsVisualLayout || reduceMotion { return true }
     return settings.voiceVisual == .compact
+  }
+
+  /// Whether the bands stay as a listening session laid them out. Held through
+  /// the retract so the shape never resizes while it is sliding away.
+  private var keepsVisualLayout: Bool {
+    content.showsVoiceVisual || content.isDismissing
   }
 
   /// Whether the text band renders the Compact layout: the voice indicator
