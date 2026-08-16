@@ -18,7 +18,7 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       }
@@ -41,7 +41,7 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {
         pasteboard.clearContents()
         pasteboard.setString("new clipboard", forType: .string)
@@ -65,7 +65,7 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { false },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {
         waitedForPasteRead = true
       }
@@ -89,7 +89,7 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {}
     ))
     await service.insert("dictated text", into: makeTarget())
@@ -115,7 +115,7 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {}
     ))
     await service.insert("dictated text", into: makeTarget())
@@ -139,7 +139,7 @@ struct TextInsertionServiceTests {
       },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {}
     ))
 
@@ -166,7 +166,7 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      postTypingText: { text in
+      postTypingChunk: { text in
         typedText = text
         return true
       },
@@ -190,7 +190,7 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      postTypingText: { _ in false },
+      postTypingChunk: { _ in false },
       waitForPasteRead: {}
     ))
     await service.insert("dictated text", into: makeTarget(), method: .typing)
@@ -208,7 +208,7 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in false },
       postPasteShortcut: { true },
-      postTypingText: { _ in
+      postTypingChunk: { _ in
         postedTyping = true
         return true
       },
@@ -218,6 +218,40 @@ struct TextInsertionServiceTests {
 
     #expect(!postedTyping)
     #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  @Test func focusLostMidStreamStopsTypingAndCopiesRemainder() async {
+    let pasteboard = makePasteboard()
+    var focusCheckCount = 0
+    var typedChunks: [String] = []
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in
+        focusCheckCount += 1
+        // insert() validates the focus boundary once before dispatching,
+        // then typeText revalidates before every chunk.
+        return focusCheckCount < 4
+      },
+      postPasteShortcut: { true },
+      postTypingChunk: { chunk in
+        typedChunks.append(chunk)
+        return true
+      },
+      waitForPasteRead: {}
+    ))
+    await service.insert(
+      String(repeating: "a", count: 45),
+      into: makeTarget(),
+      method: .typing
+    )
+
+    // Two 20-character chunks typed, then the focus check failed before
+    // the third: the undelivered remainder lands on the clipboard.
+    #expect(typedChunks == [String(repeating: "a", count: 20), String(repeating: "a", count: 20)])
+    #expect(pasteboard.string(forType: .string) == String(repeating: "a", count: 5))
   }
 
   private func makePasteboard() -> NSPasteboard {

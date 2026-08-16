@@ -33,8 +33,9 @@ struct InsertionSettingsView: View {
           "Paste works in most apps. Switch to Typing when an app ignores "
             + "dictated text or pastes it somewhere unexpected — terminals, "
             + "virtual machines, and some editors refuse pasted events but "
-            + "accept typed ones. Typing never touches the clipboard, and "
-            + "line breaks arrive as Return presses."
+            + "accept typed ones. Typing keeps your clipboard untouched, and "
+            + "line breaks arrive as Return presses; a text that cannot be "
+            + "typed lands on the clipboard instead."
         )
           .font(.caption)
           .foregroundStyle(.white.opacity(contrast == .increased ? 0.7 : 0.45))

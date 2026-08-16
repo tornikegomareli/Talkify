@@ -38,7 +38,7 @@ final class TextInsertionService {
     let isProcessRunning: @MainActor (pid_t) -> Bool
     let isTargetFocused: @MainActor (Target) -> Bool
     let postPasteShortcut: @MainActor () -> Bool
-    let postTypingText: @MainActor (String) -> Bool
+    let postTypingChunk: @MainActor (String) -> Bool
     let waitForPasteRead: @MainActor () async -> Void
 
     static var live: Self {
@@ -56,7 +56,7 @@ final class TextInsertionService {
         },
         isTargetFocused: TextInsertionService.isStillFocused,
         postPasteShortcut: TextInsertionService.postPasteShortcut,
-        postTypingText: TextInsertionService.postTypingText,
+        postTypingChunk: TextInsertionService.postTypingChunk,
         waitForPasteRead: {
           try? await Task.sleep(for: .milliseconds(500))
         }
@@ -120,12 +120,26 @@ final class TextInsertionService {
 
   /// Typing skips the clipboard entirely: the events land wherever the
   /// keyboard would, which is the whole point for apps that refuse pasted
-  /// text. A target that slipped away mid-session still gets nothing typed.
+  /// text. The focus boundary is revalidated before every chunk, so a
+  /// target that slips away mid-transcript stops the pass; whatever was
+  /// not yet delivered lands on the clipboard like every failed insertion.
   private func typeText(_ text: String, into target: Target) {
-    guard dependencies.isTargetFocused(target),
-       dependencies.postTypingText(text) else {
-      copyToClipboard(text)
-      return
+    var start = text.startIndex
+    while start < text.endIndex {
+      guard dependencies.isTargetFocused(target) else {
+        copyToClipboard(String(text[start..<text.endIndex]))
+        return
+      }
+
+      // Apps read only a few tens of characters per event before
+      // truncating, so the transcript goes out in chunks split on
+      // grapheme boundaries.
+      let end = text.index(start, offsetBy: 20, limitedBy: text.endIndex) ?? text.endIndex
+      guard dependencies.postTypingChunk(String(text[start..<end])) else {
+        copyToClipboard(String(text[start..<text.endIndex]))
+        return
+      }
+      start = end
     }
   }
 
@@ -294,29 +308,38 @@ final class TextInsertionService {
     return true
   }
 
-  /// Delivers text as Unicode keyboard events. The HID event carries a
-  /// string rather than real keycodes, so it types into any editor that
-  /// accepts a keyboard — including ones that reject synthetic ⌘V.
-  private static func postTypingText(_ text: String) -> Bool {
+  /// Posts one typing chunk as Unicode keyboard events. The HID event
+  /// carries a string rather than real keycodes, so it types into any
+  /// editor that accepts a keyboard — including ones that reject ⌘V.
+  /// Line breaks go out as explicit Return presses: editors that ignore
+  /// newlines embedded in a Unicode string still honor a Return key.
+  private static func postTypingChunk(_ chunk: String) -> Bool {
     guard let source = CGEventSource(stateID: .combinedSessionState) else {
       return false
     }
 
-    // Apps read only a few tens of characters per event before truncating,
-    // so the transcript goes out in chunks split on grapheme boundaries.
-    var start = text.startIndex
-    while start < text.endIndex {
-      let end = text.index(start, offsetBy: 20, limitedBy: text.endIndex) ?? text.endIndex
-      guard postTypingChunk(String(text[start..<end]), source: source) else {
+    var line = ""
+    for character in chunk {
+      if character == "\n" {
+        guard postUnicodeString(line, source: source),
+           postReturnKey(source: source) else {
+          return false
+        }
+        line = ""
+      } else {
+        line.append(character)
+      }
+    }
+    if !line.isEmpty {
+      guard postUnicodeString(line, source: source) else {
         return false
       }
-      start = end
     }
     return true
   }
 
-  private static func postTypingChunk(_ chunk: String, source: CGEventSource) -> Bool {
-    let characters = Array(chunk.utf16)
+  private static func postUnicodeString(_ string: String, source: CGEventSource) -> Bool {
+    let characters = Array(string.utf16)
     guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
       return false
@@ -331,6 +354,17 @@ final class TextInsertionService {
         stringLength: characters.count,
         unicodeString: buffer.baseAddress
       )
+    }
+
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
+  }
+
+  private static func postReturnKey(source: CGEventSource) -> Bool {
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false) else {
+      return false
     }
 
     keyDown.post(tap: .cghidEventTap)
