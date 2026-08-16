@@ -1,7 +1,7 @@
 # HUD anatomy
 
 Source: `Talkify/HUD/HUDMetrics.swift`, `Talkify/HUD/HUDNotchGeometry.swift`,
-`Talkify/HUD/Shell/DictationHUDShellView.swift`.
+`Talkify/Dictation/HUD/DictationHUDShellView.swift`.
 
 The HUD is a black shape that descends from the top center of a display and
 appears to grow out of the MacBook's notch. It is the app's primary surface.
@@ -99,7 +99,7 @@ appears on every Space. No private APIs anywhere.
 
 Historically none: the HUD ignored all mouse events and never took focus, so
 clicks passed straight through to whatever was behind it
-(`DictationHUDPanel.swift:25`).
+(`HUDPanel.swift`).
 
 This is changing for Drop Transcription. The HUD now accepts the mouse in
 exactly two states — while it is a drop target, and while it holds a finished

@@ -90,10 +90,9 @@ struct DropPipelineTests {
 
     let settings = AppSettings.previewStore()
     settings.recognitionLocaleIdentifier = "en-US"
-    let hudController = DictationHUDController(settings: settings)
     let controller = DropTranscriptionController(
       settings: settings,
-      hudController: hudController
+      hud: DropHUDController(stage: HUDStage(settings: settings))
     )
 
     let progress = ProgressRecorder()

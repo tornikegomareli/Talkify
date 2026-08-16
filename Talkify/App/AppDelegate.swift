@@ -5,6 +5,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settings: AppSettings?
   private var statusItemController: StatusItemController?
+  private var hudStage: HUDStage?
   private var hudController: DictationHUDController?
   private var dropTranscriptionController: DropTranscriptionController?
   private var dictationController: DirectDictationController?
@@ -26,7 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     let settings = AppSettings()
     self.settings = settings
-    let hudController = DictationHUDController(settings: settings)
+    // One shape, two features. The stage owns the window and hands it out;
+    // each feature's HUD controller only decides what its surface says.
+    let stage = HUDStage(settings: settings)
+    self.hudStage = stage
+    let hudController = DictationHUDController(stage: stage, settings: settings)
     let usageTracker = UsageTracker()
     let dictationController = DirectDictationController(
       settings: settings,
@@ -45,12 +50,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let dropTranscriptionController = DropTranscriptionController(
       settings: settings,
-      hudController: hudController
+      hud: DropHUDController(stage: stage)
     )
     self.dropTranscriptionController = dropTranscriptionController
     dropTranscriptionController.start()
-    dropTranscriptionController.onProgressChange = { [weak self] fraction in
-      self?.statusItemController?.setTranscriptionProgress(fraction)
+    dropTranscriptionController.onProgressChange = { [weak self, weak settings] fraction in
+      self?.statusItemController?.setTranscriptionProgress(
+        fraction,
+        accent: settings?.sessionSettings.dropAccent ?? SettingsTheme.accentColor
+      )
     }
 
     let statusItemController = StatusItemController(
@@ -150,6 +158,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationWillTerminate(_ notification: Notification) {
     dictationController?.stop()
+    // A transcript the HUD is still offering only exists in its staging folder,
+    // so quitting writes it out rather than losing it.
+    dropTranscriptionController?.commitOfferedTranscript()
   }
 
   private func showSettings() {
@@ -157,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     if settingsWindowController == nil {
       settingsWindowController = SettingsWindowController(
         settings: settings,
-        sounds: DictationHUDSounds(),
+        sounds: HUDSounds(),
         runtimeState: settingsRuntimeState,
         usageTracker: usageTracker,
         updater: updaterService

@@ -41,7 +41,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
   var subtitle: String {
     switch self {
     case .appearance: "Customize the Direct Dictation HUD"
-    case .sounds: "Choose and preview Direct Dictation sounds"
+    case .sounds: "Choose and preview the session sounds"
     case .dropTranscription: "Transcribe audio and video files"
     case .readAloud: "Choose the voice that reads selected text"
     case .language: "Pick your dictation languages and their keys"

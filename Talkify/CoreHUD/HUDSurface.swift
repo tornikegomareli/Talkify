@@ -25,6 +25,24 @@ struct HUDSurface<Content: View, Overlays: View>: View {
   /// ripple is disabled.
   var rippleTrigger: Int = 0
   var rippleEnabled: Bool = false
+  /// Grows the shape out of the housing instead of moving a full-size shape
+  /// into place, and overrides `revealStyle` entirely where it is on.
+  ///
+  /// This is how Drop Transcription opens and closes, after NotchDrop: closed,
+  /// the black really is the size of the housing; open, it is the full shape;
+  /// and a spring with overshoot carries it between the two. It belongs to the
+  /// drop surfaces alone — dictation is a status surface, not a target, and
+  /// keeps the reveal styles the user picks between.
+  var growsFromHousing: Bool = false
+  /// Clips the content to the shape.
+  ///
+  /// Off by default: the dictation visuals bloom past the silhouette on
+  /// purpose. The Drop Transcription surfaces want the opposite — their well
+  /// and its border are laid out against a width that is still animating, and
+  /// without this they can be drawn outside the black for a frame or two,
+  /// which reads as a glitch on a shape whose whole job is to look like
+  /// hardware.
+  var clipsContent: Bool = false
   @ViewBuilder let content: Content
   @ViewBuilder let overlays: Overlays
 
@@ -34,16 +52,49 @@ struct HUDSurface<Content: View, Overlays: View>: View {
 
   private var housingShape: UnevenRoundedRectangle {
     UnevenRoundedRectangle(
-      bottomLeadingRadius: metrics.bottomCornerRadius,
-      bottomTrailingRadius: metrics.bottomCornerRadius,
+      bottomLeadingRadius: cornerRadius,
+      bottomTrailingRadius: cornerRadius,
       style: .continuous
     )
   }
 
+  /// Collapsed into the housing, the corners are nearly square (NotchDrop:
+  /// 8 closed, 32 open).
+  private var cornerRadius: CGFloat {
+    isCollapsedIntoHousing ? 8 : metrics.bottomCornerRadius
+  }
+
+  private var isCollapsedIntoHousing: Bool {
+    growsFromHousing && !isRevealed
+  }
+
+  private var renderedSize: CGSize {
+    isCollapsedIntoHousing ? HUDNotchGeometry.closedSize(for: screen) : size
+  }
+
+  /// Growing from the housing, the content exists only while the shape is open
+  /// and flies in from behind it, which is NotchDrop's transition exactly.
+  @ViewBuilder
+  private var contentLayer: some View {
+    if growsFromHousing {
+      Group {
+        if isRevealed { content }
+      }
+      .transition(
+        .scale
+          .combined(with: .opacity)
+          .combined(with: .offset(y: -size.height / 2))
+      )
+    } else {
+      content
+    }
+  }
+
   var body: some View {
-    content
-      .frame(width: size.width)
-      .frame(minHeight: size.height, alignment: .top)
+    contentLayer
+      .frame(width: renderedSize.width)
+      .frame(minHeight: renderedSize.height, alignment: .top)
+      .clipShape(clipsContent ? AnyShape(housingShape) : AnyShape(Rectangle()))
       .background { housing }
       .overlay { overlays }
       .overlay(alignment: .topLeading) { fillet(.leading) }
@@ -55,8 +106,10 @@ struct HUDSurface<Content: View, Overlays: View>: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
   }
 
+  /// Growing from the housing never parks: there is no transform to hide the
+  /// shape with, because the shape itself is the animation.
   private var isParked: Bool {
-    !isRevealed && !reduceMotion
+    !isRevealed && !reduceMotion && !growsFromHousing
   }
 
   /// Where position moves at all, hidden means at or above the window's top
@@ -83,18 +136,27 @@ struct HUDSurface<Content: View, Overlays: View>: View {
     if reduceMotion {
       return isRevealed ? 1 : 0
     }
+    // Growing from the housing never fades: the shape is always there, it is
+    // just the size of the housing when closed, which is what makes it read as
+    // the notch itself.
+    if growsFromHousing { return 1 }
     switch revealStyle {
     case .slide, .unfurl: return 1
     case .bloom, .drift: return isRevealed ? 1 : 0
     }
   }
 
-  /// Bounce lives only in top-anchored scale (unfurl, bloom); the styles that
-  /// move position (slide, drift) stay bounce-free, because a position
-  /// overshoot would detach the shape from the screen edge.
+  /// Bounce lives only in top-anchored scale (unfurl, bloom) or in the shape's
+  /// own size (growing from the housing); the styles that move position (slide,
+  /// drift) stay bounce-free, because a position overshoot would detach the
+  /// shape from the screen edge.
   private var revealAnimation: Animation {
     if reduceMotion {
       return Self.reducedMotionFade
+    }
+    // NotchDrop's spring, verbatim, in both directions — it is symmetric there.
+    if growsFromHousing {
+      return .interactiveSpring(duration: 0.5, extraBounce: 0.25, blendDuration: 0.125)
     }
     if isRevealed {
       switch revealStyle {
@@ -163,6 +225,8 @@ extension HUDSurface where Overlays == EmptyView {
     revealStyle: HUDRevealStyle,
     isRevealed: Bool,
     size: CGSize,
+    growsFromHousing: Bool = false,
+    clipsContent: Bool = false,
     @ViewBuilder content: () -> Content
   ) {
     self.init(
@@ -171,6 +235,8 @@ extension HUDSurface where Overlays == EmptyView {
       revealStyle: revealStyle,
       isRevealed: isRevealed,
       size: size,
+      growsFromHousing: growsFromHousing,
+      clipsContent: clipsContent,
       content: content,
       overlays: { EmptyView() }
     )

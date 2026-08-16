@@ -1,17 +1,19 @@
 import AppKit
 import SwiftUI
 
-/// The Drop Transcription section: where a finished transcript is written, and
-/// a reminder of the gesture that produces one.
+/// The Drop Transcription section: where a transcript nobody caught is written,
+/// and a reminder of the gesture that produces one.
 struct DropTranscriptionSettingsView: View {
   @Bindable var settings: AppSettings
 
   var body: some View {
     VStack(spacing: 16) {
+      DropPreviewCard(settings: settings)
+
       SettingsCard(title: "Transcripts") {
         SettingsPickerRow(
           title: "Save to",
-          description: "Where a finished transcript is written",
+          description: "Where a transcript goes when you don't drag it out of the HUD",
           options: TranscriptDestination.Preference.allCases,
           optionLabel: { $0.rawValue },
           selection: $settings.transcriptDestination
@@ -33,7 +35,8 @@ struct DropTranscriptionSettingsView: View {
           title: "Drag to the notch",
           description: "Drag an audio or video file to the top of the screen "
             + "and the HUD opens to take it. When it finishes, drag the "
-            + "transcript straight out of the HUD."
+            + "transcript out of the HUD to wherever you want it, or click it "
+            + "to copy the text. Leave it and it saves itself."
         ) {
           EmptyView()
         }

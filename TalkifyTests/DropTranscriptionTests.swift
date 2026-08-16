@@ -257,9 +257,10 @@ struct DropTranscriptionSettingsTests {
 
 @Suite("Transcript card numbers")
 struct TranscriptCardTests {
-  private func card(words: Int, seconds: TimeInterval) -> HUDDropContent.Transcript {
-    HUDDropContent.Transcript(
+  private func card(words: Int, seconds: TimeInterval) -> DropHUDContent.Transcript {
+    DropHUDContent.Transcript(
       url: URL(filePath: "/tmp/memo.txt"),
+      text: "",
       wordCount: words,
       duration: seconds
     )
@@ -277,6 +278,118 @@ struct TranscriptCardTests {
   @Test func oneWordIsNotPluralised() {
     #expect(card(words: 1, seconds: 0).wordCountText == "1 word")
     #expect(card(words: 2, seconds: 0).wordCountText.hasSuffix("words"))
+  }
+}
+
+@Suite("Staged transcripts")
+struct StagedTranscriptTests {
+  private let source = URL(filePath: "/Users/x/Recordings/memo.m4a")
+
+  /// Each test gets its own staging root and its own destination, and both are
+  /// real directories: staging, moving and cleaning up are the behavior under
+  /// test, so faking the filesystem would test nothing.
+  private func scratch(_ name: String) throws -> URL {
+    let directory = URL.temporaryDirectory
+      .appending(path: "TalkifyTests-\(name)-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
+  }
+
+  /// Staged under the name it will keep, so what the user drags is already
+  /// called what it will be called wherever they drop it.
+  @Test func stagingKeepsTheNameTheTranscriptWillHave() throws {
+    let root = try scratch("name")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let staged = try StagedTranscript.stage(text: "one two", source: source, root: root)
+
+    #expect(staged.url.lastPathComponent == "memo.txt")
+    #expect(try String(contentsOf: staged.url, encoding: .utf8) == "one two")
+  }
+
+  /// Two jobs can hold the same source name, and neither may see the other's
+  /// file, so each stages into a folder of its own.
+  @Test func twoStagedTranscriptsDoNotCollide() throws {
+    let root = try scratch("collide")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let first = try StagedTranscript.stage(text: "first", source: source, root: root)
+    let second = try StagedTranscript.stage(text: "second", source: source, root: root)
+
+    #expect(first.url != second.url)
+    #expect(try String(contentsOf: first.url, encoding: .utf8) == "first")
+    #expect(try String(contentsOf: second.url, encoding: .utf8) == "second")
+  }
+
+  /// Committing is what happens when the card is not taken: the file moves to
+  /// the Save-to location and the staging folder goes away.
+  @Test func committingMovesTheFileAndClearsTheStagingFolder() throws {
+    let root = try scratch("commit")
+    let folder = try scratch("commit-destination")
+    defer {
+      try? FileManager.default.removeItem(at: root)
+      try? FileManager.default.removeItem(at: folder)
+    }
+
+    let staged = try StagedTranscript.stage(text: "kept", source: source, root: root)
+    let destination = try staged.commit(preference: .chosenFolder, chosenFolder: folder)
+
+    #expect(destination.lastPathComponent == "memo.txt")
+    #expect(destination.deletingLastPathComponent().path == folder.path)
+    #expect(try String(contentsOf: destination, encoding: .utf8) == "kept")
+    #expect(!FileManager.default.fileExists(atPath: staged.url.path))
+    #expect(!FileManager.default.fileExists(atPath: staged.url.deletingLastPathComponent().path))
+  }
+
+  /// The second run of a file is usually the one being compared against the
+  /// first, so committing must never overwrite an earlier transcript.
+  @Test func committingOverAnExistingTranscriptUniquesTheName() throws {
+    let root = try scratch("unique")
+    let folder = try scratch("unique-destination")
+    defer {
+      try? FileManager.default.removeItem(at: root)
+      try? FileManager.default.removeItem(at: folder)
+    }
+    try "earlier".write(to: folder.appending(path: "memo.txt"), atomically: true, encoding: .utf8)
+
+    let staged = try StagedTranscript.stage(text: "later", source: source, root: root)
+    let destination = try staged.commit(preference: .chosenFolder, chosenFolder: folder)
+
+    #expect(destination.lastPathComponent == "memo-2.txt")
+  }
+
+  /// Discarding is what happens when a drag lands: the transcript is the
+  /// user's now, wherever they put it, and Talkify keeps no copy (CONTEXT.md).
+  @Test func discardingRemovesEverythingStaged() throws {
+    let root = try scratch("discard")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let staged = try StagedTranscript.stage(text: "gone", source: source, root: root)
+    staged.discard()
+
+    #expect(!FileManager.default.fileExists(atPath: staged.url.deletingLastPathComponent().path))
+    // Called again after a drag already moved the file out, which is the usual
+    // case on a same-volume destination.
+    staged.discard()
+  }
+}
+
+@MainActor
+@Suite("Drop HUD symbols")
+struct DropHUDSymbolTests {
+  /// SF Symbol names are strings the compiler never sees. A name that does not
+  /// resolve draws nothing at all, which is invisible in a diff and obvious on
+  /// screen, so every name the drop surfaces use is checked against this Mac.
+  @Test(arguments: [
+    DropHUDStyle.transcriptSymbol,
+    "waveform",
+    "arrow.up.forward",
+    "hand.point.up.left.fill",
+    "checkmark.circle.fill",
+    "folder.fill",
+  ])
+  func everySymbolTheDropHUDUsesResolves(name: String) {
+    #expect(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil)
   }
 }
 

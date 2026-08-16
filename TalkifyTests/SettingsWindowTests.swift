@@ -8,7 +8,7 @@ struct SettingsWindowTests {
     let settings = AppSettings.previewStore()
     let controller = SettingsWindowController(
       settings: settings,
-      sounds: DictationHUDSounds(),
+      sounds: HUDSounds(),
       runtimeState: SettingsRuntimeState(),
       usageTracker: UsageTracker(store: UsageStore(
         fileURL: FileManager.default.temporaryDirectory

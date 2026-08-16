@@ -14,52 +14,15 @@ struct SettingsPreviewCard: View {
   @State private var demoTask: Task<Void, Never>?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        VStack(alignment: .leading, spacing: 3) {
-          Text("Live preview")
-            .font(.system(size: 14, weight: .semibold))
-          Text("Changes appear here immediately")
-            .font(.caption)
-            .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.48))
-        }
-        Spacer()
-        Circle()
-          .fill(SettingsTheme.accent)
-          .frame(width: 7, height: 7)
-          .shadow(color: SettingsTheme.accent, radius: reduceMotion ? 0 : 7)
-      }
-
-      ZStack(alignment: .top) {
-        LinearGradient(
-          colors: [Color(red: 0.055, green: 0.065, blue: 0.09), .black],
-          startPoint: .top,
-          endPoint: .bottom
-        )
-
-        simulatedMenuBar
-
-        DictationHUDShellView(
-          screen: HUDPreviewScreen.notched,
-          settings: settings.sessionSettings,
-          content: content
-        )
-        .scaleEffect(0.48, anchor: .top)
-        .frame(width: 300, height: 105, alignment: .top)
-        .clipped()
-      }
-      .frame(height: 118)
-      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .stroke(.white.opacity(contrast == .increased ? 0.2 : 0.07), lineWidth: 1)
-      }
-    }
-    .padding(16)
-    .background(SettingsTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .stroke(.white.opacity(contrast == .increased ? 0.22 : 0.1), lineWidth: 1)
+    SettingsPreviewStage(
+      title: "Live preview",
+      subtitle: "Changes appear here immediately"
+    ) {
+      DictationHUDShellView(
+        screen: HUDPreviewScreen.notched,
+        settings: settings.sessionSettings,
+        content: content
+      )
     }
     // The preview idles in a revealed listening state, where these two
     // picks have nothing to show: reveal style only exists during the
@@ -94,37 +57,6 @@ struct SettingsPreviewCard: View {
         try? await Task.sleep(for: .milliseconds(70))
       }
     }
-  }
-
-  /// A simulated menu bar strip so the shape reads as a notch at the top
-  /// of a display: matches the housing strip's scaled height, with the
-  /// Talkify ghost among the status items. The shell's black housing
-  /// draws over its center.
-  private var simulatedMenuBar: some View {
-    HStack(spacing: 0) {
-      HStack(spacing: 7) {
-        Image(systemName: "apple.logo")
-          .font(.system(size: 8))
-        Text("Finder")
-          .font(.system(size: 8.5, weight: .semibold))
-      }
-      Spacer()
-      HStack(spacing: 8) {
-        Image("MenuBarIcon")
-          .renderingMode(.template)
-          .resizable()
-          .scaledToFit()
-          .frame(height: 8.5)
-        Image(systemName: "wifi")
-          .font(.system(size: 8))
-        Text("11:41")
-          .font(.system(size: 8.5, weight: .medium))
-      }
-    }
-    .foregroundStyle(.white.opacity(0.55))
-    .padding(.horizontal, 10)
-    .frame(height: 15.4)
-    .background(.white.opacity(0.05))
   }
 
   /// Replays the reveal: retract, wait out the dismiss, descend again with

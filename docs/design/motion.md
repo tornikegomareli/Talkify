@@ -1,8 +1,8 @@
 # Motion
 
-Source: `Talkify/HUD/Shell/DictationHUDShellView.swift`,
-`Talkify/HUD/Shell/HUDRevealStyle.swift`,
-`Talkify/HUD/Visuals/HUDCompactIndicatorView.swift`.
+Source: `Talkify/Dictation/HUD/DictationHUDShellView.swift`,
+`Talkify/HUD/HUDRevealStyle.swift`,
+`Talkify/Dictation/HUD/Visuals/HUDCompactIndicatorView.swift`.
 
 Every animation in the app, with its real values. If a new surface needs
 motion, take a spring from this list rather than inventing one.
@@ -30,6 +30,8 @@ animation.
 | Bloom | `scale: 0.55`, opacity 0 | `.spring(0.4, bounce: 0.25)` | `.spring(0.28, bounce: 0)` |
 | Drift | `y: -14`, opacity 0 | `.easeOut(0.24)` | `.easeIn(0.18)` |
 
+These four are the dictation picks, and the only reveal styles that exist.
+
 Slide arrives from outside the screen edge. Unfurl unrolls downward out of
 the housing and settles back — the bounciest of the set. Bloom inflates from
 the housing while fading in. Drift barely moves and is the most understated.
@@ -44,6 +46,52 @@ Scale is always anchored `.top`.
 | Draft text growing downward | `.spring(0.25, bounce: 0)` |
 | Compact indicator settling to rest | `.easeOut(0.25)` |
 | Reduce Motion, all reveals | `.easeOut(0.12)` fade |
+
+## Drop Transcription
+
+The drop surfaces ignore the reveal styles above entirely. They grow out of the
+housing instead (`HUDSurface.growsFromHousing`): closed, the black really is
+the size of the housing at an 8pt radius; open, it is the full shape at the
+usual radius, and one spring carries it between the two. The content exists
+only while open and arrives on `.scale + .opacity + .offset(y: -height/2)`.
+
+That is NotchDrop's approach and its spring. It is not offered to dictation —
+the notch opening is the Drop Transcription gesture, and dictation's shape is a
+status surface rather than a target.
+
+| What | Animation |
+| --- | --- |
+| Every size the shape takes | `.interactiveSpring(0.5, extraBounce: 0.25, blendDuration: 0.125)` |
+| Hint ↔ target content | crossfade, carried by the same spring |
+| The held file arriving | `.opacity` + `.scale` |
+| Everything else — card, notice, retract | no animation of its own |
+
+`extraBounce` is the whole point: the shape passes its new size and settles
+back into it, which is what makes the notch read as snapping open rather than
+resizing. Applying that spring only to the reveal, as this first did, hides the
+effect exactly where it is most visible — the peek growing into the target.
+
+Two traps, both of which produced real defects:
+
+**The size animation belongs on the surface, not in its content.** `HUDSurface`
+applies the size as a frame *around* the content handed to it, so an animation
+attached inside that content never reaches the frame — the shape jumps while
+the words inside it animate.
+
+**A reveal needs one drawn frame in the parked state.** `HUDRootView` swaps
+between the dictation shell and the drop shape on `mode`, so the shell is
+always mounted and its reveal animates against a frame that already exists;
+the drop shape is inserted into the tree at the same moment it is asked to
+open, and a view that has never rendered has nothing to animate from. Forcing
+layout does not fix it and there is no callback for "SwiftUI has drawn", so
+`HUDStage.revealDrop()` waits one display cycle before flipping. Without it the
+transcript card opened with no animation at all while the target sprang
+correctly.
+
+Four attempts at animating the moment between the drop and the card were
+rejected; `FEATURE.md` lists them. Read that before proposing motion here.
+
+Reduce Motion: no spring, no transitions — the sizes change instantly.
 
 ## Audio-reactive timing
 

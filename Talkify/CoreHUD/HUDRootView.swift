@@ -7,9 +7,9 @@ struct HUDRootView: View {
   let screen: HUDScreenSnapshot
   let settings: DictationSessionSettings
   let content: DictationHUDContent
-  let drop: HUDDropContent
-  var onDrop: (URL, Int) -> Bool = { _, _ in false }
-  var onHoverCard: (Bool) -> Void = { _ in }
+  let drop: DropHUDContent
+  var onDrop: (Int) -> Void = { _ in }
+  var onCardEvent: (HUDCardEvent) -> Void = { _ in }
 
   var body: some View {
     if drop.mode == .none {
@@ -20,7 +20,7 @@ struct HUDRootView: View {
         settings: settings,
         drop: drop,
         onDrop: onDrop,
-        onHoverCard: onHoverCard
+        onCardEvent: onCardEvent
       )
     }
   }
