@@ -205,7 +205,7 @@ _Avoid_: Transcript history, cloud analytics
 - A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first
 - The Shortcuts section draws the user's own keyboard above the recorders, with each binding's keys lit in its own color, because which keys are still free is a question about a physical object that a list of labels cannot answer
 - The drawn keyboard takes its shape from the attached keyboard and its legends from the selected input source, so it matches the board in front of the user rather than a US one: an ISO board puts § left of 1, moves the backtick beside left ⇧ and runs Return down two rows, and an AZERTY or Georgian source relabels the same keys
-- The drawn keyboard relabels itself when the input source changes while Settings is open
+- The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label
 - A JIS keyboard is drawn with ISO geometry until its extra keys can be checked on real hardware; its legends are still its own
 - A binding lights both sides of every modifier it requires, because either one satisfies it, and the keyboard is display-only — bindings are still recorded by pressing keys, not by clicking the drawing
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored

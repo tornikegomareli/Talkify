@@ -29,16 +29,19 @@ struct ShortcutsSettingsView: View {
 
   var body: some View {
     VStack(spacing: 16) {
-      SettingsCard(title: "Your keyboard") {
-        VStack(alignment: .leading, spacing: 10) {
-          KeyboardMapView(layout: layout, highlights: highlights)
-            .frame(maxWidth: .infinity, alignment: .center)
-          Text(layoutCaption)
-            .font(.caption)
-            .foregroundStyle(.white.opacity(0.4))
+      // Untitled: the drawing says what it is, and the lit keys are the label.
+      KeyboardMapView(layout: layout, highlights: highlights)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 16)
+        .background(
+          SettingsTheme.card,
+          in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay {
+          RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(.white.opacity(0.09), lineWidth: 1)
         }
-        .padding(.vertical, 12)
-      }
 
       SettingsCard(title: "Keys") {
         recorderRow(
@@ -114,16 +117,5 @@ struct ShortcutsSettingsView: View {
       color: role.color,
       isEmphasized: hovered == role || hovered == nil
     )
-  }
-
-  /// Names what is being drawn, because a keyboard that quietly differs from
-  /// the one on the desk is worse than no keyboard at all.
-  private var layoutCaption: String {
-    let shape = switch layout.shape {
-    case .ansi: "ANSI"
-    case .iso: "ISO"
-    case .jis: "JIS"
-    }
-    return "Drawn from your \(shape) keyboard and current input source."
   }
 }
