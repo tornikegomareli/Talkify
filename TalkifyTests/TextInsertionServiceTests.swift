@@ -705,7 +705,12 @@ struct TextInsertionServiceTests {
     let busySkipDuration = busySkipStarted.duration(to: .now)
 
     #expect(secondOutcome == .unavailable)
-    #expect(busySkipDuration < .milliseconds(50))
+    // A generous ceiling on purpose. What proves the busy path did not queue
+    // behind the stuck read is that it returned at all: the first read is held
+    // open until `releaseReader()`, so an implementation that waited for it
+    // would hang here rather than come back slowly. A tight bound measures the
+    // runner's load instead, which failed this test on CI at 50ms.
+    #expect(busySkipDuration < .seconds(2))
     #expect(readCount.withLock { $0 } == 1)
     #expect(postedPasteCount.withLock { $0 } == 0)
     #expect(pastedTexts.withLock { $0 }.isEmpty)
@@ -719,8 +724,18 @@ struct TextInsertionServiceTests {
 
     releaseReader()
     #expect(wait(for: readerReturned, timeout: .now() + 1) == .success)
-    try? await Task.sleep(for: .milliseconds(10))
-    let recoveryOutcome = await insert("third dictated text")
+    // The reader signals from inside the read closure, so the lease is still
+    // held for a moment after it. Retrying rather than sleeping a fixed 10ms
+    // keeps this from depending on how fast the machine gets there; a refused
+    // attempt reads nothing and posts nothing, so the counts below still only
+    // count the recovery.
+    var recoveryOutcome = TextInsertionService.InsertionOutcome.unavailable
+    for _ in 0..<200 where recoveryOutcome == .unavailable {
+      recoveryOutcome = await insert("third dictated text")
+      if recoveryOutcome == .unavailable {
+        try? await Task.sleep(for: .milliseconds(10))
+      }
+    }
 
     #expect(recoveryOutcome == .inserted)
     #expect(readCount.withLock { $0 } == 2)
