@@ -17,6 +17,15 @@ struct ShortcutsSettingsView: View {
   @State private var armed: Role?
   @State private var picked: [Int64] = []
 
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  /// `startsArmed` exists so the armed appearance can be rendered without
+  /// driving a click; nothing in the app passes it.
+  init(settings: AppSettings, startsArmed: Bool = false) {
+    self.settings = settings
+    _armed = State(initialValue: startsArmed ? .dictation : nil)
+  }
+
   /// Which binding a row belongs to. The colors are the lit keys' colors.
   private enum Role: Hashable {
     case dictation
@@ -68,10 +77,22 @@ struct ShortcutsSettingsView: View {
       in: RoundedRectangle(cornerRadius: 16, style: .continuous)
     )
     .overlay {
+      // Armed, the border lights: nothing else on screen says the drawing
+      // just became something you can click.
       RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .stroke(.white.opacity(0.09), lineWidth: 1)
+        .stroke(
+          isArmed ? SettingsTheme.accent.opacity(0.85) : .white.opacity(0.09),
+          lineWidth: isArmed ? 1.5 : 1
+        )
     }
+    .shadow(
+      color: isArmed ? SettingsTheme.accent.opacity(0.28) : .clear,
+      radius: isArmed ? 12 : 0
+    )
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isArmed)
   }
+
+  private var isArmed: Bool { armed != nil }
 
   private var keysCard: some View {
     SettingsCard(title: "Keys") {

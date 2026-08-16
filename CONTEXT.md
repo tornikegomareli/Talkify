@@ -209,6 +209,7 @@ _Avoid_: Transcript history, cloud analytics
 - A JIS keyboard is drawn with ISO geometry until its extra keys can be checked on real hardware; its legends are still its own
 - A binding lights both sides of every modifier it requires, because either one satisfies it
 - Arming a row makes the drawn keyboard live: clicking a modifier holds it for the combination, clicking anything else finishes the binding, and a row with only modifiers picked offers a control to use them as they are
+- The keyboard's border lights in the accent while a row is armed, because nothing else on screen says the drawing has become something that can be clicked
 - Clicking is a second way to assign, not a replacement for pressing: it is the only way to assign a combination the recorder cannot capture, because the system or another application swallows it before Talkify sees it
 - Each binding is a row whose keys are drawn as one cap per physical key on the leading edge, modifiers first in the order macOS writes them, and whose description names those keys in the sentence that says what they do
 - The whole row is the recorder: clicking anywhere in it arms, and while armed the caps collapse to one placeholder and the description says what to press

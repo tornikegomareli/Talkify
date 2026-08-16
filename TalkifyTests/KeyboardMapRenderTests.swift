@@ -60,6 +60,28 @@ struct KeyboardMapRenderTests {
 @MainActor
 @Suite("Shortcut row rendering")
 struct ShortcutRowRenderTests {
+  /// Armed: the keyboard's border lights so the drawing reads as clickable.
+  @Test func theArmedSectionDraws() throws {
+    let store = AppSettings.previewStore()
+    let view = ShortcutsSettingsView(settings: store, startsArmed: true)
+      .frame(width: 560)
+      .padding(20)
+      .background(SettingsTheme.background)
+
+    let renderer = ImageRenderer(content: view)
+    renderer.scale = 2
+    let image = try #require(renderer.cgImage)
+    #expect(image.width > 0)
+
+    guard let directory = ProcessInfo.processInfo.environment["TALKIFY_RENDER_DIR"]
+      .map({ URL(filePath: $0) })
+    else { return }
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    if let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+      try data.write(to: directory.appending(path: "shortcuts-armed.png"))
+    }
+  }
+
   @Test func theSectionDraws() throws {
     let store = AppSettings.previewStore()
     store.dictationTriggerBinding = KeyBinding(
