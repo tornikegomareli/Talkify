@@ -20,8 +20,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/settings-appearance.jpg" width="45%" alt="Settings — Appearance, with a live HUD preview" />
-  <img src="docs/assets/settings-insights.jpg" width="45%" alt="Settings — Insights, computed and stored locally" />
+  <img src="docs/assets/settings-appearance.jpg" width="45%" alt="Settings: Appearance, with a live HUD preview" />
+  <img src="docs/assets/settings-insights.jpg" width="45%" alt="Settings: Insights, computed and stored locally" />
 </p>
 
 ## Privacy
@@ -85,31 +85,22 @@ The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcu
 ## Drop a file on the notch
 
 <p align="center">
-  <img src="docs/assets/drop-transcription.gif" width="90%" alt="A transcript card in the notch being dragged out and dropped straight into another app" />
+  <img src="docs/assets/drop-transcription.gif" width="90%" alt="A transcript card in the notch being dragged out and dropped into another app" />
 </p>
 
-Every other transcription app hands you a file picker. Talkify has a notch, so it
-can do something they cannot: pick up an audio or video file, drag it toward the
-top of the screen, and the island opens to receive it. The file goes in through
-the notch and the transcript comes back out of it.
+Drag an audio or video file to the top of the screen and the island opens to
+take it. It transcribes in the background, so **fn** keeps working, and the menu
+bar ghost shows progress.
 
-Drop it and the shape holds the file for a moment, so the gesture ends with the
-thing you dragged visibly inside the notch rather than with the notch vanishing.
-Then it transcribes in the background — **fn** keeps working the whole time, and
-the menu bar ghost fills as the job advances.
+When it finishes the island comes back holding the transcript. Drag it where you
+want it: a folder writes the `.txt`, a text field takes the words. Click it to
+copy the text instead. Leave it and after five seconds it saves next to the
+source file, or into a folder you set in **Settings → Drop Transcription**.
+Hovering pauses that timer.
 
-When it finishes, the island comes back holding a card. Drag the card wherever
-you want the transcript and that drop *is* the save: a folder writes the `.txt`,
-a text field takes the words. Click it instead and the text goes to the
-clipboard. Ignore it and after five seconds it saves itself next to the source
-file, or into a folder you pick in **Settings → Drop Transcription**, and tells
-you where it went. Reaching for the card stops that countdown, so it waits as
-long as you need.
-
-Only audio and video open the target — the system is asked what the file is
-rather than matching extensions — and with a second dictation language
-configured the target splits in two, so the half you drop on chooses the
-language.
+With a second dictation language configured, the target splits in two and the
+half you drop on picks the language. **Transcribe File…** in the menu does the
+same with a picker.
 
 ## Two languages, two keys
 
@@ -133,20 +124,20 @@ its model once, with progress shown in Settings and in the notch.
 
 Code is organized into folders, callbacks only flow one way from the main wiring point, and a pure reducer handles the state.
 
-- `App/` — composition root, settings store, status item
-- `Input/` — the global key event tap and recorded bindings
-- `Dictation/` — the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
-- `DropTranscription/` — the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
-- `CoreHUD/` — what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
+- `App/`: composition root, settings store, status item
+- `Input/`: the global key event tap and recorded bindings
+- `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
+- `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
+- `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
 
 `CONTEXT.md` is the domain doc, decisions live in `docs/adr/`
 
 ## Roadmap
 
-- **Live Captions & Meeting Transcripts** — ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
-- **Text cleanup** — optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
-- **Snippets** — saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
+- **Live Captions & Meeting Transcripts**. Ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
+- **Text cleanup**. Optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
+- **Snippets**. Saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
 
 ## License
 [MIT](LICENSE)
