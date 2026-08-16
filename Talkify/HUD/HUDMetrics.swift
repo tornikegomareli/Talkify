@@ -19,7 +19,7 @@ struct HUDMetrics: Equatable {
   /// is the floor for the reference geometry and for every display without a
   /// notch, which is where a smaller HUD is actually wanted: there every point
   /// the shape covers is screen the user was working in.
-  static let minimumScale: CGFloat = 0.4
+  static let minimumScale: CGFloat = 0.2
   static let maximumScale: CGFloat = 1
 
   /// The unscaled shape. The host window is sized from this, so the window

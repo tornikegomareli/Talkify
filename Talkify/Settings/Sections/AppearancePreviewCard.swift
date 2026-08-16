@@ -13,6 +13,21 @@ struct SettingsPreviewCard: View {
   /// Runs the one-shot demos below; a new demo cancels the previous one.
   @State private var demoTask: Task<Void, Never>?
 
+  /// The display the preview stands in for. Normally a notched MacBook, but a
+  /// notch cannot show the smallest HUD sizes — a shape narrower than the
+  /// housing would read as a tab floating under it — and those sizes exist for
+  /// displays without one. So the preview switches to that reference rather
+  /// than clamping, which would leave the bottom of the slider looking dead.
+  private var previewScreen: HUDScreenSnapshot {
+    let notched = HUDPreviewScreen.notched
+    return CGFloat(settings.hudScale) < HUDNotchGeometry.minimumScale(for: notched)
+      ? HUDPreviewScreen.external
+      : notched
+  }
+
+  /// Exposed so a test can assert the preview keeps following the slider.
+  var previewScreenForTesting: HUDScreenSnapshot { previewScreen }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
@@ -40,7 +55,7 @@ struct SettingsPreviewCard: View {
         simulatedMenuBar
 
         DictationHUDShellView(
-          screen: HUDPreviewScreen.notched,
+          screen: previewScreen,
           settings: settings.sessionSettings,
           content: content
         )

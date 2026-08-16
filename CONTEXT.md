@@ -96,7 +96,7 @@ _Avoid_: Transcript history, cloud analytics
 - The simulated notch omits the corner fillets that hug a physical housing
 - The HUD behaves identically on every display; only the notch measurement differs
 - **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
-- **HUD size** is a Settings slider from 40% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
 - A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing it descends from plus its fillets: a shape narrower than its housing reads as a tab floating under the notch, and its fillets land inside the cutout with no bezel to meet
 - The floor only ever rises, never falls, and the common notch widths do not raise it at all; a display with no notch keeps the slider's own minimum, which is where a smaller HUD is wanted because every point the shape covers is screen the user was working in
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
@@ -267,7 +267,7 @@ _Avoid_: Transcript history, cloud analytics
 - Direct Dictation and Sounds Preview use the selected volume; Settings can mute all Direct Dictation sounds
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
-- The Appearance preview shows the picked **HUD size** directly, because the size applies on every display including the preview's notched reference
+- The Appearance preview shows the picked **HUD size** directly, standing in for a notched MacBook until the picked size is one a notch cannot show and for a display without a notch below that, so every step of the slider changes something visible
 - The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 

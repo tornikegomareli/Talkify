@@ -69,20 +69,21 @@ struct HUDMinimumScaleTests {
     #expect(HUDNotchGeometry.minimumScale(for: screen(notchWidth: nil)) == HUDMetrics.minimumScale)
   }
 
-  /// The common case. The floor must not rise here, or the Appearance preview
-  /// would stop following the slider partway down.
-  @Test func aStandardNotchDoesNotRaiseTheFloor() {
-    #expect(HUDNotchGeometry.minimumScale(for: screen(notchWidth: 185)) == HUDMetrics.minimumScale)
+  /// A notch cannot show the smallest sizes, so it floors itself well above
+  /// the slider's minimum. The Appearance preview switches to a display
+  /// without a notch below this point rather than clamping.
+  @Test func aNotchedDisplayFloorsItselfAboveTheSliderMinimum() {
+    let floor = HUDNotchGeometry.minimumScale(for: screen(notchWidth: 185))
+    #expect(floor > HUDMetrics.minimumScale)
+    #expect(HUDMetrics(scale: floor).contentWidth >= 185 + 11 * 2)
   }
 
-  /// The case the per-display floor exists for.
-  @Test func anUnusuallyWideNotchRaisesItsOwnFloor() {
-    let floor = HUDNotchGeometry.minimumScale(for: screen(notchWidth: 240))
-    #expect(floor > HUDMetrics.minimumScale)
-
-    // Whatever it lands on has to actually cover the housing and its fillets.
-    let shapeWidth = HUDMetrics(scale: floor).contentWidth
-    #expect(shapeWidth >= 240 + 11 * 2)
+  /// A wider housing floors itself higher still.
+  @Test func aWiderNotchRaisesTheFloorFurther() {
+    let standard = HUDNotchGeometry.minimumScale(for: screen(notchWidth: 185))
+    let wide = HUDNotchGeometry.minimumScale(for: screen(notchWidth: 240))
+    #expect(wide > standard)
+    #expect(HUDMetrics(scale: wide).contentWidth >= 240 + 11 * 2)
   }
 
   /// Every notch the floor allows leaves the shape wider than its housing, so
