@@ -30,6 +30,39 @@ struct HUDMetricsTests {
     #expect(HUDMetrics(scale: 0).scale == HUDMetrics.minimumScale)
   }
 
+  /// The draft is 15 points at full size, so the readable floor has to leave
+  /// it at 6 — anything under that is not text anyone reads.
+  @Test func theReadableFloorKeepsTheDraftAtSixPoints() {
+    let smallest = HUDMetrics(scale: HUDMetrics.minimumReadableScale)
+    #expect(15 * smallest.scale >= 6)
+    #expect(HUDMetrics.minimumReadableScale > HUDMetrics.minimumScale)
+  }
+
+  @Test func showingDraftTextRaisesTheFloor() {
+    #expect(HUDMetrics.minimumScale(showingDraftText: true) == HUDMetrics.minimumReadableScale)
+    #expect(HUDMetrics.minimumScale(showingDraftText: false) == HUDMetrics.minimumScale)
+  }
+
+  /// Compact is the only visual built around the live draft, so it is the only
+  /// one that gives up the smallest sizes. Reduce Motion restores the draft for
+  /// every visual and takes them away from all three.
+  @Test func onlyCompactGivesUpTheSmallestSizes() {
+    #expect(
+      AppearanceSettingsView.smallestSize(for: .compact, reduceMotion: false)
+        == HUDMetrics.minimumReadableScale
+    )
+    for visual in [HUDVoiceVisualStyle.waveform, .glow] {
+      #expect(
+        AppearanceSettingsView.smallestSize(for: visual, reduceMotion: false)
+          == HUDMetrics.minimumScale
+      )
+      #expect(
+        AppearanceSettingsView.smallestSize(for: visual, reduceMotion: true)
+          == HUDMetrics.minimumReadableScale
+      )
+    }
+  }
+
   @Test func atLeastRaisesASmallerScaleAndLeavesALargerOneAlone() {
     #expect(HUDMetrics(scale: 0.4).atLeast(0.5).scale == 0.5)
     #expect(HUDMetrics(scale: 0.8).atLeast(0.5).scale == 0.8)

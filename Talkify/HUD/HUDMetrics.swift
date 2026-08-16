@@ -22,6 +22,18 @@ struct HUDMetrics: Equatable {
   static let minimumScale: CGFloat = 0.2
   static let maximumScale: CGFloat = 1
 
+  /// The smallest size that still leaves the draft readable. Below this the
+  /// 15-point draft falls under 6 points, which is not text anyone reads — the
+  /// sizes beneath it are for the visuals that replace the draft entirely.
+  static let minimumReadableScale: CGFloat = 0.4
+
+  /// The floor for a HUD that will be showing draft text. Compact is built
+  /// around the live draft, and Reduce Motion restores it for every visual, so
+  /// both stop where the text stops being legible.
+  static func minimumScale(showingDraftText: Bool) -> CGFloat {
+    showingDraftText ? minimumReadableScale : minimumScale
+  }
+
   /// The unscaled shape. The host window is sized from this, so the window
   /// stays fixed while the shape inside it changes size.
   static let standard = HUDMetrics(scale: 1)

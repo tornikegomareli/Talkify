@@ -39,6 +39,38 @@ struct HUDSmallScaleRenderTests {
     #expect(notchedFloor > HUDMetrics.minimumScale)
   }
 
+  /// A layout built around the live draft is held at the readable floor
+  /// however small the stored size is, and one that replaces the draft is not.
+  @Test func onlyADraftLayoutIsHeldAtTheReadableFloor() {
+    func scale(keepsDraftText: Bool, picked: Double) -> CGFloat {
+      DictationHUDShellView.metrics(
+        picked: HUDMetrics(scale: picked),
+        screen: externalScreen,
+        keepsDraftText: keepsDraftText
+      ).scale
+    }
+
+    #expect(scale(keepsDraftText: true, picked: 0.2) == HUDMetrics.minimumReadableScale)
+    #expect(scale(keepsDraftText: true, picked: 0.3) == HUDMetrics.minimumReadableScale)
+    #expect(scale(keepsDraftText: true, picked: 0.7) == 0.7)
+    #expect(scale(keepsDraftText: false, picked: 0.2) == HUDMetrics.minimumScale)
+  }
+
+  /// Both floors apply at once, and the higher one wins. A notched display
+  /// already floors above the readable floor, so the draft never decides there.
+  @Test func theHigherOfTheTwoFloorsWins() {
+    let notched = HUDPreviewScreen.notched
+    let housingFloor = HUDNotchGeometry.minimumScale(for: notched)
+    let scale = DictationHUDShellView.metrics(
+      picked: HUDMetrics(scale: HUDMetrics.minimumScale),
+      screen: notched,
+      keepsDraftText: true
+    ).scale
+
+    #expect(scale == max(housingFloor, HUDMetrics.minimumReadableScale))
+    #expect(scale >= HUDMetrics.minimumReadableScale)
+  }
+
   @Test(arguments: [0.4, 0.3, 0.25, 0.2])
   func aSmallHUDStillRendersOnADisplayWithoutANotch(scale: Double) throws {
     let store = AppSettings.previewStore()

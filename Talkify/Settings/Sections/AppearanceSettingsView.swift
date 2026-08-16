@@ -6,10 +6,20 @@ import SwiftUI
 struct AppearanceSettingsView: View {
   @Bindable var settings: AppSettings
 
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   /// Which conditional rows the selected visual exposes; hidden values
   /// stay persisted (CONTEXT.md).
   static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .waveform
+  }
+
+  /// Compact is built around the live draft, so it stops where that text stops
+  /// being readable; Reduce Motion restores the draft for every visual and
+  /// stops in the same place. The other visuals replace the draft entirely and
+  /// can go all the way down.
+  static func smallestSize(for visual: HUDVoiceVisualStyle, reduceMotion: Bool) -> CGFloat {
+    HUDMetrics.minimumScale(showingDraftText: visual == .compact || reduceMotion)
   }
 
   static func showsGlowOptions(for visual: HUDVoiceVisualStyle) -> Bool {
@@ -63,7 +73,9 @@ struct AppearanceSettingsView: View {
           title: "HUD size",
           description: "How much room the HUD takes on screen",
           value: $settings.hudScale,
-          range: Double(HUDMetrics.minimumScale)...Double(HUDMetrics.maximumScale),
+          range: Double(
+            Self.smallestSize(for: settings.voiceVisual, reduceMotion: reduceMotion)
+          )...Double(HUDMetrics.maximumScale),
           valueLabel: { "\(Int(($0 * 100).rounded()))%" }
         )
 
