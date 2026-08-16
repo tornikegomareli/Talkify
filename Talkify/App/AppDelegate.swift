@@ -72,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       readAloudController?.toggle()
     }
 
+    // Compiles the HUD's shaders now, so the cost does not land on the first
+    // frames of the first dictation.
+    HUDShaderWarmUp.start()
+
     // Requests permissions and prepares the selected Speech Model
     // shortly after launch (CONTEXT.md).
     dictationController.start()
