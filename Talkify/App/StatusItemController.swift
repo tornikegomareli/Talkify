@@ -5,6 +5,7 @@ final class StatusItemController: NSObject {
   private let statusItem: NSStatusItem
   private let toggleDictation: () -> Void
   private let toggleReadAloud: () -> Void
+  private let transcribeFile: () -> Void
   private let openSettings: () -> Void
   private let checkForUpdates: () -> Void
   private let dictationItem: NSMenuItem
@@ -16,15 +17,20 @@ final class StatusItemController: NSObject {
   /// contentTintColor values as black (FB8530353), so palette tinting
   /// swaps in non-template images instead.
   private var sessionIcons: (full: NSImage, dim: NSImage)?
+  /// Remembered so a dictation session that interrupts a running file job can
+  /// hand the ghost back to it afterwards.
+  private var transcriptionProgress: Double?
 
   init(
     toggleDictation: @escaping () -> Void,
     toggleReadAloud: @escaping () -> Void,
+    transcribeFile: @escaping () -> Void,
     openSettings: @escaping () -> Void,
     checkForUpdates: @escaping () -> Void
   ) {
     self.toggleDictation = toggleDictation
     self.toggleReadAloud = toggleReadAloud
+    self.transcribeFile = transcribeFile
     self.openSettings = openSettings
     self.checkForUpdates = checkForUpdates
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -44,6 +50,14 @@ final class StatusItemController: NSObject {
     readAloudItem.action = #selector(toggleReadAloudItem)
     readAloudItem.target = self
     menu.addItem(readAloudItem)
+
+    let transcribeItem = NSMenuItem(
+      title: "Transcribe File…",
+      action: #selector(transcribeFileItem),
+      keyEquivalent: ""
+    )
+    transcribeItem.target = self
+    menu.addItem(transcribeItem)
     menu.addItem(.separator())
 
     let settingsItem = NSMenuItem(
@@ -124,6 +138,11 @@ final class StatusItemController: NSObject {
     blinkDimmed = false
     statusItem.button?.contentTintColor = nil
     statusItem.button?.image = templateIcon
+    // A file job can outlast the dictation that interrupted it, so the ghost
+    // goes back to reporting it rather than to idle.
+    if let transcriptionProgress {
+      setTranscriptionProgress(transcriptionProgress)
+    }
   }
 
   /// Renders the template ghost filled with the accent, full and dimmed;
@@ -145,6 +164,50 @@ final class StatusItemController: NSObject {
     return (full, dim)
   }
 
+  /// A Drop Transcription's progress, 0…1, or nil once it ends.
+  ///
+  /// The ghost fills from the bottom like a battery rather than growing a ring
+  /// or a bar: it reads at 16 points, needs no extra chrome, and it is the
+  /// app's own mark doing the work. A dictation session outranks it — the
+  /// pulse is the more urgent thing to say.
+  func setTranscriptionProgress(_ fraction: Double?) {
+    transcriptionProgress = fraction
+    guard blinkTimer == nil else { return }
+    if let fraction {
+      statusItem.button?.contentTintColor = nil
+      statusItem.button?.image = makeProgressIcon(fraction: fraction) ?? templateIcon
+    } else {
+      statusItem.button?.image = templateIcon
+    }
+  }
+
+  private func makeProgressIcon(fraction: Double) -> NSImage? {
+    guard let templateIcon else { return nil }
+    return Self.progressIcon(from: templateIcon, fraction: fraction)
+  }
+
+  /// The ghost drawn twice: dimmed for the whole silhouette, solid for the
+  /// filled part, split at the progress line.
+  static func progressIcon(from templateIcon: NSImage, fraction: Double) -> NSImage {
+    let clamped = min(max(fraction, 0), 1)
+    let icon = NSImage(size: templateIcon.size, flipped: false) { rect in
+      templateIcon.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.3)
+      let filled = NSRect(
+        x: rect.minX,
+        y: rect.minY,
+        width: rect.width,
+        height: rect.height * clamped
+      )
+      NSGraphicsContext.saveGraphicsState()
+      NSBezierPath(rect: filled).setClip()
+      templateIcon.draw(in: rect)
+      NSGraphicsContext.restoreGraphicsState()
+      return true
+    }
+    icon.isTemplate = true
+    return icon
+  }
+
   /// Mirrors Read Aloud playback on the menu item.
   func setSpeaking(_ isSpeaking: Bool) {
     readAloudItem.title = isSpeaking ? "Stop Reading" : "Read Selected Text"
@@ -156,6 +219,10 @@ final class StatusItemController: NSObject {
 
   @objc private func toggleReadAloudItem() {
     toggleReadAloud()
+  }
+
+  @objc private func transcribeFileItem() {
+    transcribeFile()
   }
 
   @objc private func checkForUpdatesItem() {

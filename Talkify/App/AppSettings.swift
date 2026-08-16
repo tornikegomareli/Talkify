@@ -28,6 +28,8 @@ final class AppSettings {
     static let recognitionLocale = "recognitionLocale"
     static let secondaryRecognitionLocale = "recognitionLocaleSecondary"
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
+    static let transcriptDestination = "transcriptDestination"
+    static let transcriptFolder = "transcriptFolder"
   }
 
   @ObservationIgnored
@@ -49,6 +51,17 @@ final class AppSettings {
       storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(newValue)
       defaults.set(storedDictationSoundVolume, forKey: Keys.soundVolume)
     }
+  }
+
+  /// Where a Drop Transcription writes its transcript. The chosen folder is
+  /// kept even while the pick is `besideSource`, so switching back and forth
+  /// does not lose it.
+  var transcriptDestination: TranscriptDestination.Preference {
+    didSet { defaults.set(transcriptDestination.rawValue, forKey: Keys.transcriptDestination) }
+  }
+
+  var transcriptFolder: URL? {
+    didSet { defaults.set(transcriptFolder?.path(percentEncoded: false), forKey: Keys.transcriptFolder) }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -128,6 +141,26 @@ final class AppSettings {
 
   /// True once a second language is chosen. The second trigger is ignored
   /// while this is false, so an unused binding cannot start a session.
+  /// The labels a split Drop Target shows, or empty when one language is
+  /// configured and the target stays whole.
+  var languageTagsForDrop: [String] {
+    guard isSecondLanguageEnabled else { return [] }
+    let primary = recognitionLocaleIdentifier.isEmpty
+      ? Locale.current.identifier
+      : recognitionLocaleIdentifier
+    return [primary, secondaryRecognitionLocaleIdentifier]
+      .map { SpeechLanguageCatalog.tag(for: Locale(identifier: $0)) }
+  }
+
+  /// Which language a drop chose. Index 1 is the second language and only
+  /// exists while the target is split; anything else is the primary.
+  func localeIdentifierForDrop(languageIndex: Int) -> String {
+    guard languageIndex == 1, isSecondLanguageEnabled else {
+      return recognitionLocaleIdentifier
+    }
+    return secondaryRecognitionLocaleIdentifier
+  }
+
   var isSecondLanguageEnabled: Bool {
     !secondaryRecognitionLocaleIdentifier.isEmpty
   }
@@ -143,6 +176,8 @@ final class AppSettings {
     dictationSoundsEnabled = defaults.object(forKey: Keys.soundsEnabled) as? Bool ?? true
     let storedSoundVolume = defaults.object(forKey: Keys.soundVolume) as? Double ?? 0.5
     storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(storedSoundVolume)
+    transcriptDestination = Self.stored(in: defaults, key: Keys.transcriptDestination) ?? .besideSource
+    transcriptFolder = (defaults.string(forKey: Keys.transcriptFolder)).map { URL(filePath: $0) }
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide

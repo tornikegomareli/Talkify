@@ -1,15 +1,10 @@
 import SwiftUI
 
-/// The HUD's shape and surface, lifted from Tilebar's NotchIsland shell:
-/// square against the top of the screen, rounded below, filleted into the
-/// bezel on a real housing, hardware-black fill, drawn shadow. The hosting
-/// window never resizes, so the shell top-aligns itself inside whatever frame
-/// it is given.
+/// What a Direct Dictation session puts inside the HUD: the housing-level
+/// strip, the voice visual's band, and the draft text band. The shape itself,
+/// its fillets and its reveal belong to `HUDSurface`, which every HUD surface
+/// shares.
 struct DictationHUDShellView: View {
-  /// With Reduce Motion every style is replaced by a quiet fade
-  /// (CONTEXT.md: the HUD skips expand/collapse animation).
-  private static let reducedMotionFade = Animation.easeOut(duration: 0.12)
-
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   let screen: HUDScreenSnapshot
@@ -77,6 +72,37 @@ struct DictationHUDShellView: View {
   }
 
   var body: some View {
+    HUDSurface(
+      screen: screen,
+      metrics: metrics,
+      revealStyle: settings.revealStyle,
+      isRevealed: content.isRevealed,
+      size: size,
+      rippleTrigger: content.sessionEpoch,
+      rippleEnabled: settings.voiceVisual == .glow,
+      content: {
+        bands
+          // The tag hangs off the shell, not the text band: Waveform and Edge
+          // Glow hide the band for the whole listening phase, which is exactly
+          // when the live language needs naming. Padded below the housing so it
+          // clears the camera, and an overlay so it never changes the fixed
+          // window's size.
+          .overlay(alignment: .topLeading) { languageTag }
+          .animation(
+            settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
+            value: content.text
+          )
+          .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
+      },
+      overlays: {
+        particleCloud
+        siriOrb
+        edgeGlow
+      }
+    )
+  }
+
+  private var bands: some View {
     VStack(spacing: 0) {
       // Strip level with the housing: kept empty so text never collides
       // with the camera.
@@ -99,84 +125,6 @@ struct DictationHUDShellView: View {
       if showsTextBand {
         textBand
       }
-    }
-    // The tag hangs off the shell, not the text band: Waveform and Edge Glow
-    // hide the band for the whole listening phase, which is exactly when the
-    // live language needs naming. Padded below the housing so it clears the
-    // camera, and an overlay so it never changes the fixed window's size.
-    .overlay(alignment: .topLeading) { languageTag }
-    .frame(width: size.width)
-    .frame(minHeight: size.height, alignment: .top)
-    .animation(
-      settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
-      value: content.text
-    )
-    .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
-    .background { housing }
-    .overlay { particleCloud }
-    .overlay { siriOrb }
-    .overlay { edgeGlow }
-      .overlay(alignment: .topLeading) { fillet(.leading) }
-      .overlay(alignment: .topTrailing) { fillet(.trailing) }
-      .opacity(revealOpacity)
-      .scaleEffect(x: revealScale.x, y: revealScale.y, anchor: .top)
-      .offset(y: revealOffset)
-      .animation(revealAnimation, value: content.isRevealed)
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-  }
-
-  private var isParked: Bool {
-    !content.isRevealed && !reduceMotion
-  }
-
-  /// Where position moves at all, hidden means at or above the window's top
-  /// edge — never below — so no style can open a gap against the screen edge.
-  private var revealOffset: CGFloat {
-    guard isParked else { return 0 }
-    switch settings.revealStyle {
-    case .slide: return -(size.height + 20)
-    case .unfurl, .bloom: return 0
-    case .drift: return -14
-    }
-  }
-
-  private var revealScale: (x: CGFloat, y: CGFloat) {
-    guard isParked else { return (1, 1) }
-    switch settings.revealStyle {
-    case .slide, .drift: return (1, 1)
-    case .unfurl: return (1, 0.001)
-    case .bloom: return (0.55, 0.55)
-    }
-  }
-
-  private var revealOpacity: Double {
-    if reduceMotion {
-      return content.isRevealed ? 1 : 0
-    }
-    switch settings.revealStyle {
-    case .slide, .unfurl: return 1
-    case .bloom, .drift: return content.isRevealed ? 1 : 0
-    }
-  }
-
-  /// Bounce lives only in top-anchored scale (unfurl, bloom); the styles
-  /// that move position (slide, drift) stay bounce-free, because a position
-  /// overshoot would detach the shape from the screen edge.
-  private var revealAnimation: Animation {
-    if reduceMotion {
-      return Self.reducedMotionFade
-    }
-    if content.isRevealed {
-      switch settings.revealStyle {
-      case .slide: return .spring(duration: 0.4, bounce: 0)
-      case .unfurl: return .spring(duration: 0.45, bounce: 0.3)
-      case .bloom: return .spring(duration: 0.4, bounce: 0.25)
-      case .drift: return .easeOut(duration: 0.24)
-      }
-    }
-    switch settings.revealStyle {
-    case .slide, .unfurl, .bloom: return .spring(duration: 0.28, bounce: 0)
-    case .drift: return .easeIn(duration: 0.18)
     }
   }
 
@@ -267,39 +215,6 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// The ripple sits between the clip and the shadow: it displaces the
-  /// housing's pixels, and the shadow outside the effect stays still
-  /// instead of shimmering with the wave.
-  private var housing: some View {
-    // Plain values for the @Sendable keyframeAnimator content closure.
-    let rippleOrigin = CGPoint(
-      x: size.width / 2,
-      y: HUDNotchGeometry.closedSize(for: screen).height
-    )
-    let rippleEnabled = !reduceMotion && settings.voiceVisual == .glow
-    return Color.black
-      .clipShape(housingShape)
-      .keyframeAnimator(
-        initialValue: 0.0,
-        trigger: content.sessionEpoch
-      ) { view, elapsed in
-        view.modifier(
-          HUDRippleModifier(
-            origin: rippleOrigin,
-            elapsedTime: elapsed,
-            isEnabled: rippleEnabled
-          )
-        )
-      } keyframes: { _ in
-        MoveKeyframe(0.0)
-        LinearKeyframe(
-          HUDRippleModifier.duration,
-          duration: HUDRippleModifier.duration
-        )
-      }
-      .shadow(color: .black.opacity(0.35), radius: 11 * metrics.scale, y: 4 * metrics.scale)
-  }
-
   /// The Edge Glow particle cloud, clipped to the housing so no mote leaks
   /// past the silhouette. Mounted with the glow (not only while listening)
   /// so its drain-out ramp can render too.
@@ -349,15 +264,6 @@ struct DictationHUDShellView: View {
 
   /// Sits alongside the body rather than inside it. Absent on a display with
   /// no notch: the flare exists to meet a housing (ADR-0001).
-  @ViewBuilder
-  private func fillet(_ side: HorizontalEdge) -> some View {
-    if filletSize > 0 {
-      Color.black
-        .frame(width: filletSize, height: filletSize)
-        .clipShape(NotchFilletShape(side: side))
-        .offset(x: side == .leading ? -filletSize : filletSize)
-    }
-  }
 }
 
 // Live previews in-file so edits to the shell re-render in place; the

@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settings: AppSettings?
   private var statusItemController: StatusItemController?
   private var hudController: DictationHUDController?
+  private var dropTranscriptionController: DropTranscriptionController?
   private var dictationController: DirectDictationController?
   private var readAloudController: ReadAloudController?
   private var settingsWindowController: SettingsWindowController?
@@ -42,9 +43,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     self.readAloudController = readAloudController
 
+    let dropTranscriptionController = DropTranscriptionController(
+      settings: settings,
+      hudController: hudController
+    )
+    self.dropTranscriptionController = dropTranscriptionController
+    dropTranscriptionController.start()
+    dropTranscriptionController.onProgressChange = { [weak self] fraction in
+      self?.statusItemController?.setTranscriptionProgress(fraction)
+    }
+
     let statusItemController = StatusItemController(
       toggleDictation: { dictationController.toggleFromMenu() },
       toggleReadAloud: { readAloudController.toggle() },
+      transcribeFile: { dropTranscriptionController.pickFile() },
       openSettings: { [weak self] in self?.showSettings() },
       checkForUpdates: { [weak self] in self?.updaterService.checkForUpdates() }
     )

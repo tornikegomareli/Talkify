@@ -243,6 +243,8 @@ private struct SettingsContent: View {
           AppearanceSettingsView(settings: settings)
         case .sounds:
           SoundsSettingsView(settings: settings, sounds: sounds)
+        case .dropTranscription:
+          DropTranscriptionSettingsView(settings: settings)
         case .readAloud:
           ReadAloudSettingsView(settings: settings)
         case .language:

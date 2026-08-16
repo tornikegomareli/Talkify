@@ -19,14 +19,22 @@ final class DictationHUDController {
     case hidden
     case session
     case message
+    /// A Drop Transcription owns the shape: either receiving a file or
+    /// offering a finished transcript.
+    case drop
   }
 
   private let settings: AppSettings
   private var renderedSettings: DictationSessionSettings
   private var sessionSettings: DictationSessionSettings
   private let panel: DictationHUDPanel
-  private let hostingView: NSHostingView<DictationHUDShellView>
+  private let hostingView: NSHostingView<HUDRootView>
   private let content = DictationHUDContent()
+  private let dropContent = HUDDropContent()
+  /// Set by the Drop Transcription controller so a dropped file and a dragged
+  /// card reach it without the HUD knowing what either means.
+  var onDropReceived: ((URL, Int) -> Bool)?
+  var onTranscriptCardHover: ((Bool) -> Void)?
   private let sounds: DictationHUDSounds
   private var mode = Mode.hidden
   /// Remembered so a download line can restore the right session text.
@@ -51,10 +59,11 @@ final class DictationHUDController {
       auxiliaryTopRightArea: nil
     )
     hostingView = NSHostingView(
-      rootView: DictationHUDShellView(
+      rootView: HUDRootView(
         screen: placeholder,
         settings: initialSettings,
-        content: content
+        content: content,
+        drop: dropContent
       )
     )
     // The window size is this controller's decision, not the content's;
@@ -186,13 +195,7 @@ final class DictationHUDController {
   private func present(_ text: String, on screen: HUDScreenSnapshot) {
     orderOutTask?.cancel()
     content.text = text
-    hostingView.rootView = DictationHUDShellView(
-      screen: screen,
-      settings: renderedSettings,
-      content: content
-    )
-    panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
-    panel.orderFrontRegardless()
+    mount(on: screen)
 
     guard !content.isRevealed else { return }
     // The shell needs one committed frame in its parked position or the
@@ -201,6 +204,96 @@ final class DictationHUDController {
     panel.displayIfNeeded()
     Task { @MainActor [content] in
       content.isRevealed = true
+    }
+  }
+
+  /// Rebuilds the root for this display and brings the window forward. The
+  /// window's frame comes from the screen, never from the content.
+  private func mount(on screen: HUDScreenSnapshot) {
+    hostingView.rootView = HUDRootView(
+      screen: screen,
+      settings: renderedSettings,
+      content: content,
+      drop: dropContent,
+      onDrop: { [weak self] url, index in
+        self?.onDropReceived?(url, index) ?? false
+      },
+      onHoverCard: { [weak self] isInside in
+        self?.onTranscriptCardHover?(isInside)
+      }
+    )
+    panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
+    panel.orderFrontRegardless()
+  }
+
+  /// The HUD as a Drop Transcription target. The window starts accepting the
+  /// mouse here and stops again when the drop state ends — during dictation it
+  /// stays click-through (CONTEXT.md).
+  func showDropTarget(fileName: String, isOpen: Bool, languageTags: [String]) {
+    guard mode != .session else { return }
+    guard let screen = selectScreen(targetDisplayID: nil) else { return }
+    cancelMessageDismiss()
+    orderOutTask?.cancel()
+    renderedSettings = settings.sessionSettings
+    mode = .drop
+    dropContent.mode = .armed
+    dropContent.fileName = fileName
+    dropContent.languageTags = languageTags
+    dropContent.isOpen = isOpen
+    panel.acceptsMouse = true
+    mount(on: screen)
+
+    guard !dropContent.isRevealed else { return }
+    panel.displayIfNeeded()
+    Task { @MainActor [dropContent] in
+      dropContent.isRevealed = true
+    }
+  }
+
+  func setDropTargetOpen(_ isOpen: Bool) {
+    guard dropContent.mode == .armed else { return }
+    dropContent.isOpen = isOpen
+  }
+
+  /// The finished card. Stays until dismissed or dragged, with its own timer
+  /// owned by the Drop Transcription controller.
+  func showTranscript(_ transcript: HUDDropContent.Transcript) {
+    guard let screen = selectScreen(targetDisplayID: nil) else { return }
+    cancelMessageDismiss()
+    orderOutTask?.cancel()
+    renderedSettings = settings.sessionSettings
+    mode = .drop
+    dropContent.mode = .transcript
+    dropContent.transcript = transcript
+    dropContent.remainingFraction = 1
+    panel.acceptsMouse = true
+    mount(on: screen)
+
+    guard !dropContent.isRevealed else { return }
+    panel.displayIfNeeded()
+    Task { @MainActor [dropContent] in
+      dropContent.isRevealed = true
+    }
+  }
+
+  func setTranscriptRemaining(_ fraction: Double) {
+    dropContent.remainingFraction = min(max(fraction, 0), 1)
+  }
+
+  /// Retracts whatever drop state is showing and hands the shape back.
+  func hideDrop() {
+    guard mode == .drop else { return }
+    panel.acceptsMouse = false
+    dropContent.isRevealed = false
+    mode = .hidden
+
+    orderOutTask?.cancel()
+    orderOutTask = Task { [weak self] in
+      try? await Task.sleep(for: Self.dismissDuration)
+      guard !Task.isCancelled, let self, mode == .hidden else { return }
+      dropContent.mode = .none
+      dropContent.transcript = nil
+      panel.orderOut(nil)
     }
   }
 

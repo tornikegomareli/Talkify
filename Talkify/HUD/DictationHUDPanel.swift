@@ -21,12 +21,22 @@ final class DictationHUDPanel: NSPanel {
     hasShadow = false
     isMovable = false
     isMovableByWindowBackground = false
-    // Display-only: clicks pass through everywhere and it never takes focus.
+    // Display-only during dictation: clicks pass through everywhere and it
+    // never takes focus. Drop Transcription flips this on while the shape is a
+    // drop target or holding a transcript, and off again afterwards.
     ignoresMouseEvents = true
     hidesOnDeactivate = false
     isReleasedWhenClosed = false
     collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
     self.contentView = contentView
+  }
+
+  /// Whether the shape currently receives the mouse. Kept as a named property
+  /// rather than callers setting `ignoresMouseEvents` directly, so the one
+  /// place this is allowed to change stays greppable.
+  var acceptsMouse: Bool {
+    get { !ignoresMouseEvents }
+    set { ignoresMouseEvents = !newValue }
   }
 
   /// The frame is computed from the screen, not proposed by AppKit; without
