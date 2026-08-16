@@ -120,12 +120,13 @@ final class DictationHUDController {
     mode = .session
     startVoiceVisual()
     sessionIsLatched = isLatched
-    present(isLatched ? Self.latchedText : Self.listeningText, on: screen)
+    present(placeholder, on: screen)
   }
 
   func showLatched() {
     guard case .session = mode else { return }
-    content.text = Self.latchedText
+    sessionIsLatched = true
+    content.text = placeholder
   }
 
   /// A session waiting on its language model. The band says what it is waiting
@@ -133,7 +134,21 @@ final class DictationHUDController {
   /// restores whatever the session was saying before.
   func showModelDownload(_ text: String?) {
     guard case .session = mode else { return }
-    content.text = text ?? (sessionIsLatched ? Self.latchedText : Self.listeningText)
+    content.text = text ?? placeholder
+  }
+
+  /// Exposed so the placeholder rules can be asserted without a window.
+  var textForTesting: String { content.text }
+
+  /// What the band says before any words arrive.
+  ///
+  /// Empty for Compact: it is the one visual built around the live draft, so a
+  /// placeholder there is words nobody spoke. Every path that would write one
+  /// asks here, rather than each deciding for itself — which is how "Listening
+  /// (latched)" kept coming back after the opening text was handled.
+  private var placeholder: String {
+    guard sessionSettings.voiceVisual != .compact else { return "" }
+    return sessionIsLatched ? Self.latchedText : Self.listeningText
   }
 
   func showLiveText(_ text: String) {
