@@ -254,6 +254,17 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == String(repeating: "a", count: 5))
   }
 
+  @Test func typingLinesSplitOnEveryBreakAndCollapseCRLF() {
+    #expect(TextInsertionService.typingLines(in: "plain") == ["plain"])
+    #expect(TextInsertionService.typingLines(in: "a\nb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "a\n\nb") == ["a", "", "b"])
+    #expect(TextInsertionService.typingLines(in: "\nlead") == ["", "lead"])
+    #expect(TextInsertionService.typingLines(in: "trail\n") == ["trail", ""])
+    #expect(TextInsertionService.typingLines(in: "a\r\nb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "a\rb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "\r\n\r\n") == ["", "", ""])
+  }
+
   private func makePasteboard() -> NSPasteboard {
     NSPasteboard(
       name: NSPasteboard.Name("TextInsertionServiceTests-\(UUID().uuidString)")

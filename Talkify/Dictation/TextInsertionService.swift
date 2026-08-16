@@ -318,24 +318,48 @@ final class TextInsertionService {
       return false
     }
 
-    var line = ""
-    for character in chunk {
-      if character == "\n" {
-        guard postUnicodeString(line, source: source),
-           postReturnKey(source: source) else {
+    let lines = typingLines(in: chunk)
+    for (index, line) in lines.enumerated() {
+      // Empty segments still carry the break that follows them, so
+      // leading and consecutive newlines send a Return each without
+      // ever posting an empty Unicode event.
+      if !line.isEmpty {
+        guard postUnicodeString(line, source: source) else {
           return false
         }
+      }
+      if index < lines.count - 1 {
+        guard postReturnKey(source: source) else {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  /// Splits a chunk on every Unicode line break, collapsing CRLF into a
+  /// single break. Empty segments are preserved so the caller can turn
+  /// each break into a Return without emitting empty text events.
+  static func typingLines(in chunk: String) -> [String] {
+    var lines: [String] = []
+    var line = ""
+    var index = chunk.startIndex
+    while index < chunk.endIndex {
+      let character = chunk[index]
+      if character.isNewline {
+        let nextIndex = chunk.index(after: index)
+        if character == "\r", nextIndex < chunk.endIndex, chunk[nextIndex] == "\n" {
+          index = nextIndex
+        }
+        lines.append(line)
         line = ""
       } else {
         line.append(character)
       }
+      index = chunk.index(after: index)
     }
-    if !line.isEmpty {
-      guard postUnicodeString(line, source: source) else {
-        return false
-      }
-    }
-    return true
+    lines.append(line)
+    return lines
   }
 
   private static func postUnicodeString(_ string: String, source: CGEventSource) -> Bool {
