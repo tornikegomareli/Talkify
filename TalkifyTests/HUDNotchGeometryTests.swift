@@ -131,10 +131,13 @@ struct HUDNotchGeometryTests {
 
   /// The shape has to stay wider than the housing it descends from, or it
   /// stops covering the notch it is supposed to hug.
-  @Test func smallestShapeStillCoversTheHousing() {
-    let smallest = HUDMetrics(scale: HUDMetrics.minimumScale)
+  ///
+  /// Enforced per display rather than globally: the slider's own minimum is
+  /// meant for displays with no housing to cover, where the band is only menu
+  /// bar clearance and nothing is drawn at its stand-in width.
+  @Test func smallestShapeOnANotchedDisplayStillCoversItsHousing() {
+    let smallest = HUDMetrics(scale: HUDNotchGeometry.minimumScale(for: notched))
     #expect(smallest.contentWidth > HUDNotchGeometry.closedSize(for: notched).width)
-    #expect(smallest.contentWidth > HUDNotchGeometry.fallbackClosedSize.width)
   }
 
   /// ADR-0001's fixed host window: the frame is the standard envelope

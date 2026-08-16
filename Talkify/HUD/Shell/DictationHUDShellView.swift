@@ -18,8 +18,34 @@ struct DictationHUDShellView: View {
 
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
+  ///
+  /// Held to two floors at once: this display's, so the shape never ends up
+  /// narrower than the housing it descends from, and the selected visual's, so
+  /// a layout built around live text never shrinks past reading it.
+  static func metrics(
+    picked: HUDMetrics,
+    screen: HUDScreenSnapshot,
+    visual: HUDVoiceVisualStyle,
+    reduceMotion: Bool
+  ) -> HUDMetrics {
+    HUDMetrics(
+      scale: max(
+        picked.scale,
+        max(
+          HUDNotchGeometry.minimumScale(for: screen),
+          HUDMetrics.minimumScale(for: visual, reduceMotion: reduceMotion)
+        )
+      )
+    )
+  }
+
   private var metrics: HUDMetrics {
-    settings.hudMetrics
+    Self.metrics(
+      picked: settings.hudMetrics,
+      screen: screen,
+      visual: settings.voiceVisual,
+      reduceMotion: reduceMotion
+    )
   }
 
   private var size: CGSize {

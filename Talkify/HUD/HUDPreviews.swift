@@ -42,7 +42,7 @@ struct HUDShellPreviewHarness: View {
   var waveformStyle = HUDWaveformStyle.chartLine
   var glowCenter = HUDGlowCenterStyle.particles
   var longDraft = HUDLongDraftStyle.growDown
-  /// The HUD size, 0.6–1 of the standard shape.
+  /// The HUD size, as a fraction of the standard shape.
   var hudScale = 1.0
   /// false previews the dead-microphone state.
   var micAlive = true

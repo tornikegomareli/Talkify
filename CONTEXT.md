@@ -96,7 +96,12 @@ _Avoid_: Transcript history, cloud analytics
 - The simulated notch omits the corner fillets that hug a physical housing
 - The HUD behaves identically on every display; only the notch measurement differs
 - **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
-- **HUD size** is a Settings slider from 60% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing it descends from plus its fillets: a shape narrower than its housing reads as a tab floating under the notch, and its fillets land inside the cutout with no bezel to meet
+- That floor cannot be one number: a notch is a fixed physical width but its width in points moves with the scaled display mode, so the same MacBook reports roughly 155 points under More Space and 273 under Larger Text; a display with no notch keeps the slider's own minimum, which is where a smaller HUD is wanted because every point the shape covers is screen the user was working in
+- A HUD that will show draft text has a second floor at 40%, where the draft is still 6 points: Compact is built around the live draft and Reduce Motion restores it for every visual, so both stop there while Waveform and Edge Glow, which replace the draft entirely, go down to 20%
+- The **HUD size** slider offers only the sizes the selected voice visual can be shown at, and the higher of the two floors wins whenever both apply
+- A size below the selected visual's floor stays persisted and returns when a visual that can show it is picked again
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
@@ -265,7 +270,7 @@ _Avoid_: Transcript history, cloud analytics
 - Direct Dictation and Sounds Preview use the selected volume; Settings can mute all Direct Dictation sounds
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
-- The Appearance preview shows the picked **HUD size** directly, because the size applies on every display including the preview's notched reference
+- The Appearance preview shows the picked **HUD size** directly on its notched reference, so a size below what that reference can show stops changing the preview, which is what the same size does on a real notched display
 - The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 
