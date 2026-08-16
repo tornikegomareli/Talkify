@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var readAloudController: ReadAloudController?
   private var settingsWindowController: SettingsWindowController?
   private var usageTracker: UsageTracker?
+  private var vocabulary: VocabularyList?
   private let settingsRuntimeState = SettingsRuntimeState()
   private let updaterService = SparkleUpdaterService()
 
@@ -27,14 +28,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.settings = settings
     let hudController = DictationHUDController(settings: settings)
     let usageTracker = UsageTracker()
+    let vocabulary = VocabularyList()
     let dictationController = DirectDictationController(
       settings: settings,
       hudController: hudController,
-      usageTracker: usageTracker
+      usageTracker: usageTracker,
+      vocabulary: vocabulary
     )
     self.hudController = hudController
     self.dictationController = dictationController
     self.usageTracker = usageTracker
+    self.vocabulary = vocabulary
 
     let readAloudController = ReadAloudController(
       settings: settings,
@@ -79,6 +83,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     applyKeyBindings()
     observeKeyBindings()
     observeLanguages()
+    observeVocabulary()
+
+    // Loaded behind the prewarm rather than delaying it, and only once the
+    // loop above is watching: what the file holds arrives as a change, which
+    // re-biases the analyzers that are already warm.
+    Task { await vocabulary.load() }
 
     // A background check is postponed while a session is running, so an update
     // window can never take focus mid-dictation and move the insertion target.
@@ -127,6 +137,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
+  /// Editing the Vocabulary re-biases the warm analyzers immediately, so the
+  /// next session picks up a term added seconds earlier without a relaunch.
+  private func observeVocabulary() {
+    guard let vocabulary else { return }
+    withObservationTracking {
+      _ = vocabulary.terms
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.dictationController?.applyVocabulary()
+        self?.observeVocabulary()
+      }
+    }
+  }
+
   private func applyKeyBindings() {
     guard let settings else { return }
     dictationController?.applyKeyBindings()
@@ -141,13 +165,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func showSettings() {
-    guard let settings, let usageTracker else { return }
+    guard let settings, let usageTracker, let vocabulary else { return }
     if settingsWindowController == nil {
       settingsWindowController = SettingsWindowController(
         settings: settings,
         sounds: DictationHUDSounds(),
         runtimeState: settingsRuntimeState,
         usageTracker: usageTracker,
+        vocabulary: vocabulary,
         updater: updaterService
       )
     }

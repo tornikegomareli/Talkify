@@ -113,10 +113,41 @@ actor SpeechRecognitionService {
   /// their key answers instantly.
   private var boundLocales: Set<Locale> = []
 
+  /// The user's Vocabulary, as Apple Speech consumes it. Held here so a
+  /// language warmed later is biased the same as one warmed at launch.
+  private var contextualStrings: [String] = []
+
   /// Reports language model downloads, so a wait that can take minutes is
   /// visible instead of looking like a stall.
   func setDownloadHandler(_ handler: @escaping @Sendable (ModelDownload) -> Void) {
     downloadHandler = handler
+  }
+
+  /// Points every prepared analyzer at a new Vocabulary. Called when the
+  /// section edits the list and once before the first prewarm — never on the
+  /// keypress: `setContext` is async, and the whole point of the warm session
+  /// is that pressing the key meets an analyzer with nothing left to do.
+  ///
+  /// A session already recording keeps the Vocabulary it started with, the way
+  /// Dictation session settings snapshot the rest of its preferences.
+  func setVocabulary(_ strings: [String]) async {
+    guard strings != contextualStrings else { return }
+    contextualStrings = strings
+
+    for prepared in preparedSessions.values {
+      await applyVocabulary(to: prepared.analyzer)
+    }
+  }
+
+  /// Biasing is a hint, so a failure to apply it is not a reason to lose the
+  /// session: the analyzer stays usable and transcribes unbiased, which is
+  /// exactly the behavior of an empty Vocabulary.
+  private func applyVocabulary(to analyzer: SpeechAnalyzer) async {
+    let context = AnalysisContext()
+    if !contextualStrings.isEmpty {
+      context.contextualStrings = [.general: contextualStrings]
+    }
+    try? await analyzer.setContext(context)
   }
 
   /// Resolves a stored language identifier to a locale Apple Speech
@@ -364,6 +395,9 @@ actor SpeechRecognitionService {
     )
     let analyzer = SpeechAnalyzer(modules: modules, options: options)
     try await analyzer.prepareToAnalyze(in: audioFormat)
+    // Biased here, while the session is still being built, so the keypress
+    // path finds the Vocabulary already applied.
+    await applyVocabulary(to: analyzer)
 
     return PreparedSession(
       locale: locale,
