@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The Shortcuts section: the user's own keyboard with the bound keys lit,
-/// above System Settings-style recorders for each binding. Arming a recorder
-/// flags `isRecordingKeybind` so the event tap pauses.
+/// above one row per binding. The whole row is the recorder — clicking it arms,
+/// and the next keystroke becomes the binding — so the keycaps on the leading
+/// edge are the binding rather than a control sitting beside it.
 struct ShortcutsSettingsView: View {
   @Bindable var settings: AppSettings
 
@@ -10,10 +11,10 @@ struct ShortcutsSettingsView: View {
   /// every redraw: translating the whole board is cheap but not free, and the
   /// answer only moves when the user switches language or swaps keyboards.
   @State private var layout = KeyboardLayout.ansiFallback
-  @State private var hovered: Binding?
+  @State private var hovered: Role?
 
   /// Which binding a row belongs to. The colors are the lit keys' colors.
-  private enum Binding: Hashable {
+  private enum Role: Hashable {
     case dictation
     case secondLanguage
     case readAloud
@@ -44,31 +45,34 @@ struct ShortcutsSettingsView: View {
         }
 
       SettingsCard(title: "Keys") {
-        recorderRow(
+        row(
           .dictation,
-          title: "Dictation Trigger",
-          description: "Hold to dictate, tap to keep it listening",
+          title: "Direct Dictation",
           binding: $settings.dictationTriggerBinding,
           allowsBareModifier: true
-        )
-
-        if settings.isSecondLanguageEnabled {
-          recorderRow(
-            .secondLanguage,
-            title: "Second Language",
-            description: "The same gesture, in your other dictation language",
-            binding: $settings.secondaryTriggerBinding,
-            allowsBareModifier: true
-          )
+        ) { keys in
+          "Hold \(keys) to talk, or tap it to keep listening hands-free."
         }
 
-        recorderRow(
+        if settings.isSecondLanguageEnabled {
+          row(
+            .secondLanguage,
+            title: "Second Language",
+            binding: $settings.secondaryTriggerBinding,
+            allowsBareModifier: true
+          ) { keys in
+            "Hold \(keys) to dictate in your other language."
+          }
+        }
+
+        row(
           .readAloud,
           title: "Read Aloud",
-          description: "Speaks the selected text out loud",
           binding: $settings.readAloudBinding,
           allowsBareModifier: false
-        )
+        ) { keys in
+          "Press \(keys) to read the selection, again to stop."
+        }
       }
     }
     .task {
@@ -83,18 +87,25 @@ struct ShortcutsSettingsView: View {
     }
   }
 
-  private func recorderRow(
-    _ role: Binding,
+  private func row(
+    _ role: Role,
     title: String,
-    description: String,
-    binding: SwiftUI.Binding<KeyBinding>,
-    allowsBareModifier: Bool
+    binding: Binding<KeyBinding>,
+    allowsBareModifier: Bool,
+    description: @escaping (String) -> String
   ) -> some View {
-    SettingsRow(title: title, description: description) {
-      KeyRecorderView(
-        keyBinding: binding,
-        allowsBareModifier: allowsBareModifier,
-        onRecordingChanged: { settings.isRecordingKeybind = $0 }
+    KeyRecorderView(
+      keyBinding: binding,
+      allowsBareModifier: allowsBareModifier,
+      onRecordingChanged: { settings.isRecordingKeybind = $0 }
+    ) { keyBinding, isRecording in
+      let caps = KeyboardMap.caps(for: keyBinding, layout: layout)
+      ShortcutRow(
+        caps: caps,
+        title: title,
+        description: description(caps.joined(separator: " ")),
+        isRecording: isRecording,
+        accent: role.color
       )
     }
     .onHover { hovered = $0 ? role : nil }
@@ -111,11 +122,84 @@ struct ShortcutsSettingsView: View {
     return result
   }
 
-  private func highlight(_ role: Binding, _ keyBinding: KeyBinding) -> KeyboardMapView.Highlight {
+  private func highlight(_ role: Role, _ keyBinding: KeyBinding) -> KeyboardMapView.Highlight {
     KeyboardMapView.Highlight(
       keyCodes: KeyboardMap.highlighted(for: keyBinding),
       color: role.color,
       isEmphasized: hovered == role || hovered == nil
     )
+  }
+}
+
+/// One binding: its keys as separate caps on the leading edge, then what it
+/// does. Each cap is one physical key, rather than a single label with the
+/// whole combination crammed into it.
+private struct ShortcutRow: View {
+  let caps: [String]
+  let title: String
+  let description: String
+  let isRecording: Bool
+  let accent: Color
+
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    HStack(spacing: 15) {
+      HStack(spacing: 6) {
+        if isRecording {
+          cap("…", isArmed: true)
+        } else {
+          ForEach(Array(caps.enumerated()), id: \.offset) { _, symbol in
+            cap(symbol, isArmed: false)
+          }
+        }
+      }
+
+      VStack(alignment: .leading, spacing: 3) {
+        Text(title)
+          .font(.system(size: 13, weight: .medium))
+          .foregroundStyle(.white)
+        Text(isRecording ? "Press the keys you want to use." : description)
+          .font(.system(size: 11.5))
+          .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.48))
+          .fixedSize(horizontal: false, vertical: true)
+          .multilineTextAlignment(.leading)
+      }
+
+      Spacer(minLength: 0)
+    }
+    .padding(.vertical, 11)
+    .contentShape(Rectangle())
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(.white.opacity(contrast == .increased ? 0.16 : 0.07))
+        .frame(height: 1)
+    }
+  }
+
+  private func cap(_ symbol: String, isArmed: Bool) -> some View {
+    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+    return Text(symbol)
+      .font(.system(size: symbol.count > 2 ? 10 : 13, weight: .medium))
+      .foregroundStyle(isArmed ? accent : .white.opacity(0.9))
+      .lineLimit(1)
+      .minimumScaleFactor(0.6)
+      .padding(.horizontal, 4)
+      .frame(width: 34, height: 32)
+      .background(
+        shape.fill(
+          LinearGradient(
+            colors: [Color(white: 0.16), Color(white: 0.11)],
+            startPoint: .top,
+            endPoint: .bottom
+          )
+        )
+      )
+      .overlay {
+        shape.strokeBorder(
+          isArmed ? accent.opacity(0.8) : .white.opacity(0.1),
+          lineWidth: 1
+        )
+      }
   }
 }

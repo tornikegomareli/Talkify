@@ -71,6 +71,45 @@ struct KeyboardMapTests {
     #expect(KeyboardMap.highlighted(for: .optionEscape) == [53, 58, 61])
   }
 
+  /// One cap per physical key, modifiers first in the order macOS writes them.
+  @Test func aBindingBecomesOneCapPerKey() {
+    let layout = KeyboardLayout(shape: .ansi, legends: [35: "p"])
+    let shiftP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: false,
+      label: "⇧ P",
+      keyEquivalent: "p"
+    )
+    #expect(KeyboardMap.caps(for: shiftP, layout: layout) == ["⇧", "P"])
+    #expect(KeyboardMap.caps(for: .optionEscape, layout: layout) == ["⌥", "esc"])
+    #expect(KeyboardMap.caps(for: .fnTrigger, layout: layout) == ["fn"])
+  }
+
+  /// Modifiers read in the order macOS prints them, whichever order they were
+  /// held in while recording.
+  @Test func modifierCapsAreOrderedTheWayMacOSWritesThem() {
+    let everything = KeyBinding(
+      keyCode: 49,
+      modifierFlags: CGEventFlags([.maskCommand, .maskShift, .maskAlternate, .maskControl])
+        .rawValue,
+      isModifierKey: false,
+      label: "",
+      keyEquivalent: " "
+    )
+    let caps = KeyboardMap.caps(for: everything, layout: KeyboardLayout(shape: .ansi, legends: [:]))
+    #expect(caps == ["⌃", "⌥", "⇧", "⌘", "space"])
+  }
+
+  /// A key the input source has no legend for still gets a cap rather than a
+  /// blank one, so a row never renders an empty square.
+  @Test func anUnknownKeyStillGetsACap() {
+    let odd = KeyBinding(
+      keyCode: 999, modifierFlags: 0, isModifierKey: false, label: "", keyEquivalent: ""
+    )
+    #expect(KeyboardMap.caps(for: odd, layout: KeyboardLayout(shape: .ansi, legends: [:])) == ["?"])
+  }
+
   /// Legends are only read for keys whose cap the input source can change; a
   /// key drawn without a fixed glyph must be in that list or it renders blank.
   @Test func everyLegendKeyIsRequestedFromTheLayout() {

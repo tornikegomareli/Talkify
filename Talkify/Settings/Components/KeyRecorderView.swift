@@ -9,12 +9,14 @@ import SwiftUI
 /// `allowsBareModifier` is the Dictation Trigger mode: a bare modifier like fn
 /// or right ⌘ can be the bound key, so a hold-and-release gesture has something
 /// to hold. Both modes record whatever modifiers are held alongside it.
-struct KeyRecorderView: View {
+struct KeyRecorderView<Label: View>: View {
   @Binding var keyBinding: KeyBinding
   let allowsBareModifier: Bool
   let onRecordingChanged: (Bool) -> Void
+  /// What the control looks like, given the current binding and whether it is
+  /// armed. Swappable so a whole row can be the recorder, not just a capsule.
+  @ViewBuilder let label: (KeyBinding, Bool) -> Label
 
-  @Environment(\.colorSchemeContrast) private var contrast
   @State private var isRecording = false
   @State private var monitor: Any?
   /// The modifier chord built so far, committed when the first key comes up.
@@ -24,24 +26,7 @@ struct KeyRecorderView: View {
     Button {
       isRecording ? cancelRecording() : startRecording()
     } label: {
-      Text(isRecording ? "Press keys…" : keyBinding.label)
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(isRecording ? SettingsTheme.accent : .white)
-        .frame(minWidth: 96)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-          .white.opacity(isRecording ? 0.14 : 0.08),
-          in: Capsule()
-        )
-        .overlay {
-          Capsule().stroke(
-            isRecording
-              ? SettingsTheme.accent.opacity(0.7)
-              : .white.opacity(contrast == .increased ? 0.3 : 0.12),
-            lineWidth: 1
-          )
-        }
+      label(keyBinding, isRecording)
     }
     .buttonStyle(.plain)
     .onDisappear {
@@ -127,6 +112,49 @@ struct KeyRecorderView: View {
 
     default:
       break
+    }
+  }
+}
+
+/// The default control: a capsule showing the binding, or "Press keys…" while
+/// armed.
+struct KeyRecorderCapsule: View {
+  let title: String
+  let isRecording: Bool
+
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    Text(isRecording ? "Press keys…" : title)
+      .font(.system(size: 12, weight: .semibold))
+      .foregroundStyle(isRecording ? SettingsTheme.accent : .white)
+      .frame(minWidth: 96)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(.white.opacity(isRecording ? 0.14 : 0.08), in: Capsule())
+      .overlay {
+        Capsule().stroke(
+          isRecording
+            ? SettingsTheme.accent.opacity(0.7)
+            : .white.opacity(contrast == .increased ? 0.3 : 0.12),
+          lineWidth: 1
+        )
+      }
+  }
+}
+
+extension KeyRecorderView where Label == KeyRecorderCapsule {
+  init(
+    keyBinding: Binding<KeyBinding>,
+    allowsBareModifier: Bool,
+    onRecordingChanged: @escaping (Bool) -> Void
+  ) {
+    self.init(
+      keyBinding: keyBinding,
+      allowsBareModifier: allowsBareModifier,
+      onRecordingChanged: onRecordingChanged
+    ) { binding, isRecording in
+      KeyRecorderCapsule(title: binding.label, isRecording: isRecording)
     }
   }
 }

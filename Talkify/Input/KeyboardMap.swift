@@ -82,6 +82,41 @@ enum KeyboardMap {
     Key(123, "←"), Key(126, "↑"), Key(125, "↓"), Key(124, "→"),
   ]
 
+  /// Fixed glyphs by keycode, taken from the drawn rows so a keycap in a list
+  /// and the same key on the keyboard never disagree.
+  private static let glyphs: [Int64: String] = {
+    var glyphs: [Int64: String] = [:]
+    for row in rows(for: .ansi) {
+      for key in row where key.glyph?.isEmpty == false {
+        glyphs[key.keyCode] = key.glyph
+      }
+    }
+    glyphs[49] = "space"
+    return glyphs
+  }()
+
+  /// The keycaps a binding shows: its modifiers in the order macOS writes them,
+  /// then the key itself. One cap per physical key, rather than one label with
+  /// everything crammed into it.
+  static func caps(for binding: KeyBinding, layout: KeyboardLayout) -> [String] {
+    var caps: [String] = []
+    let modifiers = binding.modifiers
+    if modifiers.contains(.maskControl) { caps.append("⌃") }
+    if modifiers.contains(.maskAlternate) { caps.append("⌥") }
+    if modifiers.contains(.maskShift) { caps.append("⇧") }
+    if modifiers.contains(.maskCommand) { caps.append("⌘") }
+    caps.append(cap(for: binding.keyCode, layout: layout))
+    return caps
+  }
+
+  /// A modifier reads as its own glyph rather than "right ⌥" — a cap has no
+  /// room for a side, and the drawn keyboard already shows which one is lit.
+  private static func cap(for keyCode: Int64, layout: KeyboardLayout) -> String {
+    if let glyph = glyphs[keyCode] { return glyph }
+    if let legend = layout.legend(for: keyCode) { return legend }
+    return "?"
+  }
+
   /// The keys a binding lights up: its own key plus whichever modifier keys it
   /// requires. A modifier appears on both sides of the board, so both light —
   /// the binding does not care which one is pressed unless it named a side.

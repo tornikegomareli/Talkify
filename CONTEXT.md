@@ -208,6 +208,8 @@ _Avoid_: Transcript history, cloud analytics
 - The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label
 - A JIS keyboard is drawn with ISO geometry until its extra keys can be checked on real hardware; its legends are still its own
 - A binding lights both sides of every modifier it requires, because either one satisfies it, and the keyboard is display-only — bindings are still recorded by pressing keys, not by clicking the drawing
+- Each binding is a row whose keys are drawn as one cap per physical key on the leading edge, modifiers first in the order macOS writes them, and whose description names those keys in the sentence that says what they do
+- The whole row is the recorder: clicking anywhere in it arms, and while armed the caps collapse to one placeholder and the description says what to press
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
 - While a key recorder is armed, global trigger handling pauses so the rebind keystroke cannot start a session
 - The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them
