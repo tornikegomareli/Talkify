@@ -12,31 +12,36 @@ import SwiftUI
 struct KeyRecorderView<Label: View>: View {
   @Binding var keyBinding: KeyBinding
   let allowsBareModifier: Bool
+  /// Owned by the caller so only one recorder is ever armed, and so a click on
+  /// the drawn keyboard can finish a binding and disarm this at the same time.
+  @Binding var isRecording: Bool
   let onRecordingChanged: (Bool) -> Void
   /// What the control looks like, given the current binding and whether it is
   /// armed. Swappable so a whole row can be the recorder, not just a capsule.
   @ViewBuilder let label: (KeyBinding, Bool) -> Label
 
-  @State private var isRecording = false
   @State private var monitor: Any?
   /// The modifier chord built so far, committed when the first key comes up.
   @State private var chord: KeyBinding?
 
   var body: some View {
     Button {
-      isRecording ? cancelRecording() : startRecording()
+      isRecording.toggle()
     } label: {
       label(keyBinding, isRecording)
     }
     .buttonStyle(.plain)
+    .onChange(of: isRecording) { _, armed in
+      armed ? startMonitor() : stopMonitor()
+      onRecordingChanged(armed)
+    }
     .onDisappear {
-      cancelRecording()
+      isRecording = false
     }
   }
 
-  private func startRecording() {
-    isRecording = true
-    onRecordingChanged(true)
+  private func startMonitor() {
+    guard monitor == nil else { return }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.keyDown, .flagsChanged]
     ) { event in
@@ -45,16 +50,16 @@ struct KeyRecorderView<Label: View>: View {
     }
   }
 
-  private func cancelRecording() {
+  private func stopMonitor() {
     if let monitor {
       NSEvent.removeMonitor(monitor)
     }
     monitor = nil
     chord = nil
-    if isRecording {
-      isRecording = false
-      onRecordingChanged(false)
-    }
+  }
+
+  private func cancelRecording() {
+    isRecording = false
   }
 
   private func handle(_ event: NSEvent) {
@@ -146,15 +151,17 @@ struct KeyRecorderCapsule: View {
 extension KeyRecorderView where Label == KeyRecorderCapsule {
   init(
     keyBinding: Binding<KeyBinding>,
+    isRecording: Binding<Bool>,
     allowsBareModifier: Bool,
     onRecordingChanged: @escaping (Bool) -> Void
   ) {
     self.init(
       keyBinding: keyBinding,
       allowsBareModifier: allowsBareModifier,
+      isRecording: isRecording,
       onRecordingChanged: onRecordingChanged
-    ) { binding, isRecording in
-      KeyRecorderCapsule(title: binding.label, isRecording: isRecording)
+    ) { binding, armed in
+      KeyRecorderCapsule(title: binding.label, isRecording: armed)
     }
   }
 }

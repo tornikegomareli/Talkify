@@ -145,3 +145,49 @@ struct KeyboardLayoutTests {
     #expect(layout.legend(for: 99) == nil)
   }
 }
+
+/// Building a binding by clicking keys on the drawn keyboard. This is the path
+/// that can assign a combination the recorder cannot capture, because the
+/// system or another app swallows it before Talkify sees it.
+@Suite("Binding by clicking")
+struct ClickToBindTests {
+  private let layout = KeyboardLayout(shape: .ansi, legends: [35: "p", 12: "q"])
+
+  @Test func aModifierThenAKeyBecomesACombo() {
+    let binding = KeyboardMap.binding(forClicked: [58, 63], layout: layout)
+    #expect(binding?.keyCode == 63)
+    #expect(binding?.modifiers == .maskAlternate)
+    #expect(binding?.isModifierKey == true)
+    #expect(binding?.label == "⌥ fn")
+  }
+
+  @Test func aLetterWithModifiersKeepsTheLetterAsTheKey() {
+    let binding = KeyboardMap.binding(forClicked: [56, 35], layout: layout)
+    #expect(binding?.keyCode == 35)
+    #expect(binding?.modifiers == .maskShift)
+    #expect(binding?.isModifierKey == false)
+    #expect(binding?.keyEquivalent == "p")
+  }
+
+  /// Clicking one modifier and nothing else binds that modifier bare, which is
+  /// how the default fn and right ⌥ triggers are shaped.
+  @Test func aLoneModifierBindsItself() {
+    let binding = KeyboardMap.binding(forClicked: [61], layout: layout)
+    #expect(binding?.keyCode == 61)
+    #expect(binding?.modifierFlags == 0)
+    #expect(binding?.isModifierKey == true)
+  }
+
+  /// fn cannot be a required modifier — a binding stores only command, option,
+  /// control and shift — so clicking fn first makes it the key.
+  @Test func fnIsAlwaysTheKeyNeverAModifier() {
+    let binding = KeyboardMap.binding(forClicked: [63, 58], layout: layout)
+    #expect(binding?.keyCode == 63)
+    #expect(binding?.modifiers.contains(.maskSecondaryFn) == false)
+    #expect(binding?.modifiers == .maskAlternate)
+  }
+
+  @Test func clickingNothingBindsNothing() {
+    #expect(KeyboardMap.binding(forClicked: [], layout: layout) == nil)
+  }
+}

@@ -20,6 +20,10 @@ struct KeyboardMapView: View {
   let highlights: [Highlight]
   var unit: CGFloat = 26
   var spacing: CGFloat = 3
+  /// Set while a binding is being assigned: the keys picked so far, and what
+  /// happens when one is clicked. Nil leaves the drawing display-only.
+  var picked: Set<Int64> = []
+  var onPick: ((Int64) -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: spacing) {
@@ -36,7 +40,9 @@ struct KeyboardMapView: View {
 
   private func cap(for key: KeyboardMap.Key) -> some View {
     let lit = highlights.filter { $0.keyCodes.contains(key.keyCode) }
-    let strongest = lit.first { $0.isEmphasized } ?? lit.first
+    let strongest = picked.contains(key.keyCode)
+      ? Highlight(keyCodes: [], color: pickColor, isEmphasized: true)
+      : (lit.first { $0.isEmphasized } ?? lit.first)
     let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
 
     return shape
@@ -53,7 +59,14 @@ struct KeyboardMapView: View {
           .padding(.horizontal, 2)
       }
       .frame(width: unit * key.width + spacing * (key.width - 1), height: unit * 0.92)
+      .contentShape(Rectangle())
+      .onTapGesture { onPick?(key.keyCode) }
+      .allowsHitTesting(onPick != nil)
   }
+
+  /// While picking, the selection outranks whatever the key is already bound
+  /// to — the question on screen is what this binding will become.
+  private var pickColor: Color { SettingsTheme.accent }
 
   private func fill(for highlight: Highlight?) -> AnyShapeStyle {
     guard let highlight else {
