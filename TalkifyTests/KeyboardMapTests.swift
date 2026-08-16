@@ -141,8 +141,24 @@ struct KeyboardLayoutTests {
 struct ClickToBindTests {
   private let layout = KeyboardLayout(shape: .ansi, legends: [35: "p", 12: "q"])
 
+  /// A modifier waits for the rest of the combination; anything else finishes
+  /// it. This is what makes ⌥ then fn reachable by clicking.
+  @Test func aModifierWaitsAndAnythingElseFinishes() {
+    #expect(ShortcutAssignment.click(58, picked: []) == .picking([58]))
+    #expect(ShortcutAssignment.click(63, picked: [58]) == .complete([58, 63]))
+    #expect(ShortcutAssignment.click(35, picked: []) == .complete([35]))
+  }
+
+  /// Clicking a held modifier again lets it go, so a mis-click is undoable
+  /// without starting the selection over.
+  @Test func clickingAHeldModifierAgainLetsItGo() {
+    #expect(ShortcutAssignment.click(58, picked: [58]) == .picking([]))
+    #expect(ShortcutAssignment.click(58, picked: [56, 58]) == .picking([56]))
+    #expect(ShortcutAssignment.click(56, picked: [56, 58]) == .picking([58]))
+  }
+
   @Test func aModifierThenAKeyBecomesACombo() {
-    let binding = KeyboardMap.binding(forClicked: [58, 63], layout: layout)
+    let binding = ShortcutAssignment.binding(forClicked: [58, 63], layout: layout)
     #expect(binding?.keyCode == 63)
     #expect(binding?.modifiers == .maskAlternate)
     #expect(binding?.isModifierKey == true)
@@ -150,7 +166,7 @@ struct ClickToBindTests {
   }
 
   @Test func aLetterWithModifiersKeepsTheLetterAsTheKey() {
-    let binding = KeyboardMap.binding(forClicked: [56, 35], layout: layout)
+    let binding = ShortcutAssignment.binding(forClicked: [56, 35], layout: layout)
     #expect(binding?.keyCode == 35)
     #expect(binding?.modifiers == .maskShift)
     #expect(binding?.isModifierKey == false)
@@ -160,7 +176,7 @@ struct ClickToBindTests {
   /// Clicking one modifier and nothing else binds that modifier bare, which is
   /// how the default fn and right ⌥ triggers are shaped.
   @Test func aLoneModifierBindsItself() {
-    let binding = KeyboardMap.binding(forClicked: [61], layout: layout)
+    let binding = ShortcutAssignment.binding(forClicked: [61], layout: layout)
     #expect(binding?.keyCode == 61)
     #expect(binding?.modifierFlags == 0)
     #expect(binding?.isModifierKey == true)
@@ -169,13 +185,13 @@ struct ClickToBindTests {
   /// fn cannot be a required modifier — a binding stores only command, option,
   /// control and shift — so clicking fn first makes it the key.
   @Test func fnIsAlwaysTheKeyNeverAModifier() {
-    let binding = KeyboardMap.binding(forClicked: [63, 58], layout: layout)
+    let binding = ShortcutAssignment.binding(forClicked: [63, 58], layout: layout)
     #expect(binding?.keyCode == 63)
     #expect(binding?.modifiers.contains(.maskSecondaryFn) == false)
     #expect(binding?.modifiers == .maskAlternate)
   }
 
   @Test func clickingNothingBindsNothing() {
-    #expect(KeyboardMap.binding(forClicked: [], layout: layout) == nil)
+    #expect(ShortcutAssignment.binding(forClicked: [], layout: layout) == nil)
   }
 }
