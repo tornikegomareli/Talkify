@@ -171,15 +171,29 @@ final class ParticleRenderer: NSObject {
     let particleBuffer: MTLBuffer
   }
 
+  /// Built once for the process rather than per renderer. Compiling the two
+  /// compute kernels costs real milliseconds, and it used to land on the first
+  /// frame of a session — every session, since the renderer is remade each time
+  /// the visual appears. Only one HUD exists at a time, so one particle buffer
+  /// is enough.
+  private static let sharedDevice = MTLCreateSystemDefaultDevice()
+  private static let sharedPipeline: Pipeline? = sharedDevice.flatMap { makePipeline(device: $0) }
+
+  /// Touches the shared pipeline so the kernels compile before a session wants
+  /// them.
+  static func warmUp() {
+    _ = sharedPipeline
+  }
+
   override init() {
-    device = MTLCreateSystemDefaultDevice()
-    pipeline = device.flatMap(Self.makePipeline)
+    device = Self.sharedDevice
+    pipeline = Self.sharedPipeline
     super.init()
   }
 
   /// Fail soft: a missing pipeline draws nothing instead of crashing a
   /// menu-bar app over a decorative effect.
-  private static func makePipeline(device: MTLDevice) -> Pipeline? {
+  nonisolated private static func makePipeline(device: MTLDevice) -> Pipeline? {
     guard
       let commandQueue = device.makeCommandQueue(),
       let library = try? device.makeDefaultLibrary(bundle: .main),
