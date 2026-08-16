@@ -298,13 +298,7 @@ struct TextInsertionServiceTests {
           }
         }
       ))
-      let target = TextInsertionService.Target(
-        element: AXUIElementCreateSystemWide(),
-        processIdentifier: 42,
-        isSecure: false,
-        displayID: nil
-      )
-      await service.insert("dictated text", into: target)
+      await service.insert("dictated text", into: makeTarget())
     }
 
     let result = await withTaskGroup(of: InsertionRaceResult.self) { group in
@@ -335,6 +329,58 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "dictated text")
   }
 
+  @Test func successfulSnapshotFollowsTimedOutRead() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+
+    let allowFirstReadToFinish = DispatchSemaphore(value: 0)
+    let readCount = OSAllocatedUnfairLock(initialState: 0)
+    var pastedTexts: [String] = []
+
+    // This named pasteboard belongs only to this test. AppKit does not declare
+    // NSPasteboard Sendable even though the production read runs off-main.
+    nonisolated(unsafe) let backgroundPasteboard = pasteboard
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: {
+        let attempt = readCount.withLock { count in
+          count += 1
+          return count
+        }
+        if attempt == 1 {
+          allowFirstReadToFinish.wait()
+        }
+        return TextInsertionService.snapshot(of: backgroundPasteboard)
+      },
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {
+        if let text = pasteboard.string(forType: .string) {
+          pastedTexts.append(text)
+        }
+      }
+    ))
+
+    defer {
+      allowFirstReadToFinish.signal()
+    }
+
+    await service.insert("first dictated text", into: makeTarget())
+    #expect(pasteboard.string(forType: .string) == "first dictated text")
+
+    allowFirstReadToFinish.signal()
+    await service.insert("second dictated text", into: makeTarget())
+
+    #expect(readCount.withLock { $0 } == 2)
+    #expect(pastedTexts == ["first dictated text", "second dictated text"])
+    #expect(pasteboard.string(forType: .string) == "first dictated text")
+  }
+
   private func makePasteboard() -> NSPasteboard {
     NSPasteboard(
       name: NSPasteboard.Name("TextInsertionServiceTests-\(UUID().uuidString)")
@@ -349,17 +395,7 @@ struct TextInsertionServiceTests {
     nonisolated(unsafe) let backgroundPasteboard = pasteboard
 
     return {
-      (backgroundPasteboard.pasteboardItems ?? []).map { sourceItem in
-        let entries = sourceItem.types.compactMap { type in
-          sourceItem.data(forType: type).map {
-            TextInsertionService.ClipboardItemSnapshot.Entry(
-              type: type,
-              data: $0
-            )
-          }
-        }
-        return TextInsertionService.ClipboardItemSnapshot(entries: entries)
-      }
+      TextInsertionService.snapshot(of: backgroundPasteboard)
     }
   }
 

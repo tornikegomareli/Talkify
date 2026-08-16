@@ -15,6 +15,28 @@ final class TextInsertionService {
     let entries: [Entry]
   }
 
+  /// Copies each pasteboard item's ordered type payloads into Sendable values.
+  static nonisolated func snapshot(
+    of pasteboard: NSPasteboard
+  ) -> [ClipboardItemSnapshot] {
+    let sourceItems = pasteboard.pasteboardItems ?? []
+    return sourceItems.map { sourceItem in
+      let entries = sourceItem.types.compactMap { type in
+        sourceItem.data(forType: type).map {
+          ClipboardItemSnapshot.Entry(type: type, data: $0)
+        }
+      }
+      return ClipboardItemSnapshot(entries: entries)
+    }
+  }
+
+  // Serial access caps unresponsive pasteboard reads at one blocked worker;
+  // later snapshots keep their own timeout budgets while waiting in the queue.
+  private let clipboardReaderQueue = DispatchQueue(
+    label: "com.tgomareli.Talkify.clipboard-snapshot",
+    qos: .userInitiated
+  )
+
   struct Target {
     fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
@@ -57,15 +79,7 @@ final class TextInsertionService {
       return Self(
         pasteboard: pasteboard,
         readClipboardItems: {
-          let sourceItems = backgroundPasteboard.pasteboardItems ?? []
-          return sourceItems.map { sourceItem in
-            let entries = sourceItem.types.compactMap { type in
-              sourceItem.data(forType: type).map {
-                ClipboardItemSnapshot.Entry(type: type, data: $0)
-              }
-            }
-            return ClipboardItemSnapshot(entries: entries)
-          }
+          TextInsertionService.snapshot(of: backgroundPasteboard)
         },
         snapshotTimeout: .milliseconds(300),
         focusedElement: TextInsertionService.focusedElement,
@@ -282,21 +296,14 @@ final class TextInsertionService {
 
   /// Reads the clipboard away from the main actor within the configured budget.
   ///
-  /// On timeout, the snapshot is abandoned and the private queue's thread may
-  /// stay blocked until the pasteboard daemon gives up or the owner responds.
-  /// This is intentional and bounds the app impact to one private thread per
-  /// unresponsive-owner attempt. A late read is discarded without resuming the
-  /// continuation again.
+  /// On timeout, the snapshot is abandoned and a late read is discarded without
+  /// resuming the continuation again.
   ///
   /// - Returns: The complete ordered snapshot, or `nil` when the budget expires.
   private func snapshotClipboardItems() async -> [ClipboardItemSnapshot]? {
     let readClipboardItems = dependencies.readClipboardItems
     let timeout = dependencies.snapshotTimeout
     let completionLock = OSAllocatedUnfairLock(initialState: false)
-    let readQueue = DispatchQueue(
-      label: "com.tgomareli.Talkify.clipboard-snapshot",
-      qos: .userInitiated
-    )
 
     return await withCheckedContinuation { continuation in
       let complete: @Sendable ([ClipboardItemSnapshot]?) -> Void = { snapshot in
@@ -314,10 +321,12 @@ final class TextInsertionService {
         }
       }
 
-      readQueue.async {
+      clipboardReaderQueue.async {
         complete(readClipboardItems())
       }
       Task {
+        // Caller cancellation does not cancel this unstructured task, so nil
+        // still means that the full configured snapshot budget elapsed.
         try? await Task.sleep(for: timeout)
         complete(nil)
       }
