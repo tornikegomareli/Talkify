@@ -3,6 +3,14 @@ import ApplicationServices
 
 @MainActor
 final class TextInsertionService {
+  /// How finalized text reaches the target app. Paste is the default;
+  /// typing exists for editors that refuse synthetic ⌘V — terminals,
+  /// virtual machines, apps with custom paste handling.
+  enum InsertionMethod: String, CaseIterable, Hashable {
+    case paste
+    case typing
+  }
+
   struct Target {
     fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
@@ -30,6 +38,7 @@ final class TextInsertionService {
     let isProcessRunning: @MainActor (pid_t) -> Bool
     let isTargetFocused: @MainActor (Target) -> Bool
     let postPasteShortcut: @MainActor () -> Bool
+    let postTypingChunk: @MainActor (String) -> Bool
     let waitForPasteRead: @MainActor () async -> Void
 
     static var live: Self {
@@ -47,6 +56,7 @@ final class TextInsertionService {
         },
         isTargetFocused: TextInsertionService.isStillFocused,
         postPasteShortcut: TextInsertionService.postPasteShortcut,
+        postTypingChunk: TextInsertionService.postTypingChunk,
         waitForPasteRead: {
           try? await Task.sleep(for: .milliseconds(500))
         }
@@ -84,7 +94,7 @@ final class TextInsertionService {
     )
   }
 
-  func insert(_ text: String, into target: Target?) async {
+  func insert(_ text: String, into target: Target?, method: InsertionMethod = .paste) async {
     guard !text.isEmpty else { return }
     guard let target else {
       copyToClipboard(text)
@@ -100,7 +110,37 @@ final class TextInsertionService {
       copyToClipboard(text)
       return
     }
-    await pasteAndRestoreClipboard(text, into: target)
+    switch method {
+    case .paste:
+      await pasteAndRestoreClipboard(text, into: target)
+    case .typing:
+      typeText(text, into: target)
+    }
+  }
+
+  /// Typing skips the clipboard entirely: the events land wherever the
+  /// keyboard would, which is the whole point for apps that refuse pasted
+  /// text. The focus boundary is revalidated before every chunk, so a
+  /// target that slips away mid-transcript stops the pass; whatever was
+  /// not yet delivered lands on the clipboard like every failed insertion.
+  private func typeText(_ text: String, into target: Target) {
+    var start = text.startIndex
+    while start < text.endIndex {
+      guard dependencies.isTargetFocused(target) else {
+        copyToClipboard(String(text[start..<text.endIndex]))
+        return
+      }
+
+      // Apps read only a few tens of characters per event before
+      // truncating, so the transcript goes out in chunks split on
+      // grapheme boundaries.
+      let end = text.index(start, offsetBy: 20, limitedBy: text.endIndex) ?? text.endIndex
+      guard dependencies.postTypingChunk(String(text[start..<end])) else {
+        copyToClipboard(String(text[start..<text.endIndex]))
+        return
+      }
+      start = end
+    }
   }
 
   private static func focusedElement() -> AXUIElement? {
@@ -263,6 +303,94 @@ final class TextInsertionService {
 
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
+  }
+
+  /// Posts one typing chunk as Unicode keyboard events. The HID event
+  /// carries a string rather than real keycodes, so it types into any
+  /// editor that accepts a keyboard — including ones that reject ⌘V.
+  /// Line breaks go out as explicit Return presses: editors that ignore
+  /// newlines embedded in a Unicode string still honor a Return key.
+  private static func postTypingChunk(_ chunk: String) -> Bool {
+    guard let source = CGEventSource(stateID: .combinedSessionState) else {
+      return false
+    }
+
+    let lines = typingLines(in: chunk)
+    for (index, line) in lines.enumerated() {
+      // Empty segments still carry the break that follows them, so
+      // leading and consecutive newlines send a Return each without
+      // ever posting an empty Unicode event.
+      if !line.isEmpty {
+        guard postUnicodeString(line, source: source) else {
+          return false
+        }
+      }
+      if index < lines.count - 1 {
+        guard postReturnKey(source: source) else {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  /// Splits a chunk on every Unicode line break, collapsing CRLF into a
+  /// single break. Empty segments are preserved so the caller can turn
+  /// each break into a Return without emitting empty text events.
+  static func typingLines(in chunk: String) -> [String] {
+    var lines: [String] = []
+    var line = ""
+    var index = chunk.startIndex
+    while index < chunk.endIndex {
+      let character = chunk[index]
+      if character.isNewline {
+        let nextIndex = chunk.index(after: index)
+        if character == "\r", nextIndex < chunk.endIndex, chunk[nextIndex] == "\n" {
+          index = nextIndex
+        }
+        lines.append(line)
+        line = ""
+      } else {
+        line.append(character)
+      }
+      index = chunk.index(after: index)
+    }
+    lines.append(line)
+    return lines
+  }
+
+  private static func postUnicodeString(_ string: String, source: CGEventSource) -> Bool {
+    let characters = Array(string.utf16)
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+      return false
+    }
+
+    characters.withUnsafeBufferPointer { buffer in
+      keyDown.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+      keyUp.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+    }
+
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
+  }
+
+  private static func postReturnKey(source: CGEventSource) -> Bool {
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false) else {
+      return false
+    }
+
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
     return true

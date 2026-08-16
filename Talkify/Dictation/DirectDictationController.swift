@@ -434,7 +434,11 @@ final class DirectDictationController {
       do {
         let text = try await speechService.finish()
         hudController.hide()
-        await textInsertionService.insert(text, into: focusedTarget)
+        await textInsertionService.insert(
+          text,
+          into: focusedTarget,
+          method: settings.insertionMethod
+        )
         hudController.playPasteSound()
         send(.sessionEnded)
         let wordCount = UsageMetrics.wordCount(in: text)

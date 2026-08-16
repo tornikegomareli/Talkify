@@ -181,6 +181,10 @@ _Avoid_: Transcript history, cloud analytics
 - Once speech has arrived, the session stays open until the user ends or cancels it
 - **Direct Dictation** ends by inserting text into the previously focused control
 - **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
+- The insertion method is a Settings choice: clipboard paste by default, or simulated typing for apps that refuse pasted text
+- Simulated typing delivers the transcript as chunked Unicode keyboard events; a successful pass never touches the clipboard
+- Simulated typing sends line breaks as Return key events rather than embedding them in the Unicode stream
+- A typing pass stops at the first failed focus validation or unpostable chunk and copies the undelivered remainder to the clipboard, like every failed insertion
 - If an app exposes no focused element, Talkify captures and later validates the frontmost application instead
 - Talkify sends the paste event globally only after the captured focus boundary passes validation
 - Clipboard paste restores the previous clipboard after a short delay only if the pasteboard change count still matches Talkify's write

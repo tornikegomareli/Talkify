@@ -249,6 +249,8 @@ private struct SettingsContent: View {
           LanguageSettingsView(settings: settings, runtimeState: runtimeState)
         case .shortcuts:
           ShortcutsSettingsView(settings: settings)
+        case .insertion:
+          InsertionSettingsView(settings: settings)
         case .updates:
           UpdatesSettingsView(updater: updater)
         case .insights:
