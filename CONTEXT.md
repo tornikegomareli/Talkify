@@ -178,7 +178,10 @@ _Avoid_: Transcript history, cloud analytics
 - **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
 - If an app exposes no focused element, Talkify captures and later validates the frontmost application instead
 - Talkify sends the paste event globally only after the captured focus boundary passes validation
-- Clipboard paste restores the previous clipboard after a short delay only if the pasteboard change count still matches Talkify's write
+- Clipboard insertion obtains a complete snapshot within one 600-millisecond acquisition deadline, with one reread permitted if the pasteboard changes during capture
+- If a clipboard read is already active, remains blocked at the deadline, or changes during both permitted reads, Talkify leaves the clipboard and target untouched and reports that insertion failed
+- If a completed clipboard snapshot fails or omits an advertised representation, Talkify places finalized text on the clipboard for manual paste
+- After a successful paste, Talkify restores the accepted snapshot after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
 - Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
