@@ -159,20 +159,24 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       var output: Event?
 
       stateLock.withLock {
-        guard let (slot, binding) = modifierTrigger(forKeyCode: keyCode) else { return }
-        let isDown = Self.isModifierKeyDown(binding, flags: event.flags)
-
-        if isDown {
-          // Another language's key is already held; ignore this one rather
-          // than starting a second session on top of the first.
-          guard heldSlot == nil else { return }
-          heldSlot = slot
-          output = .triggerPressed(slot)
-        } else {
-          guard heldSlot == slot else { return }
+        // A held modifier trigger ends the moment its combination breaks,
+        // whoever broke it: with fn + ⌥ the released key is often ⌥, whose
+        // keycode is not the one the trigger is bound to.
+        if let held = heldSlot, let binding = heldModifierBinding(held) {
+          guard !Self.isTriggerHeld(binding, flags: event.flags) else { return }
           heldSlot = nil
-          output = .triggerReleased(slot)
+          output = .triggerReleased(held)
+          return
         }
+
+        // Another language's key is already held; ignore this one rather
+        // than starting a second session on top of the first.
+        guard heldSlot == nil,
+           let (slot, binding) = modifierTrigger(forKeyCode: keyCode),
+           Self.isTriggerHeld(binding, flags: event.flags)
+        else { return }
+        heldSlot = slot
+        output = .triggerPressed(slot)
       }
 
       if let output {
@@ -190,8 +194,8 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
       // A non-modifier trigger key: press starts the hold gesture.
       // Autorepeat is the key being held, not pressed again.
-      if let (slot, _) = plainTrigger,
-         Self.isPlainTriggerPress(flags: event.flags) {
+      if let (slot, binding) = plainTrigger,
+         Self.flagsMatch(event.flags, mask: binding.modifiers) {
         guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else {
           return nil
         }
@@ -254,6 +258,14 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     return nil
   }
 
+  /// The binding behind a currently held slot, when it is a modifier trigger.
+  /// A plain key has its own keyUp to end on, so it is not re-evaluated here.
+  private func heldModifierBinding(_ slot: TriggerSlot) -> KeyBinding? {
+    let binding = slot == .primary ? triggerBinding : secondaryTriggerBinding
+    guard let binding, binding.isModifierKey else { return nil }
+    return binding
+  }
+
   private func plainKeyTrigger(forKeyCode keyCode: Int64) -> (TriggerSlot, KeyBinding)? {
     if !triggerBinding.isModifierKey, keyCode == triggerBinding.keyCode {
       return (.primary, triggerBinding)
@@ -283,13 +295,15 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     return flags.rawValue & masks.own != 0
   }
 
-  static func isPlainTriggerPress(flags: CGEventFlags) -> Bool {
-    flagsMatch(flags, mask: [])
+  /// Whether the whole trigger is down: the bound key, plus exactly the
+  /// modifiers it was recorded with and no others.
+  static func isTriggerHeld(_ binding: KeyBinding, flags: CGEventFlags) -> Bool {
+    isModifierKeyDown(binding, flags: flags) && flagsMatch(flags, mask: binding.modifiers)
   }
 
   /// Exact-modifier match: ⌥⎋ means Option and only Option; a bare key
   /// (F13) means no modifiers at all.
-  private static func flagsMatch(_ flags: CGEventFlags, mask: CGEventFlags) -> Bool {
+  static func flagsMatch(_ flags: CGEventFlags, mask: CGEventFlags) -> Bool {
     let relevant: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
     return flags.intersection(relevant) == mask.intersection(relevant)
   }

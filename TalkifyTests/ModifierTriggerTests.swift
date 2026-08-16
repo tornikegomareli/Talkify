@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Testing
 @testable import Talkify
@@ -74,8 +75,60 @@ struct ModifierTriggerTests {
     }
   }
 
-  @Test func commandModifiedKeyIsNotAPlainTriggerPress() {
-    #expect(!GlobalKeyEventMonitor.isPlainTriggerPress(flags: .maskCommand))
-    #expect(GlobalKeyEventMonitor.isPlainTriggerPress(flags: []))
+  @Test func commandModifiedKeyIsNotABareTriggerPress() {
+    #expect(!GlobalKeyEventMonitor.flagsMatch(.maskCommand, mask: []))
+    #expect(GlobalKeyEventMonitor.flagsMatch([], mask: []))
+  }
+}
+
+/// The whole trigger, not just its key: the bound key down plus exactly the
+/// modifiers it was recorded with. This is what lets fn + ⌥ be a trigger while
+/// fn on its own keeps scrolling pages (issue #40).
+struct ComboTriggerTests {
+  private let fn = KeyBinding.fnTrigger
+  private let fnOption = KeyBinding(
+    keyCode: 63,
+    modifierFlags: CGEventFlags.maskAlternate.rawValue,
+    isModifierKey: true,
+    label: "⌥ fn",
+    keyEquivalent: ""
+  )
+
+  @Test func aBareModifierTriggerStillFiresOnItsOwn() {
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(fn, flags: .maskSecondaryFn))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fn, flags: []))
+  }
+
+  /// The point of the feature.
+  @Test func aComboTriggerNeedsBothKeys() {
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskSecondaryFn))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskAlternate))
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(
+      fnOption, flags: [.maskSecondaryFn, .maskAlternate]
+    ))
+  }
+
+  /// Letting go of the modifier breaks it even though the bound key is still
+  /// down. The released keycode alone could never tell us that, which is why
+  /// the monitor re-checks the whole combination on every flags change.
+  @Test func releasingEitherKeyBreaksTheCombo() {
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskSecondaryFn))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskAlternate))
+  }
+
+  /// A third modifier means some other shortcut is being typed.
+  @Test func anExtraModifierDoesNotMatch() {
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(
+      fnOption, flags: [.maskSecondaryFn, .maskAlternate, .maskCommand]
+    ))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fn, flags: [.maskSecondaryFn, .maskCommand]))
+  }
+
+  /// The recorder subtracts the bound key's own contribution, so a trigger
+  /// never ends up requiring itself as one of its modifiers.
+  @Test func aModifierKeyDoesNotRequireItself() {
+    #expect(KeyBinding.cocoaModifier(forKeyCode: 58) == .option)
+    #expect(KeyBinding.cocoaModifier(forKeyCode: 61) == .option)
+    #expect(KeyBinding.cocoaModifier(forKeyCode: 63) == [])
   }
 }

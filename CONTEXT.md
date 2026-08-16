@@ -198,7 +198,11 @@ _Avoid_: Transcript history, cloud analytics
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
 - Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
 - Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
-- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding; the Dictation Trigger takes a single key (including a bare modifier like fn), Read Aloud takes a combo, and plain Escape cancels recording
+- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding, and plain Escape cancels recording
+- A **Dictation Trigger** is one key plus any modifiers held with it; only the trigger may bind a bare modifier such as fn, because a hold gesture needs a key that can be held
+- A modifier chord commits on the first release rather than on each press, so reaching fn + ⌥ is not cut short by ⌥ landing first
+- A **Dictation Trigger** fires on exactly the modifiers it was recorded with and no others: fn alone no longer starts a session once the trigger is fn + ⌥, which is the point of binding a combination on a keyboard where every single key is already spoken for
+- A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
 - While a key recorder is armed, global trigger handling pauses so the rebind keystroke cannot start a session
 - The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them

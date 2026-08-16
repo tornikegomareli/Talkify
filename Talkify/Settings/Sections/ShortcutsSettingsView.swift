@@ -11,7 +11,7 @@ struct ShortcutsSettingsView: View {
       SettingsRow(title: "Dictation Trigger") {
         KeyRecorderView(
           keyBinding: $settings.dictationTriggerBinding,
-          capturesSingleKey: true,
+          allowsBareModifier: true,
           onRecordingChanged: { settings.isRecordingKeybind = $0 }
         )
       }
@@ -19,7 +19,7 @@ struct ShortcutsSettingsView: View {
       SettingsRow(title: "Read Aloud") {
         KeyRecorderView(
           keyBinding: $settings.readAloudBinding,
-          capturesSingleKey: false,
+          allowsBareModifier: false,
           onRecordingChanged: { settings.isRecordingKeybind = $0 }
         )
       }

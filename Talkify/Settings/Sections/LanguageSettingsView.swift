@@ -41,7 +41,7 @@ struct LanguageSettingsView: View {
           ) {
             KeyRecorderView(
               keyBinding: $settings.secondaryTriggerBinding,
-              capturesSingleKey: true,
+              allowsBareModifier: true,
               onRecordingChanged: { settings.isRecordingKeybind = $0 }
             )
           }
