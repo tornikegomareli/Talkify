@@ -25,6 +25,7 @@ final class AppSettings {
     static let readAloudVoice = "readAloudVoice"
     static let dictationTriggerBinding = "dictationTriggerBinding"
     static let readAloudBinding = "readAloudBinding"
+    static let insertionMethod = "dictationInsertionMethod"
     static let recognitionLocale = "recognitionLocale"
     static let secondaryRecognitionLocale = "recognitionLocaleSecondary"
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
@@ -96,6 +97,12 @@ final class AppSettings {
     didSet { Self.store(readAloudBinding, in: defaults, key: Keys.readAloudBinding) }
   }
 
+  /// How finalized dictation text reaches the focused app. Paste is the
+  /// historical default; typing exists for apps that refuse pasted text.
+  var insertionMethod: TextInsertionService.InsertionMethod {
+    didSet { defaults.set(insertionMethod.rawValue, forKey: Keys.insertionMethod) }
+  }
+
   /// The dictation language, as a locale identifier; empty means follow the
   /// Mac's own language, which is what every session did before the Language
   /// section existed.
@@ -160,6 +167,7 @@ final class AppSettings {
     readAloudBinding = Self.storedBinding(
       in: defaults, key: Keys.readAloudBinding
     ) ?? .optionEscape
+    insertionMethod = Self.stored(in: defaults, key: Keys.insertionMethod) ?? .paste
     recognitionLocaleIdentifier = defaults.string(forKey: Keys.recognitionLocale) ?? ""
     secondaryRecognitionLocaleIdentifier =
       defaults.string(forKey: Keys.secondaryRecognitionLocale) ?? ""

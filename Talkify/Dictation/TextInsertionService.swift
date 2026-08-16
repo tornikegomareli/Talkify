@@ -3,6 +3,14 @@ import ApplicationServices
 
 @MainActor
 final class TextInsertionService {
+  /// How finalized text reaches the target app. Paste is the default;
+  /// typing exists for editors that refuse synthetic ⌘V — terminals,
+  /// virtual machines, apps with custom paste handling.
+  enum InsertionMethod: String, CaseIterable, Hashable {
+    case paste
+    case typing
+  }
+
   struct Target {
     fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
@@ -30,6 +38,7 @@ final class TextInsertionService {
     let isProcessRunning: @MainActor (pid_t) -> Bool
     let isTargetFocused: @MainActor (Target) -> Bool
     let postPasteShortcut: @MainActor () -> Bool
+    let postTypingText: @MainActor (String) -> Bool
     let waitForPasteRead: @MainActor () async -> Void
 
     static var live: Self {
@@ -47,6 +56,7 @@ final class TextInsertionService {
         },
         isTargetFocused: TextInsertionService.isStillFocused,
         postPasteShortcut: TextInsertionService.postPasteShortcut,
+        postTypingText: TextInsertionService.postTypingText,
         waitForPasteRead: {
           try? await Task.sleep(for: .milliseconds(500))
         }
@@ -84,7 +94,7 @@ final class TextInsertionService {
     )
   }
 
-  func insert(_ text: String, into target: Target?) async {
+  func insert(_ text: String, into target: Target?, method: InsertionMethod = .paste) async {
     guard !text.isEmpty else { return }
     guard let target else {
       copyToClipboard(text)
@@ -100,7 +110,23 @@ final class TextInsertionService {
       copyToClipboard(text)
       return
     }
-    await pasteAndRestoreClipboard(text, into: target)
+    switch method {
+    case .paste:
+      await pasteAndRestoreClipboard(text, into: target)
+    case .typing:
+      typeText(text, into: target)
+    }
+  }
+
+  /// Typing skips the clipboard entirely: the events land wherever the
+  /// keyboard would, which is the whole point for apps that refuse pasted
+  /// text. A target that slipped away mid-session still gets nothing typed.
+  private func typeText(_ text: String, into target: Target) {
+    guard dependencies.isTargetFocused(target),
+       dependencies.postTypingText(text) else {
+      copyToClipboard(text)
+      return
+    }
   }
 
   private static func focusedElement() -> AXUIElement? {
@@ -263,6 +289,50 @@ final class TextInsertionService {
 
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
+  }
+
+  /// Delivers text as Unicode keyboard events. The HID event carries a
+  /// string rather than real keycodes, so it types into any editor that
+  /// accepts a keyboard — including ones that reject synthetic ⌘V.
+  private static func postTypingText(_ text: String) -> Bool {
+    guard let source = CGEventSource(stateID: .combinedSessionState) else {
+      return false
+    }
+
+    // Apps read only a few tens of characters per event before truncating,
+    // so the transcript goes out in chunks split on grapheme boundaries.
+    var start = text.startIndex
+    while start < text.endIndex {
+      let end = text.index(start, offsetBy: 20, limitedBy: text.endIndex) ?? text.endIndex
+      guard postTypingChunk(String(text[start..<end]), source: source) else {
+        return false
+      }
+      start = end
+    }
+    return true
+  }
+
+  private static func postTypingChunk(_ chunk: String, source: CGEventSource) -> Bool {
+    let characters = Array(chunk.utf16)
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+      return false
+    }
+
+    characters.withUnsafeBufferPointer { buffer in
+      keyDown.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+      keyUp.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+    }
+
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
     return true

@@ -9,3 +9,4 @@ xcuserdata/
 # this file only when you are backing it up.
 talkify-sparkle-private-key.txt
 sparkle_eddsa_private_key
+build/
