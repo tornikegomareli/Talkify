@@ -43,7 +43,7 @@ final class DictationHUDController {
     renderedSettings = initialSettings
     sessionSettings = initialSettings
     sounds = DictationHUDSounds()
-    let placeholder = HUDScreenSnapshot(
+    let placeholderScreen = HUDScreenSnapshot(
       id: 0,
       frame: .zero,
       safeAreaTop: 0,
@@ -52,7 +52,7 @@ final class DictationHUDController {
     )
     hostingView = NSHostingView(
       rootView: DictationHUDShellView(
-        screen: placeholder,
+        screen: placeholderScreen,
         settings: initialSettings,
         content: content
       )
@@ -141,19 +141,34 @@ final class DictationHUDController {
     content.text = text
   }
 
+  /// Speech has stopped but the recognized text has not arrived yet.
+  ///
+  /// Nothing is written and nothing resizes. The watchdog stops, because the
+  /// silence that follows the last word is not a dead microphone, and the level
+  /// settles to zero so the visual comes to rest instead of freezing mid-wobble.
   func showFinalizing() {
     guard case .session = mode else { return }
-    stopVoiceVisual()
-    content.text = "Finalizing…"
+    micWatchdogTask?.cancel()
+    micWatchdogTask = nil
+    content.isAudioAlive = true
+    content.audioLevel = 0
   }
 
   func hide() {
     cancelMessageDismiss()
-    stopVoiceVisual()
     if case .session = mode {
       sounds.playEnd(using: sessionSettings.sounds)
     }
     mode = .hidden
+
+    // The shape retracts exactly as it stands. The visual stops reacting so a
+    // glow can play its drain, but the bands are pinned and the text is left
+    // alone: resizing or relabelling a shape that is already sliding away is
+    // the jolt this avoids.
+    micWatchdogTask?.cancel()
+    micWatchdogTask = nil
+    content.isDismissing = true
+    content.showsVoiceVisual = false
     content.isRevealed = false
 
     // Keep the panel front while the retract plays, then order out.
@@ -162,6 +177,10 @@ final class DictationHUDController {
       try? await Task.sleep(for: Self.dismissDuration)
       guard !Task.isCancelled, let self, case .hidden = mode else { return }
       panel.orderOut(nil)
+      // Only once it is off screen: clearing either of these earlier would
+      // show through the retract.
+      content.isDismissing = false
+      content.text = ""
     }
   }
 
@@ -208,6 +227,7 @@ final class DictationHUDController {
   /// watchdog: levels stopping for over 600ms while listening means the
   /// microphone is dead, which must look different from silence (CONTEXT.md).
   private func startVoiceVisual() {
+    content.isDismissing = false
     content.sessionEpoch += 1
     content.showsVoiceVisual = true
     content.audioLevel = 0
