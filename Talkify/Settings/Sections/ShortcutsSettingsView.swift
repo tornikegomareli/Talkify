@@ -90,7 +90,7 @@ struct ShortcutsSettingsView: View {
     SettingsRow(title: title, description: description) {
       KeyRecorderView(
         keyBinding: binding,
-        capturesSingleKey: allowsBareModifier,
+        allowsBareModifier: allowsBareModifier,
         onRecordingChanged: { settings.isRecordingKeybind = $0 }
       )
     }

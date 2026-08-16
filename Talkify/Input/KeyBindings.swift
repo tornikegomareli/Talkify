@@ -91,6 +91,19 @@ struct KeyBinding: Equatable, Codable {
     }
   }
 
+  /// What this key contributes to `NSEvent.ModifierFlags`, so a recorder can
+  /// subtract it and keep only the modifiers held alongside it. fn contributes
+  /// nothing here: it is not one of the four combining modifiers.
+  static func cocoaModifier(forKeyCode keyCode: Int64) -> NSEvent.ModifierFlags {
+    switch keyCode {
+    case 54, 55: .command
+    case 58, 61: .option
+    case 59, 62: .control
+    case 56, 60: .shift
+    default: []
+    }
+  }
+
   static func modifierKeyName(forKeyCode keyCode: Int64) -> String? {
     switch keyCode {
     case 63: "fn"
