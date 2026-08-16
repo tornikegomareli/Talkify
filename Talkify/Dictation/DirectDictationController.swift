@@ -428,20 +428,29 @@ final class DirectDictationController {
     pendingLiveText = nil
   }
 
+  /// Finishes recognition and routes the insertion outcome to its terminal UI.
+  ///
+  /// - Parameter speakingDuration: The completed session's measured speech time.
   private func finishRecognition(speakingDuration: TimeInterval) {
     Task { [weak self] in
       guard let self else { return }
       do {
         let text = try await speechService.finish()
         hudController.hide()
-        await textInsertionService.insert(text, into: focusedTarget)
-        hudController.playPasteSound()
-        send(.sessionEnded)
-        let wordCount = UsageMetrics.wordCount(in: text)
-        await usageTracker.recordSession(
-          wordCount: wordCount,
-          speakingDuration: speakingDuration
-        )
+        let outcome = await textInsertionService.insert(text, into: focusedTarget)
+        switch outcome {
+        case .inserted, .copiedToClipboard:
+          hudController.playPasteSound()
+          send(.sessionEnded)
+          let wordCount = UsageMetrics.wordCount(in: text)
+          await usageTracker.recordSession(
+            wordCount: wordCount,
+            speakingDuration: speakingDuration
+          )
+        case .unavailable:
+          send(.sessionEnded)
+          hudController.showMessage("Couldn't insert text")
+        }
       } catch {
         fail(message: error.localizedDescription, wasCancelled: false)
       }

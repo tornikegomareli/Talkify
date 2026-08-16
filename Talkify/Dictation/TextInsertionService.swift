@@ -1,8 +1,35 @@
 import AppKit
 import ApplicationServices
+import os
 
 @MainActor
 final class TextInsertionService {
+  /// The terminal delivery state of one finalized Direct Dictation result.
+  enum InsertionOutcome: Equatable, Sendable {
+    /// The text was staged and pasted, or empty input completed as a no-op.
+    case inserted
+    /// Target delivery was unavailable, so the text was left for manual paste.
+    case copiedToClipboard
+    /// Neither target insertion nor a safe clipboard fallback was possible.
+    case unavailable
+  }
+
+  /// Runs the sole leased pasteboard read away from the main actor.
+  ///
+  /// Apple documents no thread-safety contract for `NSPasteboard`. Background
+  /// use is accepted only to keep promised-data resolution from blocking the
+  /// main actor. The serial queue and read lease prevent same-instance overlap.
+  let clipboardReaderQueue = DispatchQueue(
+    label: "com.tgomareli.Talkify.clipboard-snapshot",
+    qos: .userInitiated
+  )
+
+  /// True from before a read is enqueued until its closure actually returns.
+  ///
+  /// A timeout never clears this lease: while AppKit remains inside a promised
+  /// data read, every later read and every write must remain excluded.
+  let clipboardReadLease = OSAllocatedUnfairLock(initialState: false)
+
   struct Target {
     fileprivate let element: AXUIElement?
     fileprivate let processIdentifier: pid_t
@@ -23,8 +50,16 @@ final class TextInsertionService {
     }
   }
 
+  /// Injectable pasteboard, focus, event, and timing boundaries for insertion.
   struct Dependencies {
     let pasteboard: NSPasteboard
+    /// Reads every pasteboard item into values that can cross back to the main actor.
+    ///
+    /// The service invokes this closure only on its serial reader queue while
+    /// holding the read lease. `nil` means the read was incomplete or failed.
+    let readClipboardItems: @Sendable () -> [ClipboardItemSnapshot]?
+    /// The total acquisition deadline shared by the first read and one reread.
+    let snapshotTimeout: Duration
     let focusedElement: @MainActor () -> AXUIElement?
     let frontmostApplication: @MainActor () -> NSRunningApplication?
     let isProcessRunning: @MainActor (pid_t) -> Bool
@@ -32,9 +67,22 @@ final class TextInsertionService {
     let postPasteShortcut: @MainActor () -> Bool
     let waitForPasteRead: @MainActor () async -> Void
 
+    /// Builds the production boundaries around the shared general pasteboard.
     static var live: Self {
-      Self(
-        pasteboard: .general,
+      let pasteboard = NSPasteboard.general
+      // Apple documents no NSPasteboard thread-safety contract. This background
+      // read is deliberate: promised data wedged the main actor in __dataForType
+      // -> CFPasteboardCopyData -> mach_msg, while same-instance overlap was
+      // proven to raise NSException "value not absent" in pasteboardItems. The
+      // serial reader queue and lease exclude every write until the read returns.
+      nonisolated(unsafe) let backgroundPasteboard = pasteboard
+
+      return Self(
+        pasteboard: pasteboard,
+        readClipboardItems: {
+          TextInsertionService.snapshot(of: backgroundPasteboard)
+        },
+        snapshotTimeout: .milliseconds(600),
         focusedElement: TextInsertionService.focusedElement,
         frontmostApplication: { NSWorkspace.shared.frontmostApplication },
         isProcessRunning: { processIdentifier in
@@ -54,7 +102,7 @@ final class TextInsertionService {
     }
   }
 
-  private let dependencies: Dependencies
+  let dependencies: Dependencies
 
   init(dependencies: Dependencies = .live) {
     self.dependencies = dependencies
@@ -84,23 +132,26 @@ final class TextInsertionService {
     )
   }
 
-  func insert(_ text: String, into target: Target?) async {
-    guard !text.isEmpty else { return }
+  /// Delivers finalized text to its captured target or the clipboard fallback.
+  ///
+  /// - Parameters:
+  ///   - text: The finalized text to deliver.
+  ///   - target: The focus boundary captured when Direct Dictation began.
+  /// - Returns: The terminal delivery outcome used by the session controller.
+  func insert(_ text: String, into target: Target?) async -> InsertionOutcome {
+    guard !text.isEmpty else { return .inserted }
     guard let target else {
-      copyToClipboard(text)
-      return
+      return copyToClipboard(text)
     }
 
     guard dependencies.isProcessRunning(target.processIdentifier) else {
-      copyToClipboard(text)
-      return
+      return copyToClipboard(text)
     }
 
     guard dependencies.isTargetFocused(target) else {
-      copyToClipboard(text)
-      return
+      return copyToClipboard(text)
     }
-    await pasteAndRestoreClipboard(text, into: target)
+    return await pasteAndRestoreClipboard(text, into: target)
   }
 
   private static func focusedElement() -> AXUIElement? {
@@ -215,43 +266,45 @@ final class TextInsertionService {
     return CFEqual(value, targetElement)
   }
 
-  private func pasteAndRestoreClipboard(_ text: String, into target: Target) async {
-    let pasteboard = dependencies.pasteboard
-    let sourceItems = pasteboard.pasteboardItems ?? []
-    var savedItems: [NSPasteboardItem] = []
-    savedItems.reserveCapacity(sourceItems.count)
+  /// Stages, pastes, and conditionally restores one finalized result.
+  ///
+  /// - Parameters:
+  ///   - text: The finalized text to insert.
+  ///   - target: The validated focus boundary that should receive the paste.
+  /// - Returns: The terminal delivery outcome after all safe fallbacks.
+  private func pasteAndRestoreClipboard(
+    _ text: String,
+    into target: Target
+  ) async -> InsertionOutcome {
+    let acquisition = await snapshotClipboardItems()
+    let savedItems: [ClipboardItemSnapshot]
+    let acceptedChangeCount: Int
 
-    for sourceItem in sourceItems {
-      let savedItem = NSPasteboardItem()
-      for type in sourceItem.types {
-        if let data = sourceItem.data(forType: type) {
-          savedItem.setData(data, forType: type)
-        }
-      }
-      savedItems.append(savedItem)
+    switch acquisition {
+    case let .accepted(items, changeCount):
+      savedItems = items
+      acceptedChangeCount = changeCount
+    case .failed:
+      return copyToClipboard(text)
+    case .timedOut, .unstable, .busy:
+      return .unavailable
     }
 
-    pasteboard.clearContents()
-    pasteboard.setString(text, forType: .string)
-    let insertedChangeCount = pasteboard.changeCount
+    guard dependencies.isTargetFocused(target) else {
+      return copyToClipboard(text)
+    }
+    guard let insertedChangeCount = stageClipboardText(
+      text,
+      ifUnchangedSince: acceptedChangeCount
+    ) else { return .unavailable }
 
-    guard dependencies.isTargetFocused(target),
-       dependencies.postPasteShortcut() else { return }
+    guard dependencies.postPasteShortcut() else {
+      restoreClipboard(savedItems, ifUnchangedSince: insertedChangeCount)
+      return .unavailable
+    }
     await dependencies.waitForPasteRead()
-
-    // Reads do not change changeCount. The delay gives asynchronous editors
-    // time to read; this guard protects newer clipboard contents.
-    guard pasteboard.changeCount == insertedChangeCount else { return }
-    pasteboard.clearContents()
-    if !savedItems.isEmpty {
-      pasteboard.writeObjects(savedItems)
-    }
-  }
-
-  private func copyToClipboard(_ text: String) {
-    let pasteboard = dependencies.pasteboard
-    pasteboard.clearContents()
-    pasteboard.setString(text, forType: .string)
+    restoreClipboard(savedItems, ifUnchangedSince: insertedChangeCount)
+    return .inserted
   }
 
   private static func postPasteShortcut() -> Bool {
