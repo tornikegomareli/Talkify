@@ -138,37 +138,62 @@ struct DropZoneTests {
   }
 
   @Test func rightAtTheNotchIsOpen() {
-    #expect(DropZone.at(point(depth: 4), in: screen) == .open)
-    #expect(DropZone.at(point(depth: 60, offset: 200), in: screen) == .open)
+    #expect(DropZone.next(after: .outside, at: point(depth: 4), in: screen) == .open)
+    #expect(DropZone.next(after: .outside, at: point(depth: 60, offset: 200), in: screen) == .open)
   }
 
   @Test func approachingFromBelowPeeksFirst() {
-    #expect(DropZone.at(point(depth: 100), in: screen) == .peek)
-    #expect(DropZone.at(point(depth: 130, offset: 400), in: screen) == .peek)
+    #expect(DropZone.next(after: .outside, at: point(depth: 100), in: screen) == .peek)
+    #expect(DropZone.next(after: .outside, at: point(depth: 130, offset: 400), in: screen) == .peek)
   }
 
   @Test func theMiddleOfTheScreenIsOutside() {
-    #expect(DropZone.at(point(depth: 500), in: screen) == .outside)
+    #expect(DropZone.next(after: .outside, at: point(depth: 500), in: screen) == .outside)
   }
 
   /// Wide of the notch but still near the top: the catch area is generous
   /// vertically and bounded horizontally, so dragging to a menu-bar item on
   /// the far right never arms the HUD.
   @Test func theFarEdgesOfTheMenuBarAreOutside() {
-    #expect(DropZone.at(point(depth: 10, offset: 700), in: screen) == .outside)
-    #expect(DropZone.at(point(depth: 10, offset: -700), in: screen) == .outside)
+    #expect(DropZone.next(after: .outside, at: point(depth: 10, offset: 700), in: screen) == .outside)
+    #expect(DropZone.next(after: .outside, at: point(depth: 10, offset: -700), in: screen) == .outside)
   }
 
   /// Directly under the notch but too far down to receive: it hints, it does
   /// not take the drop.
   @Test func justBelowTheOpenBandOnlyPeeks() {
-    #expect(DropZone.at(point(depth: DropZone.openHeight + 1), in: screen) == .peek)
+    #expect(DropZone.next(after: .outside, at: point(depth: DropZone.openHeight + 1), in: screen) == .peek)
   }
 
   /// A pointer above the top edge happens on a display whose frame sits below
   /// another one; it is not this display's business.
   @Test func aboveTheTopEdgeIsOutside() {
-    #expect(DropZone.at(point(depth: -5), in: screen) == .outside)
+    #expect(DropZone.next(after: .outside, at: point(depth: -5), in: screen) == .outside)
+  }
+
+  /// The bug this hysteresis exists for: the band that opens the target is a
+  /// narrow strip, but the shape it opens is far bigger, so judging both with
+  /// one number closed the target while the pointer was still on it.
+  @Test func anOpenTargetHoldsWhileThePointerIsStillOnTheShape() {
+    for depth in [70.0, 110.0, 165.0] {
+      #expect(DropZone.next(after: .open, at: point(depth: depth), in: screen) == .open)
+    }
+    #expect(DropZone.next(after: .open, at: point(depth: 60, offset: 300), in: screen) == .open)
+  }
+
+  /// It gives up only once the pointer is genuinely clear of the shape, and
+  /// it goes straight out rather than back to a hint: collapsing while the
+  /// user is still aiming at it reads as the target refusing them.
+  @Test func anOpenTargetLetsGoOnlyWhenTheDragLeaves() {
+    #expect(DropZone.next(after: .open, at: point(depth: 200), in: screen) == .outside)
+    #expect(DropZone.next(after: .open, at: point(depth: 60, offset: 400), in: screen) == .outside)
+  }
+
+  /// A peek is still free to grow into the target or fall away; only the open
+  /// state is sticky.
+  @Test func aPeekStillProgresses() {
+    #expect(DropZone.next(after: .peek, at: point(depth: 10), in: screen) == .open)
+    #expect(DropZone.next(after: .peek, at: point(depth: 300), in: screen) == .outside)
   }
 }
 

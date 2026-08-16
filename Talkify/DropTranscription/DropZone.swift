@@ -22,13 +22,36 @@ enum DropZone: Equatable {
   static let openHeight: CGFloat = 64
   static let openReach: CGFloat = 260
 
+  /// How far the pointer may go before an open target gives up, measured the
+  /// same way.
+  ///
+  /// Deliberately much larger than the band that opens it, and for a concrete
+  /// reason: the band is a narrow strip near the notch, but what it opens is a
+  /// shape roughly 110 points deep and up to 540 wide. Judging both with one
+  /// number meant the target closed while the pointer was still on the shape it
+  /// had just opened — a small move mid-drag and the HUD vanished. These cover
+  /// the opened shape at full HUD size, plus margin so resting on its edge does
+  /// not flicker.
+  static let holdHeight: CGFloat = 170
+  static let holdReach: CGFloat = 330
+
+  /// The zone after moving to `point`, given where the drag already was.
+  ///
+  /// The gesture is progressive on the way in and sticky once it lands: an
+  /// open target holds until the pointer is clear of the shape, and it never
+  /// falls back to a peek. Collapsing to a hint while the user is still over
+  /// the thing they are aiming at reads as the target refusing them.
+  ///
   /// `point` and `frame` are both in AppKit screen coordinates, whose origin
   /// is the bottom-left of the main display, so the top edge is `maxY`.
-  static func at(_ point: CGPoint, in frame: CGRect) -> DropZone {
+  static func next(after current: DropZone, at point: CGPoint, in frame: CGRect) -> DropZone {
     let depth = frame.maxY - point.y
     let offset = abs(point.x - frame.midX)
     guard depth >= 0 else { return .outside }
 
+    if current == .open {
+      return depth <= holdHeight && offset <= holdReach ? .open : .outside
+    }
     if depth <= openHeight, offset <= openReach { return .open }
     if depth <= peekHeight, offset <= peekReach { return .peek }
     return .outside

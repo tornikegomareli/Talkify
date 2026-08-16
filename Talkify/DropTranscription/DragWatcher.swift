@@ -74,7 +74,7 @@ final class DragWatcher {
 
     let point = NSEvent.mouseLocation
     let frame = Self.screenFrame(containing: point)
-    let next = DropZone.at(point, in: frame)
+    let next = DropZone.next(after: zone, at: point, in: frame)
     guard next != zone else { return }
     zone = next
     onZoneChange?(next, draggedURL)
