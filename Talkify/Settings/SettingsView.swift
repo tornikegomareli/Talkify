@@ -5,7 +5,7 @@ import SwiftUI
 /// sessions keep their snapshot, and Insights reads aggregate usage.
 struct SettingsView: View {
   @Bindable var settings: AppSettings
-  let sounds: DictationHUDSounds
+  let sounds: HUDSounds
   let runtimeState: SettingsRuntimeState
   let usageTracker: UsageTracker
   let updater: SparkleUpdaterService
@@ -159,6 +159,7 @@ private struct SettingsSidebar: View {
               }
             } label: {
               Label(section.title, systemImage: section.icon)
+                .labelStyle(SettingsSidebarLabelStyle())
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(
                   selectedSection == section
@@ -220,7 +221,7 @@ private struct SettingsSidebarGroup<Content: View>: View {
 private struct SettingsContent: View {
   let section: SettingsSection
   @Bindable var settings: AppSettings
-  let sounds: DictationHUDSounds
+  let sounds: HUDSounds
   let usageTracker: UsageTracker
   let runtimeState: SettingsRuntimeState
   let updater: SparkleUpdaterService
@@ -243,6 +244,8 @@ private struct SettingsContent: View {
           AppearanceSettingsView(settings: settings)
         case .sounds:
           SoundsSettingsView(settings: settings, sounds: sounds)
+        case .dropTranscription:
+          DropTranscriptionSettingsView(settings: settings)
         case .readAloud:
           ReadAloudSettingsView(settings: settings)
         case .language:
@@ -267,7 +270,7 @@ private struct SettingsContent: View {
   let settings = AppSettings.previewStore()
   SettingsView(
     settings: settings,
-    sounds: DictationHUDSounds(),
+    sounds: HUDSounds(),
     runtimeState: SettingsRuntimeState(),
     usageTracker: UsageTracker(store: UsageStore(
       fileURL: FileManager.default.temporaryDirectory

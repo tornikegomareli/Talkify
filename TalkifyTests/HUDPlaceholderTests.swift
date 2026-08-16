@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 
 @testable import Talkify
@@ -12,7 +13,7 @@ struct HUDPlaceholderTests {
   private func controller(_ visual: HUDVoiceVisualStyle) -> DictationHUDController {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual
-    return DictationHUDController(settings: store)
+    return DictationHUDController(stage: HUDStage(settings: store), settings: store)
   }
 
   private func session(_ store: AppSettings) -> DictationSessionSettings {
@@ -22,9 +23,9 @@ struct HUDPlaceholderTests {
   @Test func compactOpensWithNoText() {
     let store = AppSettings.previewStore()
     store.voiceVisual = .compact
-    let hud = DictationHUDController(settings: store)
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
-    hud.showListening(on: nil, isLatched: false, settings: session(store))
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     #expect(hud.textForTesting.isEmpty)
 
     hud.showLatched()
@@ -39,9 +40,9 @@ struct HUDPlaceholderTests {
   @Test func compactLatchesWithNoText() {
     let store = AppSettings.previewStore()
     store.voiceVisual = .compact
-    let hud = DictationHUDController(settings: store)
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
-    hud.showListening(on: nil, isLatched: true, settings: session(store))
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: true, settings: session(store))
     #expect(hud.textForTesting.isEmpty)
   }
 
@@ -51,9 +52,9 @@ struct HUDPlaceholderTests {
   func theOtherVisualsStillSayWhatTheyAreDoing(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual
-    let hud = DictationHUDController(settings: store)
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
-    hud.showListening(on: nil, isLatched: false, settings: session(store))
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     #expect(hud.textForTesting == "Listening…")
 
     hud.showLatched()
@@ -64,9 +65,9 @@ struct HUDPlaceholderTests {
   @Test func aLiveDraftIsNeverSuppressed() {
     let store = AppSettings.previewStore()
     store.voiceVisual = .compact
-    let hud = DictationHUDController(settings: store)
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
-    hud.showListening(on: nil, isLatched: false, settings: session(store))
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     hud.showLiveText("hello there")
     #expect(hud.textForTesting == "hello there")
   }

@@ -55,6 +55,18 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 Speaking the focused application's selected text out loud with an Apple system voice.
 _Avoid_: TTS mode, Speak selection
 
+**Drop Transcription**:
+Text produced from an audio or video file the user drops on the HUD.
+_Avoid_: File dictation, import, batch transcription
+
+**Drop Target**:
+The HUD state that accepts a dropped media file.
+_Avoid_: Drop zone, catch area
+
+**Staged transcript**:
+A finished **Drop Transcription** held in a temporary folder under its final name while the HUD offers it, before a drag or the card's timer decides where it lands.
+_Avoid_: Draft, cache, pending file
+
 **Settings section**:
 A navigable category of persisted application preferences with a visible user-facing purpose.
 _Avoid_: Placeholder tab, settings page
@@ -105,7 +117,8 @@ _Avoid_: Transcript history, cloud analytics
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
-- The HUD is display-only: mouse clicks pass through it and it never takes focus
+- The HUD is display-only during Direct Dictation: mouse clicks pass through it and it never takes focus
+- The HUD accepts the mouse only as a **Drop Target** and while it holds a finished **Drop Transcription**; it never takes focus in either state
 - The HUD's display is locked when the session starts and does not follow windows
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
 - The HUD is the only surface for dictation status and error messages
@@ -190,6 +203,7 @@ _Avoid_: Transcript history, cloud analytics
 - Clipboard paste restores the previous clipboard after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
+- A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened
 - Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
 - **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count
 - **Insights** never stores recognized text or target application identifiers
@@ -228,6 +242,46 @@ _Avoid_: Transcript history, cloud analytics
 - Talkify cannot download synthesis voices (no public API); the Read Aloud section deep-links System Settings and the voice list refreshes live when a download finishes
 - Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
 - Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors
+- Dragging a file toward the top edge of a display reveals the **Drop Target**, and the HUD opens as the pointer approaches the notch
+- The **Drop Target** appears only for a file the system reports as audio or video, so no list of file extensions is maintained
+- The **Drop Transcription** surfaces take their accent from the selected voice visual: Edge Glow lends its palette — its gradient on the target's edge, its one representative hue everywhere else — and every other visual keeps the Talkify blue
+- The status item ghost fills in that same accent while a **Drop Transcription** runs, so the HUD and the menu bar are never two different colors
+- A **Drop Transcription** plays the same three session sounds at the same three moments: Begin when the shape takes the file, End when the transcript is ready, Paste when the result is taken or saved
+- The sound set, mute, and volume govern **Direct Dictation** and **Drop Transcription** alike; there is one sound set for the app
+- The Drop Transcription section shows a live preview of the HUD walking its states, built on the same simulated display as the Appearance preview
+- A **Drop Transcription** palette never reaches Settings chrome, which stays Talkify blue
+- Talkify learns a drag has started from a global mouse-drag monitor, and reveals on approach to the top edge rather than on every drag
+- A drop does not start a **Drop Transcription**: the HUD holds the dropped file, showing its icon and name, and the job begins once that has been seen
+- The **Drop Transcription** then runs with the HUD dismissed instead of holding progress
+- Releasing over the open **Drop Target** is a drop, and only the drop dismisses the HUD; dismissing on the release itself refuses the drop and macOS flies the dragged item back
+- The **Drop Target** declares the broadest drop type it can, because a destination that is not offered the drop refuses it
+- The HUD accepts key status only while it wants the mouse — as a **Drop Target** or holding a transcript — and never activates Talkify
+- A **Drop Transcription** always opens and closes by growing the shape out of the housing; that is not one of the reveal styles and is never offered to **Direct Dictation**, whose reveal stays the user's pick
+- The **Drop Target** accepts a drop without reading anything at all, so the dragged item leaves the pointer as fast as it does on the Desktop; the file is the one the target opened for, already read from the drag pasteboard on the way in
+- The HUD shows nothing at all while a **Drop Transcription** runs; the status item is the only place that reports it
+- A **Drop Transcription** runs in the background: **Direct Dictation** stays available and the two sessions do not block each other
+- The status item carries **Drop Transcription** progress; cancelling a running job is not offered yet
+- A finished **Drop Transcription** becomes a **Staged transcript** rather than a saved file, so the user's next move decides where it goes
+- A **Staged transcript** is a real file for the whole of the card's life; nothing is held only in memory
+- A finished **Drop Transcription** returns the HUD holding the **Staged transcript** as a drag source
+- The returned HUD shows a card with the file name, word count, and media duration, never the transcript text
+- Dragging the card off the HUD is how the user chooses where the transcript goes; a destination that accepts it ends the **Drop Transcription** and nothing is written elsewhere
+- The card's drag carries the transcript twice, as the written file and as plain text, and the receiver picks: a folder writes the file, a text field takes the words
+- Talkify never decides between text and a file by transcript length; only the receiver knows its own limits, which is why the chat clients that convert a long paste to a file set that rule at their own message limit
+- Clicking the card copies the transcript to the clipboard and ends the **Drop Transcription**, for receivers that always prefer a file to text
+- The card shows its word count and duration, and trades them for its two gestures while the pointer is over it
+- The card's drag is copy-only, because the **Staged transcript** sits in a folder the user never sees; Talkify removes that folder once a destination has taken the file
+- A drag let go over nothing changes nothing: the card returns to counting down
+- The returned HUD dismisses itself after five seconds; the timer cancels while the pointer is over the card and stays cancelled while a drag from it is in flight
+- A card that expires untaken writes its transcript beside its source file by default, or into a folder chosen in Settings
+- If the source's location cannot be written, the transcript falls back to the chosen folder and then to the Desktop
+- A transcript never overwrites an earlier one; a colliding name gains a numbered suffix
+- The HUD names the folder an untaken transcript went to before it retracts, because that write happens after the card is gone
+- Quitting Talkify, or dropping a second file, writes a **Staged transcript** to its save location instead of losing it
+- **Drop Transcription** also starts from the status menu, for users who never discover the drag
+- A **Drop Transcription** of a video with no audio track ends with a message rather than an empty transcript
+- Version 1 writes plain text for audio and video alike; **Subtitles** output is a later format, not launch scope
+- A **Drop Transcription** uses the primary **Dictation Language**; with a second language configured the open **Drop Target** splits into two labeled halves and the drop chooses the language
 - Talkify updates itself with Sparkle; the appcast is a static file in the repository and there is no Talkify server
 - Every update is verified against an EdDSA signature before installation, and an update that fails verification is discarded
 - Update checks run daily and may be turned off; downloading updates automatically is opt-in and installing always waits for the user

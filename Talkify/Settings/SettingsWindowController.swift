@@ -18,7 +18,7 @@ final class SettingsWindowController: NSWindowController {
 
   convenience init(
     settings: AppSettings,
-    sounds: DictationHUDSounds,
+    sounds: HUDSounds,
     runtimeState: SettingsRuntimeState,
     usageTracker: UsageTracker,
     updater: SparkleUpdaterService

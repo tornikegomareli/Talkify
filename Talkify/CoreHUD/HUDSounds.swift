@@ -58,10 +58,16 @@ struct DictationSoundSettings: Equatable {
 
 /// The sounds that bracket a Direct Dictation session: begin when listening
 /// starts, end when the session closes, paste when text lands in the target.
+///
+/// A Drop Transcription borrows the same three rather than adding a set of its
+/// own, because it is the same three moments: the shape takes the file, the
+/// transcript is ready, the result is taken. One sound set means the app has
+/// one voice, and the user's mute and volume already govern all of it.
+///
 /// Callers supply captured or live sound settings. Assets reload lazily when
 /// the selected set changes.
 @MainActor
-final class DictationHUDSounds {
+final class HUDSounds {
   private var loadedSet: DictationSoundSet?
   private var begin: NSSound?
   private var end: NSSound?
@@ -96,7 +102,7 @@ final class DictationHUDSounds {
   }
 
   private func play(
-    _ sound: KeyPath<DictationHUDSounds, NSSound?>,
+    _ sound: KeyPath<HUDSounds, NSSound?>,
     using settings: DictationSoundSettings
   ) {
     guard settings.isEnabled else { return }

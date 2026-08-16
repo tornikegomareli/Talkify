@@ -5,6 +5,7 @@ final class StatusItemController: NSObject {
   private let statusItem: NSStatusItem
   private let toggleDictation: () -> Void
   private let toggleReadAloud: () -> Void
+  private let transcribeFile: () -> Void
   private let openSettings: () -> Void
   private let checkForUpdates: () -> Void
   private let dictationItem: NSMenuItem
@@ -16,15 +17,21 @@ final class StatusItemController: NSObject {
   /// contentTintColor values as black (FB8530353), so palette tinting
   /// swaps in non-template images instead.
   private var sessionIcons: (full: NSImage, dim: NSImage)?
+  /// Remembered so a dictation session that interrupts a running file job can
+  /// hand the ghost back to it afterwards.
+  private var transcriptionProgress: Double?
+  private var transcriptionAccent = SettingsTheme.accentColor
 
   init(
     toggleDictation: @escaping () -> Void,
     toggleReadAloud: @escaping () -> Void,
+    transcribeFile: @escaping () -> Void,
     openSettings: @escaping () -> Void,
     checkForUpdates: @escaping () -> Void
   ) {
     self.toggleDictation = toggleDictation
     self.toggleReadAloud = toggleReadAloud
+    self.transcribeFile = transcribeFile
     self.openSettings = openSettings
     self.checkForUpdates = checkForUpdates
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -44,6 +51,14 @@ final class StatusItemController: NSObject {
     readAloudItem.action = #selector(toggleReadAloudItem)
     readAloudItem.target = self
     menu.addItem(readAloudItem)
+
+    let transcribeItem = NSMenuItem(
+      title: "Transcribe File…",
+      action: #selector(transcribeFileItem),
+      keyEquivalent: ""
+    )
+    transcribeItem.target = self
+    menu.addItem(transcribeItem)
     menu.addItem(.separator())
 
     let settingsItem = NSMenuItem(
@@ -124,6 +139,11 @@ final class StatusItemController: NSObject {
     blinkDimmed = false
     statusItem.button?.contentTintColor = nil
     statusItem.button?.image = templateIcon
+    // A file job can outlast the dictation that interrupted it, so the ghost
+    // goes back to reporting it rather than to idle.
+    if let transcriptionProgress {
+      setTranscriptionProgress(transcriptionProgress, accent: transcriptionAccent)
+    }
   }
 
   /// Renders the template ghost filled with the accent, full and dimmed;
@@ -145,6 +165,72 @@ final class StatusItemController: NSObject {
     return (full, dim)
   }
 
+  /// A Drop Transcription's progress, 0…1, or nil once it ends.
+  ///
+  /// The ghost fills from the bottom like a battery rather than growing a ring
+  /// or a bar: it reads at 16 points, needs no extra chrome, and it is the
+  /// app's own mark doing the work. A dictation session outranks it — the
+  /// pulse is the more urgent thing to say.
+  ///
+  /// `accent` is the same colour the HUD's drop surfaces wear, so a glow
+  /// palette shows in the menu bar too.
+  func setTranscriptionProgress(_ fraction: Double?, accent: NSColor) {
+    transcriptionProgress = fraction
+    transcriptionAccent = accent
+    guard blinkTimer == nil else { return }
+    if let fraction {
+      statusItem.button?.contentTintColor = nil
+      statusItem.button?.image = makeProgressIcon(fraction: fraction, accent: accent) ?? templateIcon
+    } else {
+      statusItem.button?.image = templateIcon
+    }
+  }
+
+  private func makeProgressIcon(fraction: Double, accent: NSColor) -> NSImage? {
+    guard let templateIcon else { return nil }
+    return Self.progressIcon(from: templateIcon, fraction: fraction, accent: accent)
+  }
+
+  /// The ghost drawn twice in the accent: faint for the whole silhouette, solid
+  /// for the filled part, split at the progress line.
+  ///
+  /// Not a template image — a template is recoloured by the menu bar and would
+  /// come back white, which is the whole thing this replaces. Drawing the
+  /// unfilled part in the same colour at low alpha keeps it legible in either
+  /// menu bar theme.
+  static func progressIcon(
+    from templateIcon: NSImage,
+    fraction: Double,
+    accent: NSColor = SettingsTheme.accentColor
+  ) -> NSImage {
+    let clamped = min(max(fraction, 0), 1)
+    let icon = NSImage(size: templateIcon.size, flipped: false) { rect in
+      // The unfilled part is the accent at low opacity, not the artwork with
+      // a wash of accent over it: `sourceAtop` with an opaque colour replaces
+      // the colour and keeps the alpha, so the whole silhouette is one hue and
+      // only its weight changes at the progress line.
+      templateIcon.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.32)
+      accent.set()
+      rect.fill(using: .sourceAtop)
+
+      let filled = NSRect(
+        x: rect.minX,
+        y: rect.minY,
+        width: rect.width,
+        height: rect.height * clamped
+      )
+      NSGraphicsContext.saveGraphicsState()
+      NSBezierPath(rect: filled).setClip()
+      templateIcon.draw(in: rect)
+      accent.set()
+      rect.fill(using: .sourceAtop)
+      NSGraphicsContext.restoreGraphicsState()
+      return true
+    }
+    icon.isTemplate = false
+    return icon
+  }
+
   /// Mirrors Read Aloud playback on the menu item.
   func setSpeaking(_ isSpeaking: Bool) {
     readAloudItem.title = isSpeaking ? "Stop Reading" : "Read Selected Text"
@@ -156,6 +242,10 @@ final class StatusItemController: NSObject {
 
   @objc private func toggleReadAloudItem() {
     toggleReadAloud()
+  }
+
+  @objc private func transcribeFileItem() {
+    transcribeFile()
   }
 
   @objc private func checkForUpdatesItem() {
