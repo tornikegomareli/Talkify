@@ -140,10 +140,14 @@ final class HUDStage {
     orderOutTask = Task { [weak self] in
       try? await Task.sleep(for: Self.dismissDuration)
       guard !Task.isCancelled, let self, occupant == .none else { return }
+      panel.orderOut(nil)
+      // Only once it is off screen: clearing any of these earlier would show
+      // through the retract.
+      dictationContent.isDismissing = false
+      dictationContent.text = ""
       dropContent.mode = .none
       dropContent.heldIcon = nil
       dropContent.transcript = nil
-      panel.orderOut(nil)
     }
   }
 

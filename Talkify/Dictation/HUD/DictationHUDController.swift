@@ -74,13 +74,28 @@ final class DictationHUDController {
     // and the transcription keeps running with the status item carrying it.
     stage.claim(.dictation, on: screen, rendering: settings)
     startVoiceVisual()
-    content.text = isLatched ? Self.latchedText : Self.listeningText
+    content.text = placeholder
     stage.revealDictation()
   }
 
   func showLatched() {
     guard isListening else { return }
-    content.text = Self.latchedText
+    sessionIsLatched = true
+    content.text = placeholder
+  }
+
+  /// Exposed so the placeholder rules can be asserted without a window.
+  var textForTesting: String { content.text }
+
+  /// What the band says before any words arrive.
+  ///
+  /// Empty for Compact: it is the one visual built around the live draft, so a
+  /// placeholder there is words nobody spoke. Every path that would write one
+  /// asks here, rather than each deciding for itself — which is how "Listening
+  /// (latched)" kept coming back after the opening text was handled.
+  private var placeholder: String {
+    guard sessionSettings.voiceVisual != .compact else { return "" }
+    return sessionIsLatched ? Self.latchedText : Self.listeningText
   }
 
   /// A session waiting on its language model. The band says what it is waiting
@@ -88,7 +103,7 @@ final class DictationHUDController {
   /// restores whatever the session was saying before.
   func showModelDownload(_ text: String?) {
     guard isListening else { return }
-    content.text = text ?? (sessionIsLatched ? Self.latchedText : Self.listeningText)
+    content.text = text ?? placeholder
   }
 
   func showLiveText(_ text: String) {
@@ -96,10 +111,16 @@ final class DictationHUDController {
     content.text = text
   }
 
+  /// Speech has stopped but the recognized text has not arrived yet.
+  ///
+  /// Nothing is written and nothing resizes. The watchdog stops, because the
+  /// silence that follows the last word is not a dead microphone, and the level
+  /// settles to zero so the visual comes to rest instead of freezing mid-wobble.
   func showFinalizing() {
     guard isListening else { return }
-    stopVoiceVisual()
-    content.text = "Finalizing…"
+    stopWatchdog()
+    content.isAudioAlive = true
+    content.audioLevel = 0
   }
 
   func hide() {
@@ -107,13 +128,20 @@ final class DictationHUDController {
     if isListening {
       stage.sounds.playEnd(using: sessionSettings.sounds)
     }
-    stopVoiceVisual()
+    // The shape retracts exactly as it stands. The visual stops reacting so a
+    // glow can play its drain, but the bands are pinned and the text is left
+    // alone: resizing or relabelling a shape that is already sliding away is
+    // the jolt this avoids.
+    stopWatchdog()
+    content.isDismissing = true
+    content.showsVoiceVisual = false
     stage.retract()
   }
 
   /// Resets the visual to a live-and-silent baseline and arms the dead-mic
   /// watchdog.
   private func startVoiceVisual() {
+    content.isDismissing = false
     content.sessionEpoch += 1
     content.showsVoiceVisual = true
     content.audioLevel = 0
@@ -134,8 +162,12 @@ final class DictationHUDController {
   }
 
   private func stopVoiceVisual() {
+    stopWatchdog()
+    content.showsVoiceVisual = false
+  }
+
+  private func stopWatchdog() {
     micWatchdogTask?.cancel()
     micWatchdogTask = nil
-    content.showsVoiceVisual = false
   }
 }

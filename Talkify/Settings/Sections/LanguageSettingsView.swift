@@ -5,6 +5,7 @@ import SwiftUI
 /// Apple Speech transcribes one language per session, and a wrong guess
 /// produces confident nonsense rather than an error (CONTEXT.md).
 struct LanguageSettingsView: View {
+  @State private var isRecordingSecondKey = false
   @Bindable var settings: AppSettings
   let runtimeState: SettingsRuntimeState
 
@@ -41,7 +42,8 @@ struct LanguageSettingsView: View {
           ) {
             KeyRecorderView(
               keyBinding: $settings.secondaryTriggerBinding,
-              capturesSingleKey: true,
+              isRecording: $isRecordingSecondKey,
+              allowsBareModifier: true,
               onRecordingChanged: { settings.isRecordingKeybind = $0 }
             )
           }

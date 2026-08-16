@@ -13,8 +13,34 @@ struct DictationHUDShellView: View {
 
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
+  ///
+  /// Held to two floors at once: this display's, so the shape never ends up
+  /// narrower than the housing it descends from, and the selected visual's, so
+  /// a layout built around live text never shrinks past reading it.
+  static func metrics(
+    picked: HUDMetrics,
+    screen: HUDScreenSnapshot,
+    visual: HUDVoiceVisualStyle,
+    reduceMotion: Bool
+  ) -> HUDMetrics {
+    HUDMetrics(
+      scale: max(
+        picked.scale,
+        max(
+          HUDNotchGeometry.minimumScale(for: screen),
+          HUDMetrics.minimumScale(for: visual, reduceMotion: reduceMotion)
+        )
+      )
+    )
+  }
+
   private var metrics: HUDMetrics {
-    settings.hudMetrics
+    Self.metrics(
+      picked: settings.hudMetrics,
+      screen: screen,
+      visual: settings.voiceVisual,
+      reduceMotion: reduceMotion
+    )
   }
 
   private var size: CGSize {
@@ -34,7 +60,7 @@ struct DictationHUDShellView: View {
   /// waveform compresses to the slim strip so strip + wrapped text still
   /// fit the fixed window.
   private var visualBandHeight: CGFloat {
-    guard content.showsVoiceVisual else { return 0 }
+    guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     // Compact has no band of its own: its indicator lives inside the
     // text band, beside the draft.
@@ -46,8 +72,14 @@ struct DictationHUDShellView: View {
   /// listening; Compact is built around it. With Reduce Motion the draft
   /// text always shows.
   private var showsTextBand: Bool {
-    if !content.showsVoiceVisual || reduceMotion { return true }
+    if !keepsVisualLayout || reduceMotion { return true }
     return settings.voiceVisual == .compact
+  }
+
+  /// Whether the bands stay as a listening session laid them out. Held through
+  /// the retract so the shape never resizes while it is sliding away.
+  private var keepsVisualLayout: Bool {
+    content.showsVoiceVisual || content.isDismissing
   }
 
   /// Whether the text band renders the Compact layout: the voice indicator

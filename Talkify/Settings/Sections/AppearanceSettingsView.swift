@@ -6,6 +6,8 @@ import SwiftUI
 struct AppearanceSettingsView: View {
   @Bindable var settings: AppSettings
 
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   /// Which conditional rows the selected visual exposes; hidden values
   /// stay persisted (CONTEXT.md).
   static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
@@ -63,7 +65,9 @@ struct AppearanceSettingsView: View {
           title: "HUD size",
           description: "How much room the HUD takes on screen",
           value: $settings.hudScale,
-          range: Double(HUDMetrics.minimumScale)...Double(HUDMetrics.maximumScale),
+          range: Double(
+            HUDMetrics.minimumScale(for: settings.voiceVisual, reduceMotion: reduceMotion)
+          )...Double(HUDMetrics.maximumScale),
           valueLabel: { "\(Int(($0 * 100).rounded()))%" }
         )
 

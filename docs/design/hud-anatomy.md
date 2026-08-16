@@ -1,6 +1,6 @@
 # HUD anatomy
 
-Source: `Talkify/HUD/HUDMetrics.swift`, `Talkify/HUD/HUDNotchGeometry.swift`,
+Source: `Talkify/CoreHUD/HUDMetrics.swift`, `Talkify/CoreHUD/HUDNotchGeometry.swift`,
 `Talkify/Dictation/HUD/DictationHUDShellView.swift`.
 
 The HUD is a black shape that descends from the top center of a display and

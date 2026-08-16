@@ -1,7 +1,7 @@
 # Motion
 
 Source: `Talkify/Dictation/HUD/DictationHUDShellView.swift`,
-`Talkify/HUD/HUDRevealStyle.swift`,
+`Talkify/CoreHUD/HUDRevealStyle.swift`,
 `Talkify/Dictation/HUD/Visuals/HUDCompactIndicatorView.swift`.
 
 Every animation in the app, with its real values. If a new surface needs

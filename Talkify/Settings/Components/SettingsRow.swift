@@ -59,6 +59,14 @@ struct SettingsSliderRow: View {
     )
   }
 
+  /// What the readout says. A stored value can sit outside the range when the
+  /// range itself narrows — a preference kept from a state that allowed it —
+  /// and the slider already shows the thumb clamped, so the number has to
+  /// agree with it rather than report the value behind it.
+  private var displayedValue: Double {
+    min(max(value, range.lowerBound), range.upperBound)
+  }
+
   var body: some View {
     SettingsRow(title: title, description: description) {
       HStack(spacing: 10) {
@@ -66,8 +74,8 @@ struct SettingsSliderRow: View {
           .labelsHidden()
           .tint(SettingsTheme.accent)
           .accessibilityLabel(title)
-          .accessibilityValue(valueLabel(value))
-        Text(valueLabel(value))
+          .accessibilityValue(valueLabel(displayedValue))
+        Text(valueLabel(displayedValue))
           .font(.system(size: 12, weight: .medium))
           .monospacedDigit()
           .foregroundStyle(.white.opacity(0.62))

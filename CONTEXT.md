@@ -108,7 +108,12 @@ _Avoid_: Transcript history, cloud analytics
 - The simulated notch omits the corner fillets that hug a physical housing
 - The HUD behaves identically on every display; only the notch measurement differs
 - **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
-- **HUD size** is a Settings slider from 60% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
+- A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing it descends from plus its fillets: a shape narrower than its housing reads as a tab floating under the notch, and its fillets land inside the cutout with no bezel to meet
+- That floor cannot be one number: a notch is a fixed physical width but its width in points moves with the scaled display mode, so the same MacBook reports roughly 155 points under More Space and 273 under Larger Text; a display with no notch keeps the slider's own minimum, which is where a smaller HUD is wanted because every point the shape covers is screen the user was working in
+- A HUD that will show draft text has a second floor at 40%, where the draft is still 6 points: Compact is built around the live draft and Reduce Motion restores it for every visual, so both stop there while Waveform and Edge Glow, which replace the draft entirely, go down to 20%
+- The **HUD size** slider offers only the sizes the selected voice visual can be shown at, and the higher of the two floors wins whenever both apply
+- A size below the selected visual's floor stays persisted and returns when a visual that can show it is picked again
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
@@ -118,6 +123,10 @@ _Avoid_: Transcript history, cloud analytics
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
 - The HUD is the only surface for dictation status and error messages
 - HUD status and error messages dismiss themselves after about two seconds
+- The HUD writes nothing while it retracts and its bands do not resize: the shape leaves exactly as it stood, and its text and layout reset only once it is off screen
+- The wait between the last word and the recognized text is silent — no label stands in for it, and the voice visual comes to rest rather than reading the silence as a dead microphone
+- Compact opens with no text at all, because it is built around the live draft and a placeholder would be words nobody spoke
+- The HUD's shaders and the particle cloud's compute kernels are compiled at launch, so the cost never lands on the first frames of a session
 - The HUD shows a live visual that reacts to microphone audio while listening
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
@@ -207,7 +216,23 @@ _Avoid_: Transcript history, cloud analytics
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
 - Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
 - Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
-- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding; the Dictation Trigger takes a single key (including a bare modifier like fn), Read Aloud takes a combo, and plain Escape cancels recording
+- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding, and plain Escape cancels recording
+- A **Dictation Trigger** is one key plus any modifiers held with it; only the trigger may bind a bare modifier such as fn, because a hold gesture needs a key that can be held
+- A modifier chord commits on the first release rather than on each press, so reaching fn + ⌥ is not cut short by ⌥ landing first
+- The bound key of a chord is the one that cannot be a required modifier: fn pressed before or after ⌥ still binds fn, because only command, option, control and shift can be required
+- A **Dictation Trigger** fires on exactly the modifiers it was recorded with and no others: fn alone no longer starts a session once the trigger is fn + ⌥, which is the point of binding a combination on a keyboard where every single key is already spoken for
+- A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first, and starts the moment it completes, whichever key completed it
+- Only the trigger's own key is swallowed; a modifier that merely completes or breaks the combination passes through, so other applications still see it go down and up
+- The Shortcuts section draws the user's own keyboard above the recorders, with each binding's keys lit in its own color, because which keys are still free is a question about a physical object that a list of labels cannot answer
+- The drawn keyboard takes its shape from the attached keyboard and its legends from the selected input source, so it matches the board in front of the user rather than a US one: an ISO board puts § left of 1, moves the backtick beside left ⇧ and runs Return down two rows, and an AZERTY or Georgian source relabels the same keys
+- The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label
+- A JIS keyboard is drawn with ISO geometry until its extra keys can be checked on real hardware; its legends are still its own
+- A binding lights both sides of every modifier it requires, because either one satisfies it
+- Arming a row makes the drawn keyboard live: clicking a modifier holds it for the combination and clicking it again lets it go, so a mis-click is undoable; clicking anything else finishes the binding, and a row with only modifiers picked offers a control to use them as they are
+- The keyboard's border lights in the accent while a row is armed, because nothing else on screen says the drawing has become something that can be clicked
+- Clicking is a second way to assign, not a replacement for pressing: it is the only way to assign a combination the recorder cannot capture, because the system or another application swallows it before Talkify sees it
+- Each binding is a row whose keys are drawn as one cap per physical key on the leading edge, modifiers first in the order macOS writes them, and whose description names those keys in the sentence that says what they do
+- The whole row is the recorder: clicking anywhere in it arms, and while armed the caps collapse to one placeholder and the description says what to press
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
 - While a key recorder is armed, global trigger handling pauses so the rebind keystroke cannot start a session
 - The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them
@@ -319,7 +344,7 @@ _Avoid_: Transcript history, cloud analytics
 - Direct Dictation and Sounds Preview use the selected volume; Settings can mute all Direct Dictation sounds
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
-- The Appearance preview shows the picked **HUD size** directly, because the size applies on every display including the preview's notched reference
+- The Appearance preview shows the picked **HUD size** directly on its notched reference, so a size below what that reference can show stops changing the preview, which is what the same size does on a real notched display
 - The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 
