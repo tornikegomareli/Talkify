@@ -243,6 +243,7 @@ _Avoid_: Transcript history, cloud analytics
 - Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
 - Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors
 - Dragging a file toward the top edge of a display reveals the **Drop Target**, and the HUD opens as the pointer approaches the notch
+- An open **Drop Target** holds until the drag leaves the shape it opened into, not the narrower band that opened it, and it never falls back to a peek: collapsing while the pointer is still on the target reads as the target refusing the drop
 - The **Drop Target** appears only for a file the system reports as audio or video, so no list of file extensions is maintained
 - The **Drop Transcription** surfaces take their accent from the selected voice visual: Edge Glow lends its palette — its gradient on the target's edge, its one representative hue everywhere else — and every other visual keeps the Talkify blue
 - The status item ghost fills in that same accent while a **Drop Transcription** runs, so the HUD and the menu bar are never two different colors
