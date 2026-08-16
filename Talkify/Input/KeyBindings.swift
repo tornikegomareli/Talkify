@@ -91,6 +91,32 @@ struct KeyBinding: Equatable, Codable {
     }
   }
 
+  /// What this key contributes to `NSEvent.ModifierFlags`, so a recorder can
+  /// subtract it and keep only the modifiers held alongside it. fn contributes
+  /// nothing here: it is not one of the four combining modifiers.
+  static func cocoaModifier(forKeyCode keyCode: Int64) -> NSEvent.ModifierFlags {
+    switch keyCode {
+    case 54, 55: .command
+    case 58, 61: .option
+    case 59, 62: .control
+    case 56, 60: .shift
+    default: []
+    }
+  }
+
+  /// Which of two modifier presses is the bound key while a chord is being
+  /// recorded. fn and anything that is not one of the four combining modifiers
+  /// outrank them, because only those four can be *required* by a binding —
+  /// otherwise pressing fn and adding ⌥ would rebind to a bare ⌥.
+  static func chordKey(existing: Int64?, pressed: Int64) -> Int64 {
+    guard let existing else { return pressed }
+    let existingCombines = cocoaModifier(forKeyCode: existing) != []
+    let pressedCombines = cocoaModifier(forKeyCode: pressed) != []
+    if existingCombines, !pressedCombines { return pressed }
+    if !existingCombines, pressedCombines { return existing }
+    return pressed
+  }
+
   static func modifierKeyName(forKeyCode keyCode: Int64) -> String? {
     switch keyCode {
     case 63: "fn"

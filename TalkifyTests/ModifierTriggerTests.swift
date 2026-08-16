@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Testing
 @testable import Talkify
@@ -74,8 +75,100 @@ struct ModifierTriggerTests {
     }
   }
 
-  @Test func commandModifiedKeyIsNotAPlainTriggerPress() {
-    #expect(!GlobalKeyEventMonitor.isPlainTriggerPress(flags: .maskCommand))
-    #expect(GlobalKeyEventMonitor.isPlainTriggerPress(flags: []))
+  @Test func commandModifiedKeyIsNotABareTriggerPress() {
+    #expect(!GlobalKeyEventMonitor.flagsMatch(.maskCommand, mask: []))
+    #expect(GlobalKeyEventMonitor.flagsMatch([], mask: []))
+  }
+}
+
+/// The whole trigger, not just its key: the bound key down plus exactly the
+/// modifiers it was recorded with. This is what lets fn + ⌥ be a trigger while
+/// fn on its own keeps scrolling pages (issue #40).
+struct ComboTriggerTests {
+  private let fn = KeyBinding.fnTrigger
+  private let fnOption = KeyBinding(
+    keyCode: 63,
+    modifierFlags: CGEventFlags.maskAlternate.rawValue,
+    isModifierKey: true,
+    label: "⌥ fn",
+    keyEquivalent: ""
+  )
+
+  @Test func aBareModifierTriggerStillFiresOnItsOwn() {
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(fn, flags: .maskSecondaryFn))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fn, flags: []))
+  }
+
+  /// The point of the feature.
+  @Test func aComboTriggerNeedsBothKeys() {
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskSecondaryFn))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fnOption, flags: .maskAlternate))
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(
+      fnOption, flags: [.maskSecondaryFn, .maskAlternate]
+    ))
+  }
+
+
+  /// A third modifier means some other shortcut is being typed.
+  @Test func anExtraModifierDoesNotMatch() {
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(
+      fnOption, flags: [.maskSecondaryFn, .maskAlternate, .maskCommand]
+    ))
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(fn, flags: [.maskSecondaryFn, .maskCommand]))
+  }
+
+  /// A plain letter with a modifier — ⇧P. The bound key is not a modifier, so
+  /// the keyDown path matches it, and it must require the shift it was
+  /// recorded with rather than firing on a lone p.
+  @Test func aLetterWithAModifierIsAValidTrigger() {
+    let shiftP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: false,
+      label: "⇧ P",
+      keyEquivalent: "p"
+    )
+    #expect(GlobalKeyEventMonitor.flagsMatch(.maskShift, mask: shiftP.modifiers))
+    #expect(!GlobalKeyEventMonitor.flagsMatch([], mask: shiftP.modifiers))
+    #expect(!GlobalKeyEventMonitor.flagsMatch([.maskShift, .maskCommand], mask: shiftP.modifiers))
+
+    // Both shift keys light up, since either one satisfies the binding.
+    #expect(KeyboardMap.highlighted(for: shiftP) == [35, 56, 60])
+  }
+
+}
+
+/// Regressions found reviewing the combo work. Each of these was assignable in
+/// Settings and then did nothing.
+struct ComboTriggerRegressionTests {
+  /// ⇧ + ⌥, where the bound key is itself one of the four combining modifiers.
+  /// Its own bit is in the flags, so an exact match against the required
+  /// modifiers alone can never be satisfied and the binding is dead.
+  @Test func aModifierBoundWithAnotherModifierStillFires() {
+    let shiftOption = KeyBinding(
+      keyCode: 58,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: true,
+      label: "⇧ ⌥",
+      keyEquivalent: ""
+    )
+    let bothDown = CGEventFlags(
+      rawValue: CGEventFlags([.maskShift, .maskAlternate]).rawValue | 0x20
+    )
+    #expect(GlobalKeyEventMonitor.isTriggerHeld(shiftOption, flags: bothDown))
+
+    let onlyOption = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x20)
+    #expect(!GlobalKeyEventMonitor.isTriggerHeld(shiftOption, flags: onlyOption))
+  }
+
+  /// The recorder must keep fn as the bound key whichever order the two were
+  /// pressed in. Pressing fn first and adding ⌥ used to overwrite the chord
+  /// and bind a bare ⌥, which then fires on every Option press.
+  @Test func theChordKeepsTheKeyThatOutranksAModifier() {
+    #expect(KeyBinding.chordKey(existing: 63, pressed: 58) == 63)
+    #expect(KeyBinding.chordKey(existing: 58, pressed: 63) == 63)
+    #expect(KeyBinding.chordKey(existing: nil, pressed: 58) == 58)
+    // Two combining modifiers: the newest wins, so ⇧ then ⌥ binds ⌥ + ⇧.
+    #expect(KeyBinding.chordKey(existing: 56, pressed: 58) == 58)
   }
 }
