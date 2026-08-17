@@ -704,6 +704,12 @@ final class DirectDictationController {
         }
 
         await recordHistory(spoken: spoken, delivered: text, session: session)
+
+        // Shaping runs after the history write on purpose: history keeps the
+        // words as spoken, and any shaping failure inserts them unchanged.
+        if let prompt = session.shapingPrompt, !text.isEmpty {
+          text = await dependencies.shapeText(text, prompt)
+        }
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )

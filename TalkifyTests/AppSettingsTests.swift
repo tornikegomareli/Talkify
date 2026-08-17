@@ -402,6 +402,40 @@ struct AppSettingsTests {
     #expect(snapshot.historyFolder.path(percentEncoded: false) == "/tmp/history")
   }
 
+  @Test func promptShapingDefaultsToOffWithTheFirstPrompt() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(!settings.promptShapingEnabled)
+    #expect(settings.promptShapingPromptID == ShapingPrompt.library[0].id)
+  }
+
+  @Test func promptShapingRoundTripsUnderItsKeys() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "bullet-lists"
+
+    #expect(defaults.object(forKey: "dictationPromptShapingEnabled") as? Bool == true)
+    #expect(defaults.string(forKey: "dictationPromptShapingPrompt") == "bullet-lists")
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.promptShapingEnabled)
+    #expect(reloaded.promptShapingPromptID == "bullet-lists")
+  }
+
+  /// The snapshot resolves the pick to a prompt: nil while shaping is off,
+  /// and nil again when the stored id names nothing in the library.
+  @Test func sessionSnapshotResolvesTheShapingPrompt() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.sessionSettings.shapingPrompt == nil)
+
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "bullet-lists"
+    #expect(settings.sessionSettings.shapingPrompt?.id == "bullet-lists")
+
+    settings.promptShapingPromptID = "no-such-prompt"
+    #expect(settings.sessionSettings.shapingPrompt == nil)
+  }
+
   @Test func sessionSnapshotCapturesTheInsertionDestination() {
     let settings = AppSettings(defaults: freshDefaults())
     settings.insertionDestination = .clipboardOnly

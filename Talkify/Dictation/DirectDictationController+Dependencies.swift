@@ -73,6 +73,11 @@ extension DirectDictationController {
       _ folder: URL
     ) async -> Void
 
+    // The alpha prompt shaping pass; passthrough on any failure.
+    let shapeText: @Sendable (
+      _ text: String, _ prompt: ShapingPrompt
+    ) async -> String
+
     /// Builds the production boundaries around the live services the
     /// controller previously constructed itself.
     @MainActor
@@ -141,6 +146,9 @@ extension DirectDictationController {
             from: source,
             in: folder
           )
+        },
+        shapeText: { text, prompt in
+          await PromptShapingService(client: .live).shape(text, with: prompt)
         }
       )
     }

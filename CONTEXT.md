@@ -134,7 +134,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, and whether the session lowers other audio
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, the shaping choice, and whether the session lowers other audio
 - **Direct Dictation** can lower other audio while it listens and put it back when the session ends, cancels or fails; it is off by default because the control it moves is system-wide
 - macOS has no per-application ducking, so lowering other audio moves the default output device's own volume and quiets Talkify's session sounds along with everything else
 - A lowered volume is restored only while it is still the value Talkify set: a volume the user changed mid-session is theirs, the same rule the clipboard restore follows
@@ -184,6 +184,11 @@ _Avoid_: Transcript history, cloud analytics
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
 - Version 1 inserts raw finalized text without filler-word or AI cleanup
 - Text cleanup is a later feature and must not affect the first implementation
+- Prompt shaping is that later cleanup feature, shipped as an explicit alpha and off by default, so the default session still inserts raw finalized text
+- While prompt shaping is on, the selected shaping prompt rewrites finished text through the on-device Apple Intelligence model between recognition and insertion, and nothing leaves the Mac
+- Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
+- Transcription history keeps the words as spoken, before shaping
+- The shaping choice is captured in the Dictation session settings snapshot
 - A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger, never automatic detection
 - Talkify never detects the spoken language: Apple Speech transcribes one language per session, and a wrong guess returns confident nonsense instead of an error
 - Every bound **Dictation Language** stays prewarmed and reserved, so either trigger answers as fast as the other
