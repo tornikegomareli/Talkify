@@ -451,15 +451,19 @@ final class DirectDictationController {
     finishTask = Task { [weak self] in
       guard let self else { return }
       do {
-        let text = try await dependencies.finishRecognition()
+        var text = try await dependencies.finishRecognition()
         dependencies.hideHUD()
         // Delivery follows the session snapshot, so a Settings change
         // mid-session applies to the next session (ADR-0004).
         let session = currentSessionSettings ?? settings.sessionSettings
         if session.historyEnabled, !text.isEmpty {
           // Before the outcome routing: words the paste then loses are
-          // exactly the words history exists to keep.
+          // exactly the words history exists to keep. History holds what
+          // was spoken, so it is written before any shaping.
           await dependencies.recordHistory(text, session.historyFolder)
+        }
+        if let prompt = session.shapingPrompt, !text.isEmpty {
+          text = await dependencies.shapeText(text, prompt)
         }
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination

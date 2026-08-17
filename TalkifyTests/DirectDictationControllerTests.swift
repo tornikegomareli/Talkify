@@ -61,6 +61,8 @@ struct DirectDictationControllerTests {
     shutDownRecognition: @escaping @Sendable () async -> Void = {},
     historyEntries: OSAllocatedUnfairLock<[(text: String, folder: URL)]>
       = .init(initialState: []),
+    shapeText: @escaping @Sendable (String, ShapingPrompt) async -> String
+      = { text, _ in text },
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -114,7 +116,8 @@ struct DirectDictationControllerTests {
       },
       recordHistory: { text, folder in
         historyEntries.withLock { $0.append((text, folder)) }
-      }
+      },
+      shapeText: shapeText
     )
   }
 
@@ -561,6 +564,77 @@ struct DirectDictationControllerTests {
     let entries = historyEntries.withLock { $0 }
     #expect(entries.map(\.text) == ["spoken words"])
     #expect(entries.map(\.folder) == [folder])
+    controller.stop()
+  }
+
+  /// Shaping runs between finish and insertion, and history keeps the raw
+  /// words: the insert receives the shaped text, history what was spoken.
+  @Test func finishShapesTextAfterHistoryAndBeforeInsertion() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, folder: URL)]>(
+      initialState: []
+    )
+    let shapedPromptIDs = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        historyEntries: historyEntries,
+        shapeText: { text, prompt in
+          shapedPromptIDs.withLock { $0.append(prompt.id) }
+          return "shaped \(text)"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["shaped raw words"])
+    #expect(historyEntries.withLock { $0 }.map(\.text) == ["raw words"])
+    #expect(shapedPromptIDs.withLock { $0 } == ["tighten-grammar"])
+    controller.stop()
+  }
+
+  /// Shaping off — the default — never touches the text.
+  @Test func finishInsertsRawTextWhileShapingIsOff() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapeCalls = OSAllocatedUnfairLock(initialState: 0)
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, _ in
+          shapeCalls.withLock { $0 += 1 }
+          return "shaped"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["raw words"])
+    #expect(shapeCalls.withLock { $0 } == 0)
     controller.stop()
   }
 }

@@ -34,6 +34,8 @@ final class AppSettings {
     static let insertionDestination = "dictationInsertionDestination"
     static let historyEnabled = "dictationHistoryEnabled"
     static let historyFolder = "dictationHistoryFolder"
+    static let promptShapingEnabled = "dictationPromptShapingEnabled"
+    static let promptShapingPrompt = "dictationPromptShapingPrompt"
   }
 
   @ObservationIgnored
@@ -90,6 +92,18 @@ final class AppSettings {
   /// The folder history writes to right now: the user's pick, or the default.
   var resolvedHistoryFolder: URL {
     dictationHistoryFolder ?? DictationHistoryStore.defaultFolderURL
+  }
+
+  /// Whether the alpha prompt shaping pass runs on finished dictation text.
+  /// Off by default: the default session inserts raw finalized text exactly
+  /// as it always has.
+  var promptShapingEnabled: Bool {
+    didSet { defaults.set(promptShapingEnabled, forKey: Keys.promptShapingEnabled) }
+  }
+
+  /// The selected shaping prompt's id, kept even while shaping is off.
+  var promptShapingPromptID: String {
+    didSet { defaults.set(promptShapingPromptID, forKey: Keys.promptShapingPrompt) }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -209,6 +223,9 @@ final class AppSettings {
     insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
     dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
+    promptShapingEnabled = defaults.object(forKey: Keys.promptShapingEnabled) as? Bool ?? false
+    promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
+      ?? ShapingPrompt.library[0].id
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -259,6 +276,9 @@ struct DictationSessionSettings: Equatable {
   let insertionDestination: InsertionDestination
   let historyEnabled: Bool
   let historyFolder: URL
+  /// The shaping prompt this session applies, or nil while shaping is off
+  /// or the stored id names nothing in the library.
+  let shapingPrompt: ShapingPrompt?
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -285,6 +305,9 @@ struct DictationSessionSettings: Equatable {
     insertionDestination = settings.insertionDestination
     historyEnabled = settings.dictationHistoryEnabled
     historyFolder = settings.resolvedHistoryFolder
+    shapingPrompt = settings.promptShapingEnabled
+      ? ShapingPrompt.prompt(for: settings.promptShapingPromptID)
+      : nil
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

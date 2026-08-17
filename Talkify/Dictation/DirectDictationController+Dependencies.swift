@@ -64,6 +64,11 @@ extension DirectDictationController {
     // Transcription history, written only while its setting is on.
     let recordHistory: @Sendable (_ text: String, _ folder: URL) async -> Void
 
+    // The alpha prompt shaping pass; passthrough on any failure.
+    let shapeText: @Sendable (
+      _ text: String, _ prompt: ShapingPrompt
+    ) async -> String
+
     /// Builds the production boundaries around the live services the
     /// controller previously constructed itself.
     @MainActor
@@ -124,6 +129,9 @@ extension DirectDictationController {
           // A history write must never cost the session its insertion; a
           // full disk or revoked folder loses the entry, not the words.
           try? await historyStore.record(text, in: folder)
+        },
+        shapeText: { text, prompt in
+          await PromptShapingService(client: .live).shape(text, with: prompt)
         }
       )
     }
