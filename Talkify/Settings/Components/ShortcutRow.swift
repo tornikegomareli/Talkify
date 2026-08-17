@@ -9,6 +9,7 @@ struct ShortcutRow: View {
   let description: String
   let isRecording: Bool
   let accent: Color
+  let acceptsMouseButton: Bool
   /// What has been clicked on the keyboard so far, shown in place of the
   /// binding while the row is armed.
   var pickedCaps: [String] = []
@@ -62,20 +63,24 @@ struct ShortcutRow: View {
   }
 
   private var armedPrompt: String {
-    pickedCaps.isEmpty
-      ? "Press the keys you want, or click them on the keyboard above."
-      : "Click one more key to finish, or use what you picked."
+    if !pickedCaps.isEmpty {
+      return "Click one more key to finish, or use what you picked."
+    }
+    return acceptsMouseButton
+      ? "Press a shortcut or mouse button, or click keys on the keyboard above."
+      : "Press a shortcut, or click keys on the keyboard above."
   }
 
   private func cap(_ symbol: String, isArmed: Bool) -> some View {
     let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+    let width: CGFloat = symbol == "Middle" || symbol.hasPrefix("Mouse ") ? 54 : 34
     return Text(symbol)
       .font(.system(size: symbol.count > 2 ? 10 : 13, weight: .medium))
       .foregroundStyle(isArmed ? accent : .white.opacity(0.9))
       .lineLimit(1)
       .minimumScaleFactor(0.6)
       .padding(.horizontal, 4)
-      .frame(width: 34, height: 32)
+      .frame(width: width, height: 32)
       .background(
         shape.fill(
           LinearGradient(

@@ -2,8 +2,9 @@ import SwiftUI
 
 /// The Shortcuts section: the user's own keyboard with the bound keys lit,
 /// above one row per binding. The whole row is the recorder — clicking it arms,
-/// and the next keystroke becomes the binding — so the keycaps on the leading
-/// edge are the binding rather than a control sitting beside it.
+/// and the next keystroke or supported mouse-button press becomes the binding —
+/// so the caps on the leading edge are the binding rather than a control
+/// sitting beside it.
 struct ShortcutsSettingsView: View {
   @Bindable var settings: AppSettings
 
@@ -16,6 +17,7 @@ struct ShortcutsSettingsView: View {
   /// row can be armed, so the section owns this rather than each recorder.
   @State private var armed: Role?
   @State private var picked: [Int64] = []
+  @State private var conflictMessage: String?
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -24,7 +26,8 @@ struct ShortcutsSettingsView: View {
   private static let inputSourceChanges = DistributedNotificationCenter.default()
     .publisher(for: KeyboardLayout.inputSourceChanged)
 
-  /// Which binding a row belongs to. The colors are the lit keys' colors.
+  /// Which binding a row belongs to. The colors identify each binding in the
+  /// keyboard highlights and its row.
   private enum Role: Hashable {
     case dictation
     case secondLanguage
@@ -35,6 +38,14 @@ struct ShortcutsSettingsView: View {
       case .dictation: SettingsTheme.accent
       case .secondLanguage: Color(red: 0.45, green: 0.82, blue: 0.6)
       case .readAloud: Color(red: 0.95, green: 0.7, blue: 0.35)
+      }
+    }
+
+    var title: String {
+      switch self {
+      case .dictation: "Direct Dictation"
+      case .secondLanguage: "Second Language"
+      case .readAloud: "Read Aloud"
       }
     }
   }
@@ -50,6 +61,12 @@ struct ShortcutsSettingsView: View {
     .onReceive(Self.inputSourceChanges) { _ in
       layout = KeyboardLayout.current()
     }
+    .onChange(of: armed) { _, role in
+      if role != nil { conflictMessage = nil }
+    }
+    .onChange(of: settings.dictationTriggerBinding) { conflictMessage = nil }
+    .onChange(of: settings.secondaryTriggerBinding) { conflictMessage = nil }
+    .onChange(of: settings.readAloudBinding) { conflictMessage = nil }
   }
 
   // Untitled: the drawing says what it is, and the lit keys are the label.
@@ -89,12 +106,13 @@ struct ShortcutsSettingsView: View {
   private var isArmed: Bool { armed != nil }
 
   private var keysCard: some View {
-    SettingsCard(title: "Keys") {
+    SettingsCard(title: "Bindings") {
       row(
         .dictation,
         title: "Direct Dictation",
-        binding: $settings.dictationTriggerBinding,
+        binding: binding(for: .dictation),
         allowsBareModifier: true,
+        allowsMouseButton: true,
         description: "Hold %@ to talk, or tap it to keep listening hands-free."
       )
 
@@ -102,8 +120,9 @@ struct ShortcutsSettingsView: View {
         row(
           .secondLanguage,
           title: "Second Language",
-          binding: $settings.secondaryTriggerBinding,
+          binding: binding(for: .secondLanguage),
           allowsBareModifier: true,
+          allowsMouseButton: true,
           description: "Hold %@ to dictate in your other language."
         )
       }
@@ -111,10 +130,18 @@ struct ShortcutsSettingsView: View {
       row(
         .readAloud,
         title: "Read Aloud",
-        binding: $settings.readAloudBinding,
+        binding: binding(for: .readAloud),
         allowsBareModifier: false,
+        allowsMouseButton: false,
         description: "Press %@ to read the selection, again to stop."
       )
+
+      if let conflictMessage {
+        Text(conflictMessage)
+          .font(.caption)
+          .foregroundStyle(Color.orange)
+          .padding(.vertical, 8)
+      }
     }
   }
 
@@ -123,6 +150,7 @@ struct ShortcutsSettingsView: View {
     title: String,
     binding: Binding<KeyBinding>,
     allowsBareModifier: Bool,
+    allowsMouseButton: Bool,
     /// A sentence with %@ where the bound keys go, so it renames itself with
     /// the binding.
     description: String
@@ -130,6 +158,7 @@ struct ShortcutsSettingsView: View {
     KeyRecorderView(
       keyBinding: binding,
       allowsBareModifier: allowsBareModifier,
+      allowsMouseButton: allowsMouseButton,
       isRecording: Binding(
         get: { armed == role },
         set: { isArmed in
@@ -140,12 +169,21 @@ struct ShortcutsSettingsView: View {
       onRecordingChanged: { settings.isRecordingKeybind = $0 }
     ) { keyBinding, isRecording in
       let caps = KeyboardMap.caps(for: keyBinding, layout: layout)
+      let describedBinding = keyBinding.isMouseButton
+        ? keyBinding.label
+        : caps.joined(separator: " ")
+      let baseDescription = String(format: description, describedBinding)
+      let resolvedDescription = keyBinding.isMouseButton
+        ? baseDescription
+          + " This button no longer performs its usual action while Talkify is ready."
+        : baseDescription
       ShortcutRow(
         caps: caps,
         title: title,
-        description: String(format: description, caps.joined(separator: " ")),
+        description: resolvedDescription,
         isRecording: isRecording,
         accent: role.color,
+        acceptsMouseButton: allowsMouseButton,
         pickedCaps: isRecording ? pickedCaps : [],
         onConfirm: isRecording && !picked.isEmpty ? { commit(picked) } : nil
       )
@@ -170,10 +208,40 @@ struct ShortcutsSettingsView: View {
   }
 
   private func binding(for role: Role) -> Binding<KeyBinding> {
+    Binding(
+      get: { currentBinding(for: role) },
+      set: { candidate in
+        if let conflict = conflictingRole(for: candidate, excluding: role) {
+          conflictMessage = "\(candidate.label) is already used by \(conflict.title)."
+          return
+        }
+        conflictMessage = nil
+        switch role {
+        case .dictation: settings.dictationTriggerBinding = candidate
+        case .secondLanguage: settings.secondaryTriggerBinding = candidate
+        case .readAloud: settings.readAloudBinding = candidate
+        }
+      }
+    )
+  }
+
+  private func currentBinding(for role: Role) -> KeyBinding {
     switch role {
-    case .dictation: $settings.dictationTriggerBinding
-    case .secondLanguage: $settings.secondaryTriggerBinding
-    case .readAloud: $settings.readAloudBinding
+    case .dictation: settings.dictationTriggerBinding
+    case .secondLanguage: settings.secondaryTriggerBinding
+    case .readAloud: settings.readAloudBinding
+    }
+  }
+
+  private func conflictingRole(
+    for candidate: KeyBinding,
+    excluding role: Role
+  ) -> Role? {
+    let activeRoles: [Role] = settings.isSecondLanguageEnabled
+      ? [.dictation, .secondLanguage, .readAloud]
+      : [.dictation, .readAloud]
+    return activeRoles.first {
+      $0 != role && currentBinding(for: $0).hasSameInputAndModifiers(as: candidate)
     }
   }
 

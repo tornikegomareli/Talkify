@@ -125,14 +125,15 @@ final class AppSettings {
     }
   }
 
-  /// The second language, with its own trigger key. Empty means off, which
-  /// is the default: one key, one language, exactly as before.
+  /// The second language, with its own trigger. Empty means off, which is the
+  /// default: one trigger, one language, exactly as before.
   var secondaryRecognitionLocaleIdentifier: String {
     didSet {
       defaults.set(
         secondaryRecognitionLocaleIdentifier,
         forKey: Keys.secondaryRecognitionLocale
       )
+      repairSecondaryTriggerConflictIfNeeded()
     }
   }
 
@@ -166,9 +167,9 @@ final class AppSettings {
     !secondaryRecognitionLocaleIdentifier.isEmpty
   }
 
-  /// Transient, never persisted: true while a Shortcuts key recorder is
-  /// armed, so global trigger handling pauses and the rebind keystroke
-  /// cannot start a session.
+  /// Transient, never persisted: true while a Shortcuts input recorder is
+  /// armed, so global trigger handling pauses and the rebind input cannot
+  /// start a session.
   var isRecordingKeybind = false
 
   init(defaults: UserDefaults = .standard) {
@@ -191,17 +192,27 @@ final class AppSettings {
       ?? Double(HUDMetrics.maximumScale)
     readAloudVoiceID = defaults.string(forKey: Keys.readAloudVoice) ?? ""
     dictationTriggerBinding = Self.storedBinding(
-      in: defaults, key: Keys.dictationTriggerBinding
+      in: defaults,
+      key: Keys.dictationTriggerBinding,
+      allowsMouseButton: true,
+      allowsBareModifier: true
     ) ?? .fnTrigger
     readAloudBinding = Self.storedBinding(
-      in: defaults, key: Keys.readAloudBinding
+      in: defaults,
+      key: Keys.readAloudBinding,
+      allowsMouseButton: false,
+      allowsBareModifier: false
     ) ?? .optionEscape
     recognitionLocaleIdentifier = defaults.string(forKey: Keys.recognitionLocale) ?? ""
     secondaryRecognitionLocaleIdentifier =
       defaults.string(forKey: Keys.secondaryRecognitionLocale) ?? ""
     secondaryTriggerBinding = Self.storedBinding(
-      in: defaults, key: Keys.secondaryTriggerBinding
+      in: defaults,
+      key: Keys.secondaryTriggerBinding,
+      allowsMouseButton: true,
+      allowsBareModifier: true
     ) ?? .rightOptionTrigger
+    repairSecondaryTriggerConflictIfNeeded()
   }
 
   private static func stored<Value: RawRepresentable<String>>(
@@ -211,13 +222,51 @@ final class AppSettings {
     defaults.string(forKey: key).flatMap { Value(rawValue: $0) }
   }
 
-  private static func storedBinding(in defaults: UserDefaults, key: String) -> KeyBinding? {
-    defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(KeyBinding.self, from: $0) }
+  private static func storedBinding(
+    in defaults: UserDefaults,
+    key: String,
+    allowsMouseButton: Bool,
+    allowsBareModifier: Bool
+  ) -> KeyBinding? {
+    guard let data = defaults.data(forKey: key),
+       let binding = try? JSONDecoder().decode(KeyBinding.self, from: data),
+       allowsMouseButton || !binding.isMouseButton,
+       allowsBareModifier || !binding.isModifierKey
+    else { return nil }
+    return binding
   }
 
   private static func store(_ binding: KeyBinding, in defaults: UserDefaults, key: String) {
     if let data = try? JSONEncoder().encode(binding) {
       defaults.set(data, forKey: key)
+    }
+  }
+
+  /// A disabled second language keeps its trigger preference. If another role
+  /// takes that exact binding while it is off, enabling the language must not
+  /// bring back a row whose trigger runtime silently drops as a duplicate.
+  private func repairSecondaryTriggerConflictIfNeeded() {
+    guard isSecondLanguageEnabled,
+       secondaryTriggerBinding.hasSameInputAndModifiers(as: dictationTriggerBinding)
+         || secondaryTriggerBinding.hasSameInputAndModifiers(as: readAloudBinding)
+    else { return }
+
+    let controlOption = KeyBinding(
+      keyCode: 58,
+      modifierFlags: CGEventFlags.maskControl.rawValue,
+      isModifierKey: true,
+      label: "⌃ ⌥",
+      keyEquivalent: ""
+    )
+    let occupied = [dictationTriggerBinding, readAloudBinding]
+    if let fallback = [
+      KeyBinding.rightOptionTrigger,
+      KeyBinding.fnTrigger,
+      controlOption,
+    ].first { candidate in
+      !occupied.contains { $0.hasSameInputAndModifiers(as: candidate) }
+    } {
+      secondaryTriggerBinding = fallback
     }
   }
 }

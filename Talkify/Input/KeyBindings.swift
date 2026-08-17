@@ -1,26 +1,49 @@
 import AppKit
 
-/// One recorded key binding: a keycode plus required modifiers, with the
-/// display strings captured at record time (System Settings-style recording
-/// in the Shortcuts section). Codable — AppSettings persists it as JSON.
+/// One recorded input binding: a keyboard key or supported mouse button plus
+/// required modifiers, with the display strings captured at record time
+/// (System Settings-style recording in the Shortcuts section). Codable —
+/// AppSettings persists it as JSON.
 struct KeyBinding: Equatable, Codable {
-  /// CGEvent keycode of the bound key.
-  var keyCode: Int64
+  enum Input: Equatable {
+    case key(code: Int64, isModifier: Bool)
+    case mouseButton(Int64)
+  }
+
+  private(set) var input: Input
   /// Required modifier flags, `CGEventFlags` raw value filtered to
   /// command/option/control/shift.
   var modifierFlags: UInt64
-  /// True when the bound key is itself a modifier (fn, ⌘, ⌥ …): the event
-  /// tap watches flagsChanged for it instead of keyDown/keyUp, which is
-  /// what makes hold-and-release gestures work on it.
-  var isModifierKey: Bool
   /// Human-readable label ("fn", "⌥ ⎋", "F5"), shown in Settings and the
   /// status menu.
   var label: String
   /// Menu key-equivalent character; empty when not representable (bare
   /// modifiers) — the menu falls back to a badge then.
   var keyEquivalent: String
+  /// Historical accessors kept so keyboard callers and the persisted JSON
+  /// shape do not need a migration. Mouse bindings have no keycode or
+  /// modifier-key state in memory.
+  var keyCode: Int64 {
+    guard case let .key(code, _) = input else { return -1 }
+    return code
+  }
+
+  var isModifierKey: Bool {
+    guard case let .key(_, isModifier) = input else { return false }
+    return isModifier
+  }
+
+  var mouseButtonNumber: Int64? {
+    guard case let .mouseButton(number) = input else { return nil }
+    return number
+  }
 
   var modifiers: CGEventFlags { CGEventFlags(rawValue: modifierFlags) }
+
+  var isMouseButton: Bool {
+    if case .mouseButton = input { return true }
+    return false
+  }
 
   var cocoaModifiers: NSEvent.ModifierFlags {
     var flags: NSEvent.ModifierFlags = []
@@ -34,6 +57,30 @@ struct KeyBinding: Equatable, Codable {
   /// The flag bit a modifier-key binding toggles in flagsChanged events.
   var modifierKeyMask: CGEventFlags {
     Self.modifierMask(forKeyCode: keyCode)
+  }
+
+  init(
+    keyCode: Int64,
+    modifierFlags: UInt64,
+    isModifierKey: Bool,
+    label: String,
+    keyEquivalent: String
+  ) {
+    input = .key(code: keyCode, isModifier: isModifierKey)
+    self.modifierFlags = modifierFlags
+    self.label = label
+    self.keyEquivalent = keyEquivalent
+  }
+
+  private init(
+    mouseButtonNumber: Int64,
+    modifierFlags: UInt64,
+    label: String
+  ) {
+    input = .mouseButton(mouseButtonNumber)
+    self.modifierFlags = modifierFlags
+    self.label = label
+    keyEquivalent = ""
   }
 
   static let fnTrigger = KeyBinding(
@@ -53,6 +100,121 @@ struct KeyBinding: Equatable, Codable {
     keyCode: 53, modifierFlags: CGEventFlags.maskAlternate.rawValue,
     isModifierKey: false, label: "⌥ ⎋", keyEquivalent: "\u{1B}"
   )
+
+  /// macOS numbers mouse buttons from zero: left 0, right 1, middle 2. The
+  /// CoreGraphics event system supports 32 buttons, so every auxiliary button
+  /// from Middle Click through Mouse 32 is valid while left and right stay
+  /// unavailable as global triggers.
+  static let supportedMouseButtons: ClosedRange<Int64> = 2 ... 31
+
+  static func mouseButton(
+    number: Int64,
+    modifiers: NSEvent.ModifierFlags = []
+  ) -> KeyBinding? {
+    guard supportedMouseButtons.contains(number) else { return nil }
+    let filtered = modifiers.intersection([.command, .option, .control, .shift])
+    let name = mouseButtonName(number: number)
+    let symbols = modifierSymbols(filtered)
+    return KeyBinding(
+      mouseButtonNumber: number,
+      modifierFlags: cgFlags(from: filtered).rawValue,
+      label: symbols.isEmpty ? name : "\(symbols) \(name)"
+    )
+  }
+
+  static func mouseButtonName(number: Int64) -> String {
+    number == 2 ? "Middle Click" : "Mouse \(number + 1)"
+  }
+
+  static func mouseButtonCap(number: Int64) -> String {
+    number == 2 ? "Middle" : "Mouse \(number + 1)"
+  }
+
+  func hasSameInputAndModifiers(as other: KeyBinding) -> Bool {
+    input == other.input && modifierFlags == other.modifierFlags
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case keyCode
+    case modifierFlags
+    case isModifierKey
+    case label
+    case keyEquivalent
+    case mouseButtonNumber
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    modifierFlags = try container.decode(UInt64.self, forKey: .modifierFlags)
+    let relevantModifiers: CGEventFlags = [
+      .maskCommand, .maskAlternate, .maskControl, .maskShift,
+    ]
+    guard CGEventFlags(rawValue: modifierFlags).intersection(relevantModifiers).rawValue
+      == modifierFlags
+    else {
+      throw DecodingError.dataCorruptedError(
+        forKey: .modifierFlags,
+        in: container,
+        debugDescription: "Invalid modifier flags"
+      )
+    }
+    label = try container.decode(String.self, forKey: .label)
+    keyEquivalent = try container.decode(String.self, forKey: .keyEquivalent)
+
+    if let mouseButtonNumber = try container.decodeIfPresent(
+      Int64.self,
+      forKey: .mouseButtonNumber
+    ) {
+      guard Self.supportedMouseButtons.contains(mouseButtonNumber),
+         try container.decode(Int64.self, forKey: .keyCode) == -1,
+         try container.decode(Bool.self, forKey: .isModifierKey) == false,
+         keyEquivalent.isEmpty
+      else {
+        throw DecodingError.dataCorruptedError(
+          forKey: .mouseButtonNumber,
+          in: container,
+          debugDescription: "Invalid mouse-button binding"
+        )
+      }
+      input = .mouseButton(mouseButtonNumber)
+      return
+    }
+
+    let keyCode = try container.decode(Int64.self, forKey: .keyCode)
+    let isModifier = try container.decode(Bool.self, forKey: .isModifierKey)
+    guard keyCode >= 0,
+       keyCode <= Int64(UInt16.max),
+       (Self.modifierKeyName(forKeyCode: keyCode) != nil) == isModifier,
+       !isModifier
+         || !CGEventFlags(rawValue: modifierFlags).contains(
+           Self.modifierMask(forKeyCode: keyCode)
+         )
+    else {
+      throw DecodingError.dataCorruptedError(
+        forKey: .keyCode,
+        in: container,
+        debugDescription: "Invalid keyboard binding"
+      )
+    }
+    input = .key(code: keyCode, isModifier: isModifier)
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(modifierFlags, forKey: .modifierFlags)
+    try container.encode(label, forKey: .label)
+    try container.encode(keyEquivalent, forKey: .keyEquivalent)
+
+    switch input {
+    case let .key(code, isModifier):
+      try container.encode(code, forKey: .keyCode)
+      try container.encode(isModifier, forKey: .isModifierKey)
+    case let .mouseButton(number):
+      try container.encode(-1, forKey: .keyCode)
+      try container.encode(false, forKey: .isModifierKey)
+      try container.encode(number, forKey: .mouseButtonNumber)
+    }
+  }
 
   /// Which physical key a side-specific modifier binding watches, and the pair
   /// it belongs to.

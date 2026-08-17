@@ -86,6 +86,17 @@ struct KeyboardMapTests {
     #expect(KeyboardMap.caps(for: .fnTrigger, layout: layout) == ["fn"])
   }
 
+  @Test func aMouseBindingGetsACapWithoutInventingAKeyboardKey() throws {
+    let layout = KeyboardLayout(shape: .ansi, legends: [:])
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    let optionMouseFour = try #require(KeyBinding.mouseButton(number: 3, modifiers: [.option]))
+
+    #expect(KeyboardMap.caps(for: middleClick, layout: layout) == ["Middle"])
+    #expect(KeyboardMap.highlighted(for: middleClick).isEmpty)
+    #expect(KeyboardMap.caps(for: optionMouseFour, layout: layout) == ["⌥", "Mouse 4"])
+    #expect(KeyboardMap.highlighted(for: optionMouseFour) == [58, 61])
+  }
+
   /// Modifiers read in the order macOS prints them, whichever order they were
   /// held in while recording.
   @Test func modifierCapsAreOrderedTheWayMacOSWritesThem() {

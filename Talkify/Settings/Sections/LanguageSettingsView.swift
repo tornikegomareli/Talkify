@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// The Language section: the dictation language, an optional second language,
-/// and the key that dictates in it. Two keys rather than automatic detection —
-/// Apple Speech transcribes one language per session, and a wrong guess
+/// and the trigger that dictates in it. Two triggers rather than automatic
+/// detection — Apple Speech transcribes one language per session, and a wrong guess
 /// produces confident nonsense rather than an error (CONTEXT.md).
 struct LanguageSettingsView: View {
   @State private var isRecordingSecondKey = false
+  @State private var triggerConflictMessage: String?
   @Bindable var settings: AppSettings
   let runtimeState: SettingsRuntimeState
 
@@ -17,7 +18,7 @@ struct LanguageSettingsView: View {
       SettingsCard(title: "Languages") {
         SettingsPickerRow(
           title: "Dictation language",
-          description: "The language the trigger key transcribes",
+          description: "The language the primary trigger transcribes",
           options: [""] + languages.map(\.id),
           optionLabel: label(for:),
           selection: $settings.recognitionLocaleIdentifier,
@@ -27,7 +28,7 @@ struct LanguageSettingsView: View {
         SettingsPickerRow(
           title: "Second language",
           description: settings.isSecondLanguageEnabled
-            ? "Its own key, so you never switch a setting to switch language"
+            ? "Its own trigger, so you never switch a setting to switch language"
             : "Off. Choose one to dictate in two languages",
           options: [""] + secondaryOptions,
           optionLabel: secondaryLabel(for:),
@@ -37,13 +38,15 @@ struct LanguageSettingsView: View {
 
         if settings.isSecondLanguageEnabled {
           SettingsRow(
-            title: "Second language key",
-            description: "Hold it to dictate in \(secondaryName)"
+            title: "Second language trigger",
+            description: triggerConflictMessage
+              ?? secondaryTriggerDescription
           ) {
             KeyRecorderView(
-              keyBinding: $settings.secondaryTriggerBinding,
+              keyBinding: secondaryTriggerBinding,
               isRecording: $isRecordingSecondKey,
               allowsBareModifier: true,
+              allowsMouseButton: true,
               onRecordingChanged: { settings.isRecordingKeybind = $0 }
             )
           }
@@ -86,6 +89,12 @@ struct LanguageSettingsView: View {
     .task {
       languages = await SpeechLanguageCatalog.available()
     }
+    .onChange(of: isRecordingSecondKey) { _, isRecording in
+      if isRecording { triggerConflictMessage = nil }
+    }
+    .onChange(of: settings.dictationTriggerBinding) { triggerConflictMessage = nil }
+    .onChange(of: settings.readAloudBinding) { triggerConflictMessage = nil }
+    .onChange(of: settings.secondaryTriggerBinding) { triggerConflictMessage = nil }
   }
 
   /// The first language is not offered as the second: picking it would show the
@@ -136,5 +145,30 @@ struct LanguageSettingsView: View {
     languages
       .first { $0.id == settings.secondaryRecognitionLocaleIdentifier }?
       .name ?? "the second language"
+  }
+
+  private var secondaryTriggerDescription: String {
+    let base = "Hold it to dictate in \(secondaryName)"
+    guard settings.secondaryTriggerBinding.isMouseButton else { return base }
+    return base
+      + ". This button no longer performs its usual action while Talkify is ready."
+  }
+
+  private var secondaryTriggerBinding: Binding<KeyBinding> {
+    Binding(
+      get: { settings.secondaryTriggerBinding },
+      set: { candidate in
+        if settings.dictationTriggerBinding.hasSameInputAndModifiers(as: candidate) {
+          triggerConflictMessage = "Already used by Direct Dictation"
+          return
+        }
+        if settings.readAloudBinding.hasSameInputAndModifiers(as: candidate) {
+          triggerConflictMessage = "Already used by Read Aloud"
+          return
+        }
+        triggerConflictMessage = nil
+        settings.secondaryTriggerBinding = candidate
+      }
+    )
   }
 }

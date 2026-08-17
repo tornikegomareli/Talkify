@@ -1,17 +1,19 @@
 import AppKit
 import SwiftUI
 
-/// System Settings-style key recorder: click to arm, and the next key press
-/// becomes the binding. While armed, a local event monitor swallows the
-/// keystroke and `onRecordingChanged` pauses the global trigger tap so the
-/// rebind cannot start a dictation session. Plain Escape cancels recording.
+/// System Settings-style input recorder: click to arm, and the next key press
+/// or supported mouse-button press becomes the binding. While armed, a local
+/// event monitor swallows the input and `onRecordingChanged` pauses the global
+/// trigger tap so the rebind cannot start a dictation session. Plain Escape
+/// cancels recording.
 ///
-/// `allowsBareModifier` is the Dictation Trigger mode: a bare modifier like fn
-/// or right ⌘ can be the bound key, so a hold-and-release gesture has something
-/// to hold. Both modes record whatever modifiers are held alongside it.
+/// Dictation Trigger recorders allow a bare modifier such as fn and auxiliary
+/// mouse buttons. Read Aloud allows neither. Both record whatever keyboard
+/// modifiers are held alongside the chosen input.
 struct KeyRecorderView<Label: View>: View {
   @Binding var keyBinding: KeyBinding
   let allowsBareModifier: Bool
+  let allowsMouseButton: Bool
   /// Owned by the caller so only one recorder is ever armed, and so a click on
   /// the drawn keyboard can finish a binding and disarm this at the same time.
   @Binding var isRecording: Bool
@@ -50,7 +52,7 @@ struct KeyRecorderView<Label: View>: View {
   private func startMonitor() {
     guard monitor == nil else { return }
     monitor = NSEvent.addLocalMonitorForEvents(
-      matching: [.keyDown, .flagsChanged]
+      matching: [.keyDown, .flagsChanged, .otherMouseDown]
     ) { event in
       handle(event)
       return nil
@@ -71,6 +73,16 @@ struct KeyRecorderView<Label: View>: View {
 
   private func handle(_ event: NSEvent) {
     switch event.type {
+    case .otherMouseDown:
+      guard allowsMouseButton,
+         let binding = KeyBinding.mouseButton(
+           number: Int64(event.buttonNumber),
+           modifiers: event.modifierFlags
+         )
+      else { return }
+      keyBinding = binding
+      cancelRecording()
+
     case .keyDown:
       // Plain Escape cancels; anything else records.
       if event.keyCode == 53,
@@ -132,16 +144,21 @@ struct KeyRecorderView<Label: View>: View {
   }
 }
 
-/// The default control: a capsule showing the binding, or "Press keys…" while
-/// armed.
+/// The default control: a capsule showing the binding, or "Press shortcut…"
+/// while armed.
 struct KeyRecorderCapsule: View {
   let title: String
   let isRecording: Bool
+  let acceptsMouseButton: Bool
 
   @Environment(\.colorSchemeContrast) private var contrast
 
   var body: some View {
-    Text(isRecording ? "Press keys…" : title)
+    Text(
+      isRecording
+        ? (acceptsMouseButton ? "Press shortcut or mouse…" : "Press shortcut…")
+        : title
+    )
       .font(.system(size: 12, weight: .semibold))
       .foregroundStyle(isRecording ? SettingsTheme.accent : .white)
       .frame(minWidth: 96)
@@ -164,15 +181,21 @@ extension KeyRecorderView where Label == KeyRecorderCapsule {
     keyBinding: Binding<KeyBinding>,
     isRecording: Binding<Bool>,
     allowsBareModifier: Bool,
+    allowsMouseButton: Bool,
     onRecordingChanged: @escaping (Bool) -> Void
   ) {
     self.init(
       keyBinding: keyBinding,
       allowsBareModifier: allowsBareModifier,
+      allowsMouseButton: allowsMouseButton,
       isRecording: isRecording,
       onRecordingChanged: onRecordingChanged
     ) { binding, armed in
-      KeyRecorderCapsule(title: binding.label, isRecording: armed)
+      KeyRecorderCapsule(
+        title: binding.label,
+        isRecording: armed,
+        acceptsMouseButton: allowsMouseButton
+      )
     }
   }
 }
