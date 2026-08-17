@@ -235,6 +235,40 @@ struct AppSettingsTests {
     #expect(reloaded.insertionDestination == .both)
   }
 
+  @Test func historyDefaultsToOffWithTheDocumentsFolder() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(!settings.dictationHistoryEnabled)
+    #expect(settings.dictationHistoryFolder == nil)
+    #expect(settings.resolvedHistoryFolder == DictationHistoryStore.defaultFolderURL)
+  }
+
+  @Test func historyPreferencesRoundTripUnderTheirKeys() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.dictationHistoryEnabled = true
+    settings.dictationHistoryFolder = URL(filePath: "/tmp/history")
+
+    #expect(defaults.object(forKey: "dictationHistoryEnabled") as? Bool == true)
+    #expect(defaults.string(forKey: "dictationHistoryFolder") == "/tmp/history")
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.dictationHistoryEnabled)
+    #expect(reloaded.dictationHistoryFolder?.path(percentEncoded: false) == "/tmp/history")
+  }
+
+  @Test func sessionSnapshotCapturesTheHistoryChoice() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.dictationHistoryFolder = URL(filePath: "/tmp/history")
+
+    let snapshot = settings.sessionSettings
+    settings.dictationHistoryEnabled = false
+    settings.dictationHistoryFolder = nil
+
+    #expect(snapshot.historyEnabled)
+    #expect(snapshot.historyFolder.path(percentEncoded: false) == "/tmp/history")
+  }
+
   @Test func sessionSnapshotCapturesTheInsertionDestination() {
     let settings = AppSettings(defaults: freshDefaults())
     settings.insertionDestination = .clipboardOnly

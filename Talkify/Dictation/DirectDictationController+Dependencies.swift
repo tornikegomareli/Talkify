@@ -61,6 +61,9 @@ extension DirectDictationController {
       _ wordCount: Int, _ speakingDuration: TimeInterval
     ) async -> Void
 
+    // Transcription history, written only while its setting is on.
+    let recordHistory: @Sendable (_ text: String, _ folder: URL) async -> Void
+
     /// Builds the production boundaries around the live services the
     /// controller previously constructed itself.
     @MainActor
@@ -70,6 +73,7 @@ extension DirectDictationController {
     ) -> Self {
       let speechService = SpeechRecognitionService()
       let textInsertionService = TextInsertionService()
+      let historyStore = DictationHistoryStore()
 
       return Self(
         setDownloadHandler: { await speechService.setDownloadHandler($0) },
@@ -115,6 +119,11 @@ extension DirectDictationController {
         playPasteSound: { hudController.playPasteSound() },
         recordSession: {
           await usageTracker.recordSession(wordCount: $0, speakingDuration: $1)
+        },
+        recordHistory: { text, folder in
+          // A history write must never cost the session its insertion; a
+          // full disk or revoked folder loses the entry, not the words.
+          try? await historyStore.record(text, in: folder)
         }
       )
     }

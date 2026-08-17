@@ -131,7 +131,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, and insertion destination
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, and the transcription history choice
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
@@ -210,6 +210,10 @@ _Avoid_: Transcript history, cloud analytics
 - After a successful paste, Talkify restores the accepted snapshot after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
+- An off-by-default **Save transcription history** setting exists; turning it on is the one explicit exception to the no-persistence line above
+- While history is on, each completed **Direct Dictation** session appends a timestamped entry to a daily plain-text file in a user-visible folder defaulting to `~/Documents/Talkify/`
+- The history folder is the user's pick, and Clear History removes only the day files Talkify wrote there
+- The history choice is captured in the Dictation session settings snapshot at session start
 - A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened
 - Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
 - **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count

@@ -59,6 +59,8 @@ struct DirectDictationControllerTests {
     startRecognitionBody: (@Sendable (Locale) async throws -> Void)? = nil,
     finishRecognition: @escaping @Sendable () async throws -> String = { "" },
     shutDownRecognition: @escaping @Sendable () async -> Void = {},
+    historyEntries: OSAllocatedUnfairLock<[(text: String, folder: URL)]>
+      = .init(initialState: []),
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -109,6 +111,9 @@ struct DirectDictationControllerTests {
       recordSession: { wordCount, speakingDuration in
         recorder.events.append("recordSession")
         recorder.recordedSessions.append((wordCount, speakingDuration))
+      },
+      recordHistory: { text, folder in
+        historyEntries.withLock { $0.append((text, folder)) }
       }
     )
   }
@@ -491,6 +496,71 @@ struct DirectDictationControllerTests {
     }
 
     #expect(recorder.insertedDestinations == [.clipboardOnly])
+    controller.stop()
+  }
+
+  /// History off — the default — writes nothing, whatever the session says.
+  @Test func finishWritesNoHistoryWhileTheSettingIsOff() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, folder: URL)]>(
+      initialState: []
+    )
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" },
+        historyEntries: historyEntries
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(historyEntries.withLock { $0 }.isEmpty)
+    controller.stop()
+  }
+
+  /// History on writes the finished text to the session's captured folder,
+  /// before the insertion outcome can lose it.
+  @Test func finishWritesHistoryToTheCapturedFolderWhileOn() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, folder: URL)]>(
+      initialState: []
+    )
+    let folder = URL(filePath: "/tmp/TalkifyTests-history-\(UUID().uuidString)")
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.dictationHistoryFolder = folder
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" },
+        historyEntries: historyEntries,
+        insertOutcome: .unavailable
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    let entries = historyEntries.withLock { $0 }
+    #expect(entries.map(\.text) == ["spoken words"])
+    #expect(entries.map(\.folder) == [folder])
     controller.stop()
   }
 }
