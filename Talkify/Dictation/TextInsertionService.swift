@@ -132,14 +132,22 @@ final class TextInsertionService {
     )
   }
 
-  /// Delivers finalized text to its captured target or the clipboard fallback.
+  /// Delivers finalized text to its captured target, the clipboard, or both.
   ///
   /// - Parameters:
   ///   - text: The finalized text to deliver.
   ///   - target: The focus boundary captured when Direct Dictation began.
+  ///   - destination: Where the session's settings say the text goes.
   /// - Returns: The terminal delivery outcome used by the session controller.
-  func insert(_ text: String, into target: Target?) async -> InsertionOutcome {
+  func insert(
+    _ text: String,
+    into target: Target?,
+    destination: InsertionDestination = .insert
+  ) async -> InsertionOutcome {
     guard !text.isEmpty else { return .inserted }
+    guard destination != .clipboardOnly else {
+      return copyToClipboard(text)
+    }
     guard let target else {
       return copyToClipboard(text)
     }
@@ -150,6 +158,9 @@ final class TextInsertionService {
 
     guard dependencies.isTargetFocused(target) else {
       return copyToClipboard(text)
+    }
+    if destination == .both {
+      return await pasteLeavingClipboard(text, into: target)
     }
     return await pasteAndRestoreClipboard(text, into: target)
   }

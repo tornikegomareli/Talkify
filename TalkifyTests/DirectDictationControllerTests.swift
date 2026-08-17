@@ -16,6 +16,7 @@ struct DirectDictationControllerTests {
     var messages: [String] = []
     var listeningLatched: [Bool] = []
     var insertedTexts: [String] = []
+    var insertedDestinations: [InsertionDestination] = []
     var recordedSessions: [(wordCount: Int, speakingDuration: TimeInterval)] = []
     var accessibilityAlerts = 0
 
@@ -74,9 +75,10 @@ struct DirectDictationControllerTests {
       cancelRecognition: { cancelCount.withLock { $0 += 1 } },
       shutDownRecognition: shutDownRecognition,
       captureFocusedTarget: captureFocusedTarget,
-      insertText: { text, _ in
+      insertText: { text, _, destination in
         recorder.events.append("insertText")
         recorder.insertedTexts.append(text)
+        recorder.insertedDestinations.append(destination)
         return insertOutcome
       },
       requestMicrophoneAccess: { true },
@@ -112,10 +114,11 @@ struct DirectDictationControllerTests {
   }
 
   private func makeController(
+    settings: AppSettings? = nil,
     dependencies: DirectDictationController.Dependencies
   ) -> DirectDictationController {
     DirectDictationController(
-      settings: AppSettings(defaults: freshDefaults()),
+      settings: settings ?? AppSettings(defaults: freshDefaults()),
       dependencies: dependencies
     )
   }
@@ -458,5 +461,36 @@ struct DirectDictationControllerTests {
 
     #expect(recorder.insertedTexts == ["held words"])
     #expect(order.withLock { $0 } == ["finish", "shutDown"])
+  }
+
+  /// The destination rides in the session snapshot: a Settings change made
+  /// mid-session must not redirect the finish already under way.
+  @Test func finishDeliversWithTheDestinationCapturedAtSessionStart() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.insertionDestination = .clipboardOnly
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "captured words" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    settings.insertionDestination = .both
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") {
+      controller.sessionStateForTesting == .idle && !recorder.insertedTexts.isEmpty
+    }
+
+    #expect(recorder.insertedDestinations == [.clipboardOnly])
+    controller.stop()
   }
 }

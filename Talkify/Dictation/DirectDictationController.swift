@@ -453,7 +453,11 @@ final class DirectDictationController {
       do {
         let text = try await dependencies.finishRecognition()
         dependencies.hideHUD()
-        let outcome = await dependencies.insertText(text, focusedTarget)
+        // The destination rides in the session snapshot, so a Settings change
+        // mid-session applies to the next session (ADR-0004).
+        let destination = currentSessionSettings?.insertionDestination
+          ?? settings.insertionDestination
+        let outcome = await dependencies.insertText(text, focusedTarget, destination)
         switch outcome {
         case .inserted, .copiedToClipboard:
           dependencies.playPasteSound()

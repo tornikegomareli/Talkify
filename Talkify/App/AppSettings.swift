@@ -31,6 +31,7 @@ final class AppSettings {
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
     static let transcriptDestination = "transcriptDestination"
     static let transcriptFolder = "transcriptFolder"
+    static let insertionDestination = "dictationInsertionDestination"
   }
 
   @ObservationIgnored
@@ -63,6 +64,12 @@ final class AppSettings {
 
   var transcriptFolder: URL? {
     didSet { defaults.set(transcriptFolder?.path(percentEncoded: false), forKey: Keys.transcriptFolder) }
+  }
+
+  /// Where a finished Direct Dictation session's text goes: the paste that
+  /// always happened, the clipboard alone, or both.
+  var insertionDestination: InsertionDestination {
+    didSet { defaults.set(insertionDestination.rawValue, forKey: Keys.insertionDestination) }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -179,6 +186,7 @@ final class AppSettings {
     storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(storedSoundVolume)
     transcriptDestination = Self.stored(in: defaults, key: Keys.transcriptDestination) ?? .besideSource
     transcriptFolder = (defaults.string(forKey: Keys.transcriptFolder)).map { URL(filePath: $0) }
+    insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -226,6 +234,7 @@ final class AppSettings {
 /// this value until its end and paste sounds have played.
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
+  let insertionDestination: InsertionDestination
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -249,6 +258,7 @@ struct DictationSessionSettings: Equatable {
       isEnabled: settings.dictationSoundsEnabled,
       volume: settings.dictationSoundVolume
     )
+    insertionDestination = settings.insertionDestination
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

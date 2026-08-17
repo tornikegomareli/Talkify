@@ -223,6 +223,28 @@ struct AppSettingsTests {
     #expect(snapshot.sounds.volume == 0.25)
   }
 
+  @Test func insertionDestinationDefaultsToInsertAndRoundTrips() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.insertionDestination == .insert)
+
+    settings.insertionDestination = .both
+    #expect(defaults.string(forKey: "dictationInsertionDestination") == "both")
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.insertionDestination == .both)
+  }
+
+  @Test func sessionSnapshotCapturesTheInsertionDestination() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.insertionDestination = .clipboardOnly
+
+    let snapshot = settings.sessionSettings
+    settings.insertionDestination = .both
+
+    #expect(snapshot.insertionDestination == .clipboardOnly)
+  }
+
   /// The stored value is a plain number rather than a named case, so a
   /// value outside the supported range has to survive the trip.
   @Test func storedHUDSizeOutsideTheRangeComesBackClamped() {
