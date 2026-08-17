@@ -30,6 +30,9 @@ final class DirectDictationController {
   private var permissionTask: Task<Void, Never>?
   private var permissionWatchTask: Task<Void, Never>?
   private var sessionStartTask: Task<Void, Never>?
+  /// The finish in flight, carrying the session's last words to insertion.
+  /// Tracked so teardown can wait for it instead of racing it.
+  private var finishTask: Task<Void, Never>?
   private var isPrepared = false
   private var preparationFailureMessage: String?
   private var currentSessionSettings: DictationSessionSettings?
@@ -180,7 +183,13 @@ final class DirectDictationController {
     keyEventMonitor?.stop()
     isPrepared = false
 
-    Task { [dependencies] in
+    // A finish still in flight holds the user's last words. Shutting the
+    // speech service down beside it would cancel the very session the finish
+    // is reading, and whichever task the scheduler ran first would decide
+    // whether that text was inserted or dropped. Waiting first makes the
+    // order a rule instead of a race.
+    Task { [dependencies, finishTask] in
+      await finishTask?.value
       await dependencies.shutDownRecognition()
     }
   }
@@ -439,7 +448,7 @@ final class DirectDictationController {
   ///
   /// - Parameter speakingDuration: The completed session's measured speech time.
   private func finishRecognition(speakingDuration: TimeInterval) {
-    Task { [weak self] in
+    finishTask = Task { [weak self] in
       guard let self else { return }
       do {
         let text = try await dependencies.finishRecognition()
@@ -458,6 +467,7 @@ final class DirectDictationController {
       } catch {
         fail(message: error.localizedDescription, wasCancelled: false)
       }
+      finishTask = nil
     }
   }
 

@@ -57,6 +57,7 @@ struct DirectDictationControllerTests {
       = { DirectDictationControllerTests.makeTarget() },
     startRecognitionBody: (@Sendable (Locale) async throws -> Void)? = nil,
     finishRecognition: @escaping @Sendable () async throws -> String = { "" },
+    shutDownRecognition: @escaping @Sendable () async -> Void = {},
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -71,7 +72,7 @@ struct DirectDictationControllerTests {
       },
       finishRecognition: finishRecognition,
       cancelRecognition: { cancelCount.withLock { $0 += 1 } },
-      shutDownRecognition: {},
+      shutDownRecognition: shutDownRecognition,
       captureFocusedTarget: captureFocusedTarget,
       insertText: { text, _ in
         recorder.events.append("insertText")
@@ -414,5 +415,48 @@ struct DirectDictationControllerTests {
     #expect(recorder.insertedTexts == [""])
     #expect(recorder.recordedSessions.first?.wordCount == 0)
     controller.stop()
+  }
+
+  /// stop() during an in-flight finish must wait for the finish before
+  /// shutting the speech service down: shutting down beside it made a
+  /// scheduler race decide whether the last words were inserted or dropped.
+  @Test func stopDuringFinishInsertsTheTextBeforeShutDown() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let order = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let finishEntered = OSAllocatedUnfairLock(initialState: false)
+    let finishReleased = OSAllocatedUnfairLock(initialState: false)
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: {
+          finishEntered.withLock { $0 = true }
+          while !finishReleased.withLock({ $0 }) {
+            try await Task.sleep(for: .milliseconds(5))
+          }
+          order.withLock { $0.append("finish") }
+          return "held words"
+        },
+        shutDownRecognition: { order.withLock { $0.append("shutDown") } }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never began") { finishEntered.withLock { $0 } }
+
+    controller.stop()
+    finishReleased.withLock { $0 = true }
+    await waitUntil("Shut down never ran") {
+      order.withLock { $0.contains("shutDown") }
+    }
+
+    #expect(recorder.insertedTexts == ["held words"])
+    #expect(order.withLock { $0 } == ["finish", "shutDown"])
   }
 }
