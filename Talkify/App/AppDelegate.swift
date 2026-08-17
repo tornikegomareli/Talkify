@@ -24,7 +24,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
  
  
 
+  /// True while this process hosts the test suite rather than a user.
+  ///
+  /// The live launch path requests microphone and speech permissions and
+  /// installs the event tap, which pops system permission dialogs over every
+  /// automated test run on a machine that has not granted them. Hosting
+  /// tests skips the launch entirely: tests build the objects they exercise,
+  /// and a test that means to see a permission prompt drives
+  /// PermissionService itself, on purpose.
+  private static var isHostingTests: Bool {
+    let environment = ProcessInfo.processInfo.environment
+    return environment["XCTestSessionIdentifier"] != nil
+      || environment["XCTestConfigurationFilePath"] != nil
+      || environment["XCTestBundlePath"] != nil
+  }
+
   func applicationDidFinishLaunching(_ notification: Notification) {
+    guard !Self.isHostingTests else { return }
     let settings = AppSettings()
     self.settings = settings
     // One shape, two features. The stage owns the window and hands it out;
