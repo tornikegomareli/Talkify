@@ -96,6 +96,145 @@ struct AppSettingsTests {
     #expect(defaults.data(forKey: "readAloudBinding") != nil)
   }
 
+  @Test func mouseTriggerRoundTripsUnderTheHistoricalBindingKey() throws {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+
+    settings.dictationTriggerBinding = middleClick
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.dictationTriggerBinding == middleClick)
+    #expect(defaults.data(forKey: "dictationTriggerBinding") != nil)
+  }
+
+  @Test func historicalKeyboardBindingDecodesWithoutAMouseField() throws {
+    let json = """
+      {
+        "keyCode": 63,
+        "modifierFlags": 0,
+        "isModifierKey": true,
+        "label": "fn",
+        "keyEquivalent": ""
+      }
+      """
+
+    let binding = try JSONDecoder().decode(KeyBinding.self, from: Data(json.utf8))
+    #expect(binding == .fnTrigger)
+    #expect(!binding.isMouseButton)
+  }
+
+  @Test func unsupportedStoredMouseButtonFallsBackToTheDefaultTrigger() {
+    let defaults = freshDefaults()
+    let json = """
+      {
+        "keyCode": -1,
+        "modifierFlags": 0,
+        "isModifierKey": false,
+        "label": "Mouse 33",
+        "keyEquivalent": "",
+        "mouseButtonNumber": 32
+      }
+      """
+    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.dictationTriggerBinding == .fnTrigger)
+  }
+
+  @Test func readAloudRejectsAStoredMouseBinding() throws {
+    let defaults = freshDefaults()
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    defaults.set(
+      try JSONEncoder().encode(middleClick),
+      forKey: "readAloudBinding"
+    )
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.readAloudBinding == .optionEscape)
+  }
+
+  @Test func readAloudRejectsAStoredBareModifier() throws {
+    let defaults = freshDefaults()
+    defaults.set(
+      try JSONEncoder().encode(KeyBinding.rightOptionTrigger),
+      forKey: "readAloudBinding"
+    )
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.readAloudBinding == .optionEscape)
+  }
+
+  @Test func aStoredModifierKeyCannotPretendToBeAPlainKey() {
+    let defaults = freshDefaults()
+    let json = """
+      {
+        "keyCode": 61,
+        "modifierFlags": 0,
+        "isModifierKey": false,
+        "label": "right option",
+        "keyEquivalent": ""
+      }
+      """
+    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.dictationTriggerBinding == .fnTrigger)
+  }
+
+  @Test func unsupportedStoredModifierBitsFallBackToTheDefaultTrigger() {
+    let defaults = freshDefaults()
+    let json = """
+      {
+        "keyCode": 35,
+        "modifierFlags": 8388608,
+        "isModifierKey": false,
+        "label": "P",
+        "keyEquivalent": "p"
+      }
+      """
+    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.dictationTriggerBinding == .fnTrigger)
+  }
+
+  @Test func inconsistentStoredMousePayloadFallsBackToTheDefaultTrigger() {
+    let defaults = freshDefaults()
+    let json = """
+      {
+        "keyCode": 35,
+        "modifierFlags": 0,
+        "isModifierKey": false,
+        "label": "Middle Click",
+        "keyEquivalent": "",
+        "mouseButtonNumber": 2
+      }
+      """
+    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.dictationTriggerBinding == .fnTrigger)
+  }
+
+  @Test func reenablingSecondLanguageRepairsAStoredTriggerConflict() throws {
+    let settings = AppSettings(defaults: freshDefaults())
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+    settings.secondaryTriggerBinding = middleClick
+    settings.secondaryRecognitionLocaleIdentifier = ""
+    settings.dictationTriggerBinding = middleClick
+
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+
+    #expect(!settings.secondaryTriggerBinding.hasSameInputAndModifiers(
+      as: settings.dictationTriggerBinding
+    ))
+    #expect(!settings.secondaryTriggerBinding.hasSameInputAndModifiers(
+      as: settings.readAloudBinding
+    ))
+  }
+
   @Test func languagesDefaultToOneFollowingTheMac() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.recognitionLocaleIdentifier == "")
@@ -121,14 +260,21 @@ struct AppSettingsTests {
   @Test func languagePicksSurviveARelaunch() {
     let defaults = freshDefaults()
     let first = AppSettings(defaults: defaults)
+    let customTrigger = KeyBinding(
+      keyCode: 96,
+      modifierFlags: 0,
+      isModifierKey: false,
+      label: "F5",
+      keyEquivalent: ""
+    )
     first.recognitionLocaleIdentifier = "fr_FR"
     first.secondaryRecognitionLocaleIdentifier = "it_IT"
-    first.secondaryTriggerBinding = .fnTrigger
+    first.secondaryTriggerBinding = customTrigger
 
     let second = AppSettings(defaults: defaults)
     #expect(second.recognitionLocaleIdentifier == "fr_FR")
     #expect(second.secondaryRecognitionLocaleIdentifier == "it_IT")
-    #expect(second.secondaryTriggerBinding == .fnTrigger)
+    #expect(second.secondaryTriggerBinding == customTrigger)
   }
 
   @Test func downloadsAppearWhileRunningAndClearWhenDone() {
