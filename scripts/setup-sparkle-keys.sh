@@ -17,6 +17,11 @@
 
 set -euo pipefail
 
+# generate_keys -x creates the private key under the process umask before the
+# chmod below can narrow it. Narrow it first instead, so the file is never
+# group- or world-readable, even briefly.
+umask 077
+
 fail() { echo "error: $*" >&2; exit 1; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
