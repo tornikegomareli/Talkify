@@ -444,6 +444,16 @@ final class DirectDictationController {
     pendingLiveText = nil
   }
 
+  /// What the history entry names as this session's destination.
+  ///
+  /// Clipboard-only never aims at an application, so naming the one that
+  /// happened to hold focus would be a lie. Everything else names where the
+  /// words were headed when they were spoken.
+  private func historySource(for destination: InsertionDestination) -> String? {
+    guard destination != .clipboardOnly else { return "Clipboard" }
+    return focusedTarget?.applicationName
+  }
+
   /// Finishes recognition and routes the insertion outcome to its terminal UI.
   ///
   /// - Parameter speakingDuration: The completed session's measured speech time.
@@ -459,7 +469,11 @@ final class DirectDictationController {
         if session.historyEnabled, !text.isEmpty {
           // Before the outcome routing: words the paste then loses are
           // exactly the words history exists to keep.
-          await dependencies.recordHistory(text, session.historyFolder)
+          await dependencies.recordHistory(
+            text,
+            historySource(for: session.insertionDestination),
+            session.historyFolder
+          )
         }
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination

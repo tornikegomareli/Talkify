@@ -36,12 +36,16 @@ struct DirectDictationControllerTests {
     return defaults
   }
 
-  private static func makeTarget(isSecure: Bool = false) -> TextInsertionService.Target {
+  private static func makeTarget(
+    isSecure: Bool = false,
+    applicationName: String? = nil
+  ) -> TextInsertionService.Target {
     TextInsertionService.Target(
       element: nil,
       processIdentifier: 1,
       isSecure: isSecure,
-      displayID: nil
+      displayID: nil,
+      applicationName: applicationName
     )
   }
 
@@ -59,7 +63,7 @@ struct DirectDictationControllerTests {
     startRecognitionBody: (@Sendable (Locale) async throws -> Void)? = nil,
     finishRecognition: @escaping @Sendable () async throws -> String = { "" },
     shutDownRecognition: @escaping @Sendable () async -> Void = {},
-    historyEntries: OSAllocatedUnfairLock<[(text: String, folder: URL)]>
+    historyEntries: OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>
       = .init(initialState: []),
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
@@ -112,8 +116,8 @@ struct DirectDictationControllerTests {
         recorder.events.append("recordSession")
         recorder.recordedSessions.append((wordCount, speakingDuration))
       },
-      recordHistory: { text, folder in
-        historyEntries.withLock { $0.append((text, folder)) }
+      recordHistory: { text, source, folder in
+        historyEntries.withLock { $0.append((text, source, folder)) }
       }
     )
   }
@@ -503,7 +507,7 @@ struct DirectDictationControllerTests {
   @Test func finishWritesNoHistoryWhileTheSettingIsOff() async {
     let recorder = Recorder()
     let prewarmed = OSAllocatedUnfairLock(initialState: false)
-    let historyEntries = OSAllocatedUnfairLock<[(text: String, folder: URL)]>(
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>(
       initialState: []
     )
     let controller = makeController(
@@ -532,7 +536,7 @@ struct DirectDictationControllerTests {
   @Test func finishWritesHistoryToTheCapturedFolderWhileOn() async {
     let recorder = Recorder()
     let prewarmed = OSAllocatedUnfairLock(initialState: false)
-    let historyEntries = OSAllocatedUnfairLock<[(text: String, folder: URL)]>(
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>(
       initialState: []
     )
     let folder = URL(filePath: "/tmp/TalkifyTests-history-\(UUID().uuidString)")
@@ -561,6 +565,75 @@ struct DirectDictationControllerTests {
     let entries = historyEntries.withLock { $0 }
     #expect(entries.map(\.text) == ["spoken words"])
     #expect(entries.map(\.folder) == [folder])
+    controller.stop()
+  }
+
+  /// A day file that says only what you said is harder to use later than one
+  /// that says where you were saying it, so the entry names the application
+  /// that held focus when the session started.
+  @Test func historyNamesTheApplicationTheTextWasAimedAt() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>(
+      initialState: []
+    )
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        captureFocusedTarget: { Self.makeTarget(applicationName: "Ghostty") },
+        finishRecognition: { "spoken words" },
+        historyEntries: historyEntries
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(historyEntries.withLock { $0 }.map(\.source) == ["Ghostty"])
+    controller.stop()
+  }
+
+  /// Clipboard-only never aims at an application, so naming whichever one
+  /// happened to hold focus would put a lie in the file.
+  @Test func clipboardOnlyHistoryNamesTheClipboardRatherThanAnApplication() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>(
+      initialState: []
+    )
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.insertionDestination = .clipboardOnly
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        captureFocusedTarget: { Self.makeTarget(applicationName: "Ghostty") },
+        finishRecognition: { "spoken words" },
+        historyEntries: historyEntries,
+        insertOutcome: .copiedToClipboard
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(historyEntries.withLock { $0 }.map(\.source) == ["Clipboard"])
     controller.stop()
   }
 }
