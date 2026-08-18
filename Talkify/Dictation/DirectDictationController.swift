@@ -175,11 +175,26 @@ final class DirectDictationController {
     return SpeechLanguageCatalog.tag(for: locale)
   }
 
+  /// True while a released trigger is still being turned into inserted text.
+  /// Termination waits on this rather than racing it.
+  var isFinishing: Bool { finishTask != nil }
+
+  /// Waits for an in-flight finish to insert its text, giving up after
+  /// `timeout` so a stuck insertion cannot hold the quit forever. Giving up
+  /// only stops the waiting; the finish keeps running until the process goes.
+  func waitForFinish(timeout: Duration) async {
+    guard let finishTask else { return }
+    await awaitValue(of: finishTask, orGiveUpAfter: timeout)
+  }
+
   func stop() {
     noSpeechTask?.cancel()
     permissionTask?.cancel()
     permissionWatchTask?.cancel()
     sessionStartTask?.cancel()
+    // The finish is deliberately not cancelled: it holds the user's last
+    // words, and termination has already given it its window through
+    // waitForFinish.
     keyEventMonitor?.stop()
     isPrepared = false
 
@@ -188,8 +203,13 @@ final class DirectDictationController {
     // is reading, and whichever task the scheduler ran first would decide
     // whether that text was inserted or dropped. Waiting first makes the
     // order a rule instead of a race.
+    //
+    // Bounded, because stop() is not only called on the way out: a wedged
+    // insertion must not keep the speech service alive forever.
     Task { [dependencies, finishTask] in
-      await finishTask?.value
+      if let finishTask {
+        await awaitValue(of: finishTask, orGiveUpAfter: .seconds(2))
+      }
       await dependencies.shutDownRecognition()
     }
   }
@@ -460,6 +480,7 @@ final class DirectDictationController {
   private func finishRecognition(speakingDuration: TimeInterval) {
     finishTask = Task { [weak self] in
       guard let self else { return }
+      defer { finishTask = nil }
       do {
         let text = try await dependencies.finishRecognition()
         dependencies.hideHUD()

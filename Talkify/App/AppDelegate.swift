@@ -176,6 +176,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
   }
 
+  /// A released trigger whose text has not landed yet is the one thing worth
+  /// delaying a quit for: the user spoke it and expects to see it. AppKit's
+  /// deferred termination is the only way to wait, because
+  /// `applicationWillTerminate` is synchronous and the finish needs the main
+  /// actor to make progress.
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard let dictationController, dictationController.isFinishing else {
+      return .terminateNow
+    }
+    Task { @MainActor in
+      await dictationController.waitForFinish(timeout: .seconds(2))
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+    return .terminateLater
+  }
+
   func applicationWillTerminate(_ notification: Notification) {
     dictationController?.stop()
     // A transcript the HUD is still offering only exists in its staging folder,
