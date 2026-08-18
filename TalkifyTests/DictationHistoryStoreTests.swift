@@ -150,6 +150,54 @@ struct DictationHistoryStoreTests {
   }
 
   /// A fresh per-test folder under the system temporary directory.
+  /// The point of naming the source: a day file that says only what you said
+  /// is harder to use later than one that says where you were saying it.
+  @Test func anEntryNamesTheApplicationItWasAimedAt() async throws {
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let store = DictationHistoryStore(calendar: testCalendar())
+    let noon = Date(timeIntervalSince1970: 1_755_000_000)
+
+    try await store.record("hello there", from: "Ghostty", at: noon, in: folder)
+
+    let file = folder.appending(path: DictationHistoryStore.fileName(
+      for: noon,
+      calendar: testCalendar()
+    ))
+    let contents = try String(contentsOf: file, encoding: .utf8)
+    let heading = DictationHistoryStore.timestamp(for: noon, calendar: testCalendar())
+    #expect(contents.hasPrefix("\(heading) Ghostty\n"))
+    #expect(contents.contains("hello there"))
+  }
+
+  /// An unnamed source leaves the heading exactly as it was before sources
+  /// existed, so entries written by an older build still read the same.
+  @Test func anUnnamedSourceLeavesTheBareTimestamp() {
+    let noon = Date(timeIntervalSince1970: 1_755_000_000)
+    let calendar = testCalendar()
+    let bare = DictationHistoryStore.timestamp(for: noon, calendar: calendar)
+
+    #expect(DictationHistoryStore.heading(for: noon, source: nil, calendar: calendar) == bare)
+    #expect(DictationHistoryStore.heading(for: noon, source: "", calendar: calendar) == bare)
+    #expect(DictationHistoryStore.heading(for: noon, source: "   ", calendar: calendar) == bare)
+  }
+
+  /// An application name is not something Talkify chose, so a name carrying a
+  /// newline must not be able to forge a second entry inside this one.
+  @Test func aSourceCannotForgeASecondEntry() {
+    let noon = Date(timeIntervalSince1970: 1_755_000_000)
+    let calendar = testCalendar()
+
+    let heading = DictationHistoryStore.heading(
+      for: noon,
+      source: "Evil\n[00:00:00] injected",
+      calendar: calendar
+    )
+
+    #expect(!heading.contains("\n"))
+    #expect(heading.hasSuffix("Evil [00:00:00] injected"))
+  }
+
   private func temporaryFolder() -> URL {
     FileManager.default.temporaryDirectory
       .appending(path: UUID().uuidString, directoryHint: .isDirectory)
