@@ -122,11 +122,11 @@ final class DictationHUDController {
     // and the transcription keeps running with the status item carrying it.
     stage.claim(.dictation, on: screen, rendering: settings)
     startVoiceVisual()
-    content.isReviewing = false
     content.text = placeholder
-    // A fresh round listens display-only, exactly like any dictation:
-    // the review's key and mouse are re-armed only once the draft is held
-    // again (showEditableDraft).
+    // A fresh round listens display-only, exactly like any dictation: the
+    // review's key and mouse are re-armed only once the draft is held again
+    // (showEditableDraft). `isReviewing` stays true through a replacement
+    // round — the draft must never disappear while the review is up.
     stage.endDraftEditing()
     stage.revealDictation()
   }

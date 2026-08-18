@@ -9,8 +9,9 @@ import SwiftUI
 final class DictationHUDContent {
   var text = ""
   /// True from recognition finishing until Return or Escape: the draft is
-  /// held in the editable field of the editable-draft variant. The shell
-  /// swaps the read-only band for the field, and the panel takes key.
+  /// held in the editable field of the editable-draft variant. Stays true
+  /// through a replacement round — the shell keeps the text band visible
+  /// and drops only the field while the round listens.
   var isReviewing = false
   /// The editable field's selection, written by the shell's TextEditor and
   /// read when a Replacement Dictation begins so the round knows exactly

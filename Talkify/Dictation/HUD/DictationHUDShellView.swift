@@ -50,49 +50,26 @@ struct DictationHUDShellView: View {
     HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
-      visualBandHeight: visualBandHeight,
-      includesTextBand: showsTextBand
+      visualBandHeight: bandLayout.visualBandHeight,
+      includesTextBand: bandLayout.showsTextBand
     )
   }
 
-  /// Reduce Motion always shows the quiet level meter in its slim band;
-  /// otherwise both animated visuals get the tall band — the waveform fills
-  /// it, the glow keeps it as an empty stage so the silhouette has flanks
-  /// for the light to wrap. In the Shape live draft trades band for text:
-  /// the glow drops the band entirely (the beam wraps the text band), the
-  /// waveform compresses to the slim strip so strip + wrapped text still
-  /// fit the fixed window.
-  private var visualBandHeight: CGFloat {
-    guard keepsVisualLayout else { return 0 }
-    if reduceMotion { return metrics.visualBandHeight }
-    // Compact has no band of its own: its indicator lives inside the
-    // text band, beside the draft.
-    if settings.voiceVisual == .compact { return 0 }
-    return metrics.waveBandHeight
+  /// The band decisions for the current session state, computed in a pure
+  /// value so the review-context rules (the draft never disappears while
+  /// reviewing) are pinned by DictationBandLayoutTests instead of being
+  /// view-private.
+  private var bandLayout: DictationBandLayout {
+    DictationBandLayout(
+      showsVoiceVisual: content.showsVoiceVisual,
+      isDismissing: content.isDismissing,
+      isReviewing: content.isReviewing,
+      reduceMotion: reduceMotion,
+      voiceVisual: settings.voiceVisual,
+      levelMeterBandHeight: metrics.visualBandHeight,
+      waveBandHeight: metrics.waveBandHeight
+    )
   }
-
-  /// Waveform and Edge Glow replace the draft text entirely while
-  /// listening; Compact is built around it. With Reduce Motion the draft
-  /// text always shows.
-  private var showsTextBand: Bool {
-    if !keepsVisualLayout || reduceMotion { return true }
-    return settings.voiceVisual == .compact
-  }
-
-  /// Whether the bands stay as a listening session laid them out. Held through
-  /// the retract so the shape never resizes while it is sliding away.
-  private var keepsVisualLayout: Bool {
-    content.showsVoiceVisual || content.isDismissing
-  }
-
-  /// Whether the text band renders the Compact layout: the voice indicator
-  /// beside a leading-aligned draft. Not gated on the listening state —
-  /// swapping the band's structure at finalize reads as a glitch mid
-  /// retract, so the layout stays and the indicator settles instead.
-  private var showsCompactBand: Bool {
-    settings.voiceVisual == .compact && !reduceMotion
-  }
-
 
   private var filletSize: CGFloat {
     HUDNotchGeometry.filletSize(for: screen)
@@ -127,7 +104,7 @@ struct DictationHUDShellView: View {
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
           )
-          .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
+          .animation(.spring(duration: 0.25, bounce: 0), value: bandLayout.visualBandHeight)
           .animation(.spring(duration: 0.25, bounce: 0), value: content.isReviewing)
       },
       overlays: {
@@ -144,7 +121,7 @@ struct DictationHUDShellView: View {
       // with the camera.
       Color.clear
         .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
-      if visualBandHeight > 0 {
+      if bandLayout.visualBandHeight > 0 {
         Group {
           if reduceMotion {
             HUDLevelMeterView(content: content)
@@ -156,25 +133,25 @@ struct DictationHUDShellView: View {
             Color.clear
           }
         }
-        .frame(height: visualBandHeight)
+        .frame(height: bandLayout.visualBandHeight)
       }
-      if showsTextBand {
+      if bandLayout.showsTextBand {
         textBand
       }
     }
   }
 
-  /// Draft text lives in the band below the housing. Compact puts its
-  /// voice indicator on the leading side, Dynamic Island-style, with the
-  /// draft leading-aligned beside it; the other visuals center the draft.
-  /// The editable-draft review swaps the whole band for the editable
-  /// field, whatever the visual.
+  /// Draft text lives in the band below the housing. The editable-draft
+  /// review swaps the whole band for the editable field while the draft is
+  /// settled; while a replacement round listens under that review the band
+  /// keeps the text with the compact indicator beside it, and the visual
+  /// stays away from the text.
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if content.isReviewing {
+      if content.isReviewing && !content.showsVoiceVisual {
         editableDraftField
-      } else if showsCompactBand {
+      } else if bandLayout.showsCompactBand {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
@@ -191,7 +168,10 @@ struct DictationHUDShellView: View {
     // on both sides, so centered drafts stay centered and nothing overlaps.
     .padding(.horizontal, (content.languageTag == nil ? 24 : 46) * metrics.scale)
     .padding(.vertical, 9 * metrics.scale)
-    .frame(minHeight: metrics.textBandHeight)
+    // The review keeps the field's height through a replacement round too,
+    // so the shape does not shrink and jump while the user is speaking over
+    // it. The compact band floats its indicator and text in that space.
+    .frame(minHeight: content.isReviewing ? metrics.maxTextBandHeight : metrics.textBandHeight)
   }
 
   /// The editable-draft review field: the finished draft, editable in place
@@ -280,10 +260,14 @@ struct DictationHUDShellView: View {
 
   /// The Edge Glow particle cloud, clipped to the housing so no mote leaks
   /// past the silhouette. Mounted with the glow (not only while listening)
-  /// so its drain-out ramp can render too.
+  /// so its drain-out ramp can render too, but stood down while a
+  /// replacement round listens — the review's text owns the shape then.
   @ViewBuilder
   private var particleCloud: some View {
-    if !reduceMotion, settings.voiceVisual == .glow, settings.glowCenter == .particles {
+    if !reduceMotion,
+     settings.voiceVisual == .glow,
+     settings.glowCenter == .particles,
+     !bandLayout.isReplacementRoundListening {
       HUDParticleCloudView(
         content: content,
         settings: settings,
@@ -303,7 +287,8 @@ struct DictationHUDShellView: View {
     if !reduceMotion,
      settings.voiceVisual == .glow,
      settings.glowCenter == .siriOrb,
-     content.showsVoiceVisual {
+     content.showsVoiceVisual,
+     !bandLayout.isReplacementRoundListening {
       HUDSiriOrbView(content: content, side: size.height - 8 * metrics.scale)
     }
   }
@@ -312,10 +297,14 @@ struct DictationHUDShellView: View {
   /// housing along the open silhouette, breathing with the voice
   /// (HUDEdgeGlowView). Mounted whenever the variant is selected — not only
   /// while listening — so the drain-out ramp can render after the session
-  /// ends; the view disables its shader once the ramp reaches zero.
+  /// ends; the view disables its shader once the ramp reaches zero. Stood
+  /// down while a replacement round listens: the review's text owns the
+  /// shape then.
   @ViewBuilder
   private var edgeGlow: some View {
-    if !reduceMotion, settings.voiceVisual == .glow {
+    if !reduceMotion,
+     settings.voiceVisual == .glow,
+     !bandLayout.isReplacementRoundListening {
       HUDEdgeGlowView(
         content: content,
         settings: settings,
