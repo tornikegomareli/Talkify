@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// The concave corner that joins the HUD's side to the top edge of the screen.
+/// The concave corner that joins the HUD's side to the bottom edge of the
+/// screen.
 ///
-/// A square with a quarter disc removed from its *outer* bottom corner — the
+/// A square with a quarter disc removed from its *outer* top corner — the
 /// one furthest from the HUD body. That leaves the black full height where it
-/// meets the flank, tapering along the screen's top edge as it runs out into
-/// the bezel, which is what reads as the housing flaring wider. Removing the
-/// disc from the body-adjacent corner instead mirrors the curve and draws a
-/// detached tab with a wedge of wallpaper between it and the body.
+/// meets the flank, tapering along the screen's bottom edge as it runs out
+/// into the bezel, which is what reads as the housing cap flaring wider.
+/// Removing the disc from the body-adjacent corner instead mirrors the curve
+/// and draws a detached tab with a wedge of wallpaper between it and the body.
 struct NotchFilletShape: Shape {
   /// Which side of the HUD body this fillet sits against.
   let side: HorizontalEdge
@@ -19,7 +20,7 @@ struct NotchFilletShape: Shape {
     // opposite edge in each case.
     let corner = CGPoint(
       x: side == .leading ? rect.minX : rect.maxX,
-      y: rect.maxY
+      y: rect.minY
     )
     let disc = Path(
       ellipseIn: CGRect(

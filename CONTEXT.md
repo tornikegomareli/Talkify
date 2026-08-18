@@ -110,24 +110,24 @@ _Avoid_: Transcript history, cloud analytics
 - The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
 - The HUD renders volatile recognition results immediately
 - **Direct Dictation** inserts finalized recognition text plus the latest volatile result when recognition ends before finalizing it
-- The **Direct Dictation** HUD expands from the physical notch on the focused input's display
+- The **Direct Dictation** HUD floats near the bottom center of the focused input's display, its housing cap meeting the display's bottom edge
 - Settings exposes **Appearance**, **Sounds**, and **Insights** in that order
 - The Settings navigation supports labeled groups, but renders no empty or disabled sections
 - A new Settings section appears only after its underlying preferences and behavior exist
 - If the focused input's display is unknown, the HUD uses the display containing the pointer
 - If no display contains the pointer, the HUD uses the main display
-- The HUD always descends from the top center of its display and is never placed at the bottom
-- Displays without a physical notch show a simulated notch: the same surface with a stand-in footprint
-- The simulated notch omits the corner fillets that hug a physical housing
+- The HUD always anchors to the bottom center of its display and is never placed at the top
+- Displays without a physical notch show a simulated housing cap: the same surface with a stand-in footprint
+- The simulated cap omits the corner fillets that hug a physical housing
 - The HUD behaves identically on every display; only the notch measurement differs
 - **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
 - **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
-- A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing it descends from plus its fillets: a shape narrower than its housing reads as a tab floating under the notch, and its fillets land inside the cutout with no bezel to meet
+- A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing cap it sits on plus its fillets: a shape narrower than its housing reads as a tab floating in front of the cap, and its fillets land inside the cap with no bezel to meet
 - That floor cannot be one number: a notch is a fixed physical width but its width in points moves with the scaled display mode, so the same MacBook reports roughly 155 points under More Space and 273 under Larger Text; a display with no notch keeps the slider's own minimum, which is where a smaller HUD is wanted because every point the shape covers is screen the user was working in
 - A HUD that will show draft text has a second floor at 40%, where the draft is still 6 points: Compact is built around the live draft and Reduce Motion restores it for every visual, so both stop there while Waveform and Edge Glow, which replace the draft entirely, go down to 20%
 - The **HUD size** slider offers only the sizes the selected voice visual can be shown at, and the higher of the two floors wins whenever both apply
 - A size below the selected visual's floor stays persisted and returns when a visual that can show it is picked again
-- The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
+- The housing band and the fillets never scale with **HUD size**: the band's height is the measured housing height on a notched display and the fixed cap elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
 - The HUD is display-only during Direct Dictation: mouse clicks pass through it and it never takes focus

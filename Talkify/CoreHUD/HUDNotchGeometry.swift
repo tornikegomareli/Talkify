@@ -1,8 +1,10 @@
 import CoreGraphics
 
 /// Frames for the Direct Dictation HUD, lifted from Tilebar's NotchIsland
-/// pattern (ADR-0001): a fixed-size host window pinned to the top center whose
-/// origin moves but never resizes, and a measured-vs-simulated notch split.
+/// pattern (ADR-0001): a fixed-size host window pinned to the bottom center
+/// whose origin moves but never resizes, and a measured-vs-simulated notch
+/// split. The housing cap that used to hug the notch now meets the bottom
+/// edge of the display.
 ///
 /// What this type decides is what the *display* imposes: the housing
 /// footprint, whether fillets exist, and the host window. Everything the user
@@ -105,7 +107,7 @@ enum HUDNotchGeometry {
   }
 
   /// The host window's frame: content size plus shadow slack, centered and
-  /// pinned to the top, clamped to the screen width.
+  /// pinned to the bottom, clamped to the screen width.
   ///
   /// Sized for the standard metrics whatever the user's HUD size, so the
   /// window stays fixed per display (ADR-0001) and a smaller shape simply
@@ -120,7 +122,7 @@ enum HUDNotchGeometry {
 
     return CGRect(
       x: screen.frame.midX - width / 2,
-      y: screen.frame.maxY - height,
+      y: screen.frame.minY,
       width: width,
       height: height
     )

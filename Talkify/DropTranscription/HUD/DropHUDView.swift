@@ -74,10 +74,11 @@ struct DropHUDView: View {
       clipsContent: true
     ) {
       VStack(spacing: 0) {
-        // Level with the housing, always empty: the camera lives here.
-        Color.clear.frame(height: housingHeight)
         stateView
           .frame(height: bodyHeight)
+        // The housing cap, level with the bottom edge: kept empty so the
+        // state content never collides with it.
+        Color.clear.frame(height: housingHeight)
       }
     }
     // On the surface, not inside it. `HUDSurface` applies `size` as a frame

@@ -111,7 +111,7 @@ struct HUDEdgeGlowView: View {
       }
     }
     .padding(.horizontal, -spill)
-    .padding(.bottom, -spill)
+    .padding(.top, -spill)
     .allowsHitTesting(false)
     .accessibilityHidden(true)
     .onChange(of: content.sessionEpoch) {
@@ -156,19 +156,29 @@ struct HUDEdgeGlowView: View {
   }
 }
 
-/// The HUD's open silhouette as a strokable path: left flank, bottom run with
-/// its two corner arcs, right flank. The top edge is the screen edge and is
-/// never drawn.
+/// The HUD's open silhouette as a strokable path: up the left flank, across
+/// the top run with its two corner arcs, down the right flank. The bottom
+/// edge is where the housing cap meets the screen edge and is never drawn.
 struct HUDGlowSilhouetteShape: Shape {
   var cornerRadius: CGFloat
-  /// Radius of the physical top housing fillets. Zero keeps the square
-  /// corners used by external displays without a measured notch.
+  /// Radius of the physical housing fillets. Zero keeps the square
+  /// corners used by external displays without a measured housing.
   var topFilletRadius: CGFloat = 0
-  /// Distance from the view's left/right/bottom edges to the silhouette
+  /// Distance from the view's left/right/top edges to the silhouette
   /// (the spill the blurred strokes need).
   var inset: CGFloat
 
   nonisolated func path(in rect: CGRect) -> Path {
+    // The housing cap meets the bottom edge, so the open silhouette is the
+    // top-housing form's vertical mirror: the drawn run is the top of the
+    // pill and the fillets sit at its bottom corners.
+    topHousingPath(in: rect)
+      .applying(CGAffineTransform(translationX: 0, y: rect.height).scaledBy(x: 1, y: -1))
+  }
+
+  /// The silhouette drawn as if the housing were at the top — the form this
+  /// shape is the vertical reflection of.
+  nonisolated private func topHousingPath(in rect: CGRect) -> Path {
     let left = rect.minX + inset
     let right = rect.maxX - inset
     let bottom = rect.maxY - inset
@@ -216,6 +226,25 @@ struct HUDGlowSilhouetteShape: Shape {
     atArcFraction fraction: Double,
     cornerRadius: CGFloat,
     topFilletRadius: CGFloat = 0,
+    inset: CGFloat,
+    in size: CGSize
+  ) -> CGPoint {
+    let housed = topHousingPoint(
+      atArcFraction: fraction,
+      cornerRadius: cornerRadius,
+      topFilletRadius: topFilletRadius,
+      inset: inset,
+      in: size
+    )
+    return CGPoint(x: housed.x, y: size.height - housed.y)
+  }
+
+  /// The top-housing form of `point(atArcFraction:)`, before the vertical
+  /// mirror the bottom cap reflects it across.
+  nonisolated private static func topHousingPoint(
+    atArcFraction fraction: Double,
+    cornerRadius: CGFloat,
+    topFilletRadius: CGFloat,
     inset: CGFloat,
     in size: CGSize
   ) -> CGPoint {

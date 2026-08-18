@@ -117,10 +117,9 @@ struct DictationHUDShellView: View {
 
   private var bands: some View {
     VStack(spacing: 0) {
-      // Strip level with the housing: kept empty so text never collides
-      // with the camera.
-      Color.clear
-        .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
+      if bandLayout.showsTextBand {
+        textBand
+      }
       if bandLayout.visualBandHeight > 0 {
         Group {
           if reduceMotion {
@@ -135,9 +134,10 @@ struct DictationHUDShellView: View {
         }
         .frame(height: bandLayout.visualBandHeight)
       }
-      if bandLayout.showsTextBand {
-        textBand
-      }
+      // The housing cap, level with the bottom edge: kept empty so text
+      // never collides with the cap.
+      Color.clear
+        .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
     }
   }
 
@@ -180,12 +180,17 @@ struct DictationHUDShellView: View {
   /// is non-activating, so editing never activates Talkify — the previously
   /// focused control stays frontmost and takes key back the moment the
   /// review ends.
+  ///
+  /// The tint is translucent white: at full white the selection highlight
+  /// would be the same colour as the draft text, making selected words
+  /// unreadable; at partial opacity the highlight shades the background
+  /// while the white text stays legible behind it.
   @ViewBuilder
   private var editableDraftField: some View {
     TextEditor(text: $content.text, selection: $content.selection)
       .font(.system(size: 15 * metrics.scale, weight: .medium))
       .foregroundStyle(.white)
-      .tint(.white)
+      .tint(.white.opacity(0.4))
       .scrollContentBackground(.hidden)
       .scrollIndicators(.hidden)
       .focused($draftFieldFocused)
@@ -208,8 +213,8 @@ struct DictationHUDShellView: View {
         .padding(.vertical, 1.5 * metrics.scale)
         .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
         .padding(.leading, 12 * metrics.scale)
-        // Clears the housing, so the tag never sits beside the camera.
-        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
+        // Hangs off the floating top edge; nothing hugs the shape there.
+        .padding(.top, 6 * metrics.scale)
         .allowsHitTesting(false)
     }
   }

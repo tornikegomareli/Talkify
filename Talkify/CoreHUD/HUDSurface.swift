@@ -5,11 +5,12 @@ import SwiftUI
 /// finished transcript card.
 ///
 /// This exists so the rules that break on real hardware live in one file.
-/// Bounce is expressed only in top-anchored scale, never in position, because a
-/// position overshoot lifts the shape off the screen edge and opens a visible
-/// gap. Fillets exist only where there is a physical housing to flare into. The
-/// host window never resizes, so the shape top-aligns inside whatever frame it
-/// is handed.
+/// Bounce is expressed only in bottom-anchored scale, never in position,
+/// because a position overshoot lifts the shape off the screen edge and opens a
+/// visible gap. Fillets exist only where there is a physical housing to flare
+/// into. The host window never resizes, so the shape bottom-aligns inside
+/// whatever frame it is handed — the HUD floats at the bottom of the display,
+/// its housing cap hugging the bottom edge.
 struct HUDSurface<Content: View, Overlays: View>: View {
   /// With Reduce Motion every style collapses to a quiet fade.
   static var reducedMotionFade: Animation { .easeOut(duration: 0.12) }
@@ -83,7 +84,7 @@ struct HUDSurface<Content: View, Overlays: View>: View {
       .transition(
         .scale
           .combined(with: .opacity)
-          .combined(with: .offset(y: -size.height / 2))
+          .combined(with: .offset(y: size.height / 2))
       )
     } else {
       content
@@ -93,17 +94,17 @@ struct HUDSurface<Content: View, Overlays: View>: View {
   var body: some View {
     contentLayer
       .frame(width: renderedSize.width)
-      .frame(minHeight: renderedSize.height, alignment: .top)
+      .frame(minHeight: renderedSize.height, alignment: .bottom)
       .clipShape(clipsContent ? AnyShape(housingShape) : AnyShape(Rectangle()))
       .background { housing }
       .overlay { overlays }
-      .overlay(alignment: .topLeading) { fillet(.leading) }
-      .overlay(alignment: .topTrailing) { fillet(.trailing) }
+      .overlay(alignment: .bottomLeading) { fillet(.leading) }
+      .overlay(alignment: .bottomTrailing) { fillet(.trailing) }
       .opacity(revealOpacity)
-      .scaleEffect(x: revealScale.x, y: revealScale.y, anchor: .top)
+      .scaleEffect(x: revealScale.x, y: revealScale.y, anchor: .bottom)
       .offset(y: revealOffset)
       .animation(revealAnimation, value: isRevealed)
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
   }
 
   /// Growing from the housing never parks: there is no transform to hide the
@@ -112,14 +113,15 @@ struct HUDSurface<Content: View, Overlays: View>: View {
     !isRevealed && !reduceMotion && !growsFromHousing
   }
 
-  /// Where position moves at all, hidden means at or above the window's top
-  /// edge — never below — so no style can open a gap against the screen edge.
+  /// Where position moves at all, hidden means at or below the window's
+  /// bottom edge — never above — so no style can open a gap against the
+  /// screen edge.
   private var revealOffset: CGFloat {
     guard isParked else { return 0 }
     switch revealStyle {
-    case .slide: return -(size.height + 20)
+    case .slide: return size.height + 20
     case .unfurl, .bloom: return 0
-    case .drift: return -14
+    case .drift: return 14
     }
   }
 
@@ -146,10 +148,10 @@ struct HUDSurface<Content: View, Overlays: View>: View {
     }
   }
 
-  /// Bounce lives only in top-anchored scale (unfurl, bloom) or in the shape's
-  /// own size (growing from the housing); the styles that move position (slide,
-  /// drift) stay bounce-free, because a position overshoot would detach the
-  /// shape from the screen edge.
+  /// Bounce lives only in bottom-anchored scale (unfurl, bloom) or in the
+  /// shape's own size (growing from the housing); the styles that move
+  /// position (slide, drift) stay bounce-free, because a position overshoot
+  /// would detach the shape from the screen edge.
   private var revealAnimation: Animation {
     if reduceMotion {
       return Self.reducedMotionFade
@@ -179,7 +181,7 @@ struct HUDSurface<Content: View, Overlays: View>: View {
     // Plain values for the @Sendable keyframeAnimator content closure.
     let rippleOrigin = CGPoint(
       x: size.width / 2,
-      y: HUDNotchGeometry.closedSize(for: screen).height
+      y: size.height - HUDNotchGeometry.closedSize(for: screen).height
     )
     let ripplePlays = !reduceMotion && rippleEnabled
     return Color.black

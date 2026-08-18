@@ -93,7 +93,7 @@ struct HUDNotchGeometryTests {
     #expect(size.height == 32 + HUDMetrics.standard.waveBandHeight)
   }
 
-  @Test func windowFrameIsTopCenterWithShadowSlack() {
+  @Test func windowFrameIsBottomCenterWithShadowSlack() {
     let frame = HUDNotchGeometry.windowFrame(for: notched)
     let expectedWidth: CGFloat = 540 + 44 * 2
     let tallestBands = max(
@@ -103,7 +103,8 @@ struct HUDNotchGeometryTests {
     #expect(frame.width == expectedWidth)
     #expect(frame.height == 32 + tallestBands + 44)
     #expect(frame.midX == notched.frame.midX)
-    #expect(frame.maxY == notched.frame.maxY)
+    // The HUD floats at the bottom edge, its housing cap flush with it.
+    #expect(frame.minY == notched.frame.minY)
   }
 
   /// Issue #24: the shape shrinks so it stops covering usable screen, but
@@ -194,7 +195,9 @@ struct HUDNotchGeometryTests {
       in: size
     )
 
-    #expect(start == CGPoint(x: 17, y: 0))
-    #expect(end == CGPoint(x: 583, y: 0))
+    // With the housing cap at the bottom edge, the fillets the glow hugs
+    // sit at the bottom corners of the shape.
+    #expect(start == CGPoint(x: 17, y: 120))
+    #expect(end == CGPoint(x: 583, y: 120))
   }
 }

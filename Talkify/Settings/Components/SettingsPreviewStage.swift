@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// The chrome the Settings previews share: a titled card holding a dark
-/// display with a simulated menu bar strip, so whatever HUD surface is placed
-/// in it reads as hanging from the notch at the top of a screen rather than
-/// floating in a box.
+/// display, so whatever HUD surface is placed in it reads as floating with
+/// its housing cap at the bottom edge of a screen rather than inside a box.
 ///
 /// Both previews use the fixed notched reference geometry (CONTEXT.md), which
 /// is why the stage can own the strip's dimensions: they are the same picture
@@ -43,8 +42,8 @@ struct SettingsPreviewStage<HUD: View>: View {
         simulatedMenuBar
 
         hud
-          .scaleEffect(0.48, anchor: .top)
-          .frame(width: 300, height: 105, alignment: .top)
+          .scaleEffect(0.48, anchor: .bottom)
+          .frame(width: 300, height: 105, alignment: .bottom)
           .clipped()
       }
       .frame(height: 118)
