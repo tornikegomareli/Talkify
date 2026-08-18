@@ -25,6 +25,7 @@ final class DirectDictationController {
 
   private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
+  private let ducking = AudioDuckingSession()
   private var focusedTarget: TextInsertionService.Target?
   private var noSpeechTask: Task<Void, Never>?
   private var permissionTask: Task<Void, Never>?
@@ -176,6 +177,8 @@ final class DirectDictationController {
   }
 
   func stop() {
+    // Before anything else: quitting mid-session must not leave the Mac quiet.
+    ducking.restore()
     noSpeechTask?.cancel()
     permissionTask?.cancel()
     permissionWatchTask?.cancel()
@@ -348,7 +351,13 @@ final class DirectDictationController {
     case .hideHUD:
       dependencies.hideHUD()
     case let .notifyRecording(isRecording):
-      if !isRecording {
+      // Ducking rides this effect because it is the one signal that fires on
+      // every terminal path — inserted, cancelled, failed, or timed out — so
+      // the volume cannot be left down by a route nobody thought about.
+      if isRecording {
+        if currentSessionSettings?.ducksOtherAudio == true { ducking.duck() }
+      } else {
+        ducking.restore()
         focusedTarget = nil
         sessionStartTask = nil
         currentSessionSettings = nil
