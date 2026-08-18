@@ -231,6 +231,34 @@ extension TextInsertionService {
     }
   }
 
+  /// Stages and pastes one finalized result, leaving the text on the clipboard.
+  ///
+  /// The insert-and-copy destination skips the snapshot and the restore on
+  /// purpose: the text staying on the clipboard is what the user asked for,
+  /// so there is nothing to put back and no acquisition budget to spend.
+  ///
+  /// - Parameters:
+  ///   - text: The finalized text to insert and keep on the clipboard.
+  ///   - target: The validated focus boundary that should receive the paste.
+  /// - Returns: The terminal delivery outcome after all safe fallbacks.
+  func pasteLeavingClipboard(
+    _ text: String,
+    into target: Target
+  ) async -> InsertionOutcome {
+    guard stageClipboardText(
+      text,
+      ifUnchangedSince: dependencies.pasteboard.changeCount
+    ) != nil else { return .unavailable }
+
+    guard dependencies.postPasteShortcut() else {
+      // The paste never fired, but the text is already on the clipboard,
+      // which is exactly the manual-paste fallback.
+      return .copiedToClipboard
+    }
+    await dependencies.waitForPasteRead()
+    return .inserted
+  }
+
   /// Places finalized text on the clipboard when no target paste is safe.
   ///
   /// - Parameter text: The finalized text to retain for manual paste.

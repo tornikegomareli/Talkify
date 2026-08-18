@@ -223,6 +223,62 @@ struct AppSettingsTests {
     #expect(snapshot.sounds.volume == 0.25)
   }
 
+  @Test func insertionDestinationDefaultsToInsertAndRoundTrips() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.insertionDestination == .insert)
+
+    settings.insertionDestination = .both
+    #expect(defaults.string(forKey: "dictationInsertionDestination") == "both")
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.insertionDestination == .both)
+  }
+
+  @Test func historyDefaultsToOffWithTheDocumentsFolder() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(!settings.dictationHistoryEnabled)
+    #expect(settings.dictationHistoryFolder == nil)
+    #expect(settings.resolvedHistoryFolder == DictationHistoryStore.defaultFolderURL)
+  }
+
+  @Test func historyPreferencesRoundTripUnderTheirKeys() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.dictationHistoryEnabled = true
+    settings.dictationHistoryFolder = URL(filePath: "/tmp/history")
+
+    #expect(defaults.object(forKey: "dictationHistoryEnabled") as? Bool == true)
+    #expect(defaults.string(forKey: "dictationHistoryFolder") == "/tmp/history")
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.dictationHistoryEnabled)
+    #expect(reloaded.dictationHistoryFolder?.path(percentEncoded: false) == "/tmp/history")
+  }
+
+  @Test func sessionSnapshotCapturesTheHistoryChoice() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.dictationHistoryFolder = URL(filePath: "/tmp/history")
+
+    let snapshot = settings.sessionSettings
+    settings.dictationHistoryEnabled = false
+    settings.dictationHistoryFolder = nil
+
+    #expect(snapshot.historyEnabled)
+    #expect(snapshot.historyFolder.path(percentEncoded: false) == "/tmp/history")
+  }
+
+  @Test func sessionSnapshotCapturesTheInsertionDestination() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.insertionDestination = .clipboardOnly
+
+    let snapshot = settings.sessionSettings
+    settings.insertionDestination = .both
+
+    #expect(snapshot.insertionDestination == .clipboardOnly)
+  }
+
   /// The stored value is a plain number rather than a named case, so a
   /// value outside the supported range has to survive the trip.
   @Test func storedHUDSizeOutsideTheRangeComesBackClamped() {

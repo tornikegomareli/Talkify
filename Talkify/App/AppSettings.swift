@@ -31,6 +31,9 @@ final class AppSettings {
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
     static let transcriptDestination = "transcriptDestination"
     static let transcriptFolder = "transcriptFolder"
+    static let insertionDestination = "dictationInsertionDestination"
+    static let historyEnabled = "dictationHistoryEnabled"
+    static let historyFolder = "dictationHistoryFolder"
   }
 
   @ObservationIgnored
@@ -63,6 +66,30 @@ final class AppSettings {
 
   var transcriptFolder: URL? {
     didSet { defaults.set(transcriptFolder?.path(percentEncoded: false), forKey: Keys.transcriptFolder) }
+  }
+
+  /// Where a finished Direct Dictation session's text goes: the paste that
+  /// always happened, the clipboard alone, or both.
+  var insertionDestination: InsertionDestination {
+    didSet { defaults.set(insertionDestination.rawValue, forKey: Keys.insertionDestination) }
+  }
+
+  /// Whether finished dictation text is saved to the history folder. Off by
+  /// default: persisting no recognized text is the standing privacy stance,
+  /// and only the user turns this on.
+  var dictationHistoryEnabled: Bool {
+    didSet { defaults.set(dictationHistoryEnabled, forKey: Keys.historyEnabled) }
+  }
+
+  /// The history folder, kept even while history is off so turning it back
+  /// on returns to the same place. Nil means the default `~/Documents/Talkify/`.
+  var dictationHistoryFolder: URL? {
+    didSet { defaults.set(dictationHistoryFolder?.path(percentEncoded: false), forKey: Keys.historyFolder) }
+  }
+
+  /// The folder history writes to right now: the user's pick, or the default.
+  var resolvedHistoryFolder: URL {
+    dictationHistoryFolder ?? DictationHistoryStore.defaultFolderURL
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -179,6 +206,9 @@ final class AppSettings {
     storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(storedSoundVolume)
     transcriptDestination = Self.stored(in: defaults, key: Keys.transcriptDestination) ?? .besideSource
     transcriptFolder = (defaults.string(forKey: Keys.transcriptFolder)).map { URL(filePath: $0) }
+    insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
+    dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
+    dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -226,6 +256,9 @@ final class AppSettings {
 /// this value until its end and paste sounds have played.
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
+  let insertionDestination: InsertionDestination
+  let historyEnabled: Bool
+  let historyFolder: URL
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -249,6 +282,9 @@ struct DictationSessionSettings: Equatable {
       isEnabled: settings.dictationSoundsEnabled,
       volume: settings.dictationSoundVolume
     )
+    insertionDestination = settings.insertionDestination
+    historyEnabled = settings.dictationHistoryEnabled
+    historyFolder = settings.resolvedHistoryFolder
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

@@ -21,10 +21,7 @@ final class DirectDictationController {
   private static let noSpeechTimeout = Duration.seconds(15)
 
   private let settings: AppSettings
-  private let speechService = SpeechRecognitionService()
-  private let hudController: DictationHUDController
-  private let textInsertionService = TextInsertionService()
-  private let usageTracker: UsageTracker
+  private let dependencies: Dependencies
 
   private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
@@ -33,6 +30,9 @@ final class DirectDictationController {
   private var permissionTask: Task<Void, Never>?
   private var permissionWatchTask: Task<Void, Never>?
   private var sessionStartTask: Task<Void, Never>?
+  /// The finish in flight, carrying the session's last words to insertion.
+  /// Tracked so teardown can wait for it instead of racing it.
+  private var finishTask: Task<Void, Never>?
   private var isPrepared = false
   private var preparationFailureMessage: String?
   private var currentSessionSettings: DictationSessionSettings?
@@ -44,14 +44,20 @@ final class DirectDictationController {
   /// the language of the key that started it even if Settings change.
   private var activeSlot: GlobalKeyEventMonitor.TriggerSlot = .primary
 
-  init(
+  convenience init(
     settings: AppSettings,
     hudController: DictationHUDController,
     usageTracker: UsageTracker
   ) {
+    self.init(
+      settings: settings,
+      dependencies: .live(hudController: hudController, usageTracker: usageTracker)
+    )
+  }
+
+  init(settings: AppSettings, dependencies: Dependencies) {
     self.settings = settings
-    self.hudController = hudController
-    self.usageTracker = usageTracker
+    self.dependencies = dependencies
     keyEventMonitor = GlobalKeyEventMonitor { [weak self] event in
       Task { @MainActor [weak self] in
         self?.handle(event)
@@ -74,8 +80,8 @@ final class DirectDictationController {
       }
     }
 
-    Task { [speechService] in
-      await speechService.setDownloadHandler(handler)
+    Task { [dependencies] in
+      await dependencies.setDownloadHandler(handler)
     }
   }
 
@@ -86,11 +92,11 @@ final class DirectDictationController {
     guard machine.isSessionActive, locale(for: activeSlot) == download.locale else { return }
 
     guard let fraction = download.fraction else {
-      hudController.showModelDownload(nil)
+      dependencies.showModelDownload(nil)
       return
     }
     let name = SpeechLanguageCatalog.shortName(for: download.locale)
-    hudController.showModelDownload(
+    dependencies.showModelDownload(
       "Downloading \(name)… \(Int(fraction * 100))%"
     )
   }
@@ -129,8 +135,8 @@ final class DirectDictationController {
   /// the primary language. The second warms behind it and never throws: a
   /// model that still needs downloading must not delay the primary key.
   private func prepareLanguages() async throws {
-    let primary = try await speechService.resolveLocale(
-      identifier: settings.recognitionLocaleIdentifier
+    let primary = try await dependencies.resolveLocale(
+      settings.recognitionLocaleIdentifier
     )
     primaryLocale = primary
 
@@ -139,19 +145,19 @@ final class DirectDictationController {
     // would dictate in a language the user never chose.
     var secondary: Locale?
     if settings.isSecondLanguageEnabled {
-      secondary = await speechService.supportedLocale(
-        identifier: settings.secondaryRecognitionLocaleIdentifier
+      secondary = await dependencies.supportedLocale(
+        settings.secondaryRecognitionLocaleIdentifier
       )
     }
     // A second language equal to the first is not a second language.
     secondaryLocale = secondary == primary ? nil : secondary
 
     let bound = [primary, secondaryLocale].compactMap(\.self)
-    await speechService.retainOnly(locales: bound)
-    try await speechService.prewarm(locale: primary)
+    await dependencies.retainOnly(bound)
+    try await dependencies.prewarm(primary)
 
     if let secondaryLocale {
-      try? await speechService.prewarm(locale: secondaryLocale)
+      try? await dependencies.prewarm(secondaryLocale)
     }
   }
 
@@ -177,8 +183,14 @@ final class DirectDictationController {
     keyEventMonitor?.stop()
     isPrepared = false
 
-    Task {
-      await speechService.shutDown()
+    // A finish still in flight holds the user's last words. Shutting the
+    // speech service down beside it would cancel the very session the finish
+    // is reading, and whichever task the scheduler ran first would decide
+    // whether that text was inserted or dropped. Waiting first makes the
+    // order a rule instead of a race.
+    Task { [dependencies, finishTask] in
+      await finishTask?.value
+      await dependencies.shutDownRecognition()
     }
   }
 
@@ -198,14 +210,14 @@ final class DirectDictationController {
     permissionTask = Task { [weak self] in
       guard let self else { return }
 
-      let microphoneGranted = await PermissionService.requestMicrophoneAccess()
+      let microphoneGranted = await dependencies.requestMicrophoneAccess()
       guard !Task.isCancelled else { return }
       guard microphoneGranted else {
         preparationFailed(message: "Microphone permission required")
         return
       }
 
-      let speechGranted = await PermissionService.requestSpeechAccess()
+      let speechGranted = await dependencies.requestSpeechAccess()
       guard !Task.isCancelled else { return }
       guard speechGranted else {
         preparationFailed(message: "Speech permission required")
@@ -214,7 +226,7 @@ final class DirectDictationController {
 
       // Ask for one privacy permission at a time. Requesting Accessibility
       // beside the microphone prompt makes macOS stack or suppress dialogs.
-      PermissionService.requestAccessibilityAccess()
+      dependencies.requestAccessibilityAccess()
 
       do {
         try await prepareLanguages()
@@ -244,21 +256,25 @@ final class DirectDictationController {
         try? await Task.sleep(for: .seconds(1))
         guard !Task.isCancelled, let self else { return }
         // Never interrupt the dialog the user is reading.
-        guard !PermissionAlert.isPresenting else { continue }
-        guard PermissionService.hasAccessibilityAccess else { continue }
+        guard !dependencies.isPermissionAlertPresenting() else { continue }
+        guard dependencies.hasAccessibilityAccess() else { continue }
 
         permissionWatchTask = nil
         if keyEventMonitor?.start() == true {
-          hudController.showMessage("Talkify is ready")
+          dependencies.showMessage("Talkify is ready", nil)
         } else {
-          PermissionAlert.requestRelaunch()
+          dependencies.showRelaunchAlert()
         }
         return
       }
     }
   }
 
-  private func handle(_ event: GlobalKeyEventMonitor.Event) {
+  /// The machine's current state, so tests can pin transitions the
+  /// controller's effects produce.
+  var sessionStateForTesting: DictationSessionMachine.State { machine.state }
+
+  func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
     case let .triggerPressed(slot):
       // While a session runs, only the key that started it controls it. The
@@ -301,7 +317,7 @@ final class DirectDictationController {
     case .cancelRecognition:
       Task { [weak self] in
         guard let self else { return }
-        await speechService.cancel()
+        await dependencies.cancelRecognition()
         send(.sessionEnded)
       }
     case .cancelStartTask:
@@ -315,22 +331,22 @@ final class DirectDictationController {
     case let .showListening(latched):
       let session = settings.sessionSettings
       currentSessionSettings = session
-      hudController.showListening(
-        on: focusedTarget?.displayID,
-        isLatched: latched,
-        settings: session,
-        languageTag: activeLanguageTag
+      dependencies.showListening(
+        focusedTarget?.displayID,
+        latched,
+        session,
+        activeLanguageTag
       )
     case .showLatched:
-      hudController.showLatched()
+      dependencies.showLatched()
     case .showLiveText:
       if let pendingLiveText {
-        hudController.showLiveText(pendingLiveText)
+        dependencies.showLiveText(pendingLiveText)
       }
     case .showFinalizing:
-      hudController.showFinalizing()
+      dependencies.showFinalizing()
     case .hideHUD:
-      hudController.hide()
+      dependencies.hideHUD()
     case let .notifyRecording(isRecording):
       if !isRecording {
         focusedTarget = nil
@@ -349,22 +365,22 @@ final class DirectDictationController {
 
   private func checkAndBegin() {
     guard isPrepared else {
-      hudController.showMessage(preparationFailureMessage ?? "Preparing speech…")
+      dependencies.showMessage(preparationFailureMessage ?? "Preparing speech…", nil)
       send(.beginRejected)
       return
     }
 
-    if !PermissionService.hasAccessibilityAccess {
+    if !dependencies.hasAccessibilityAccess() {
       // One dialog that explains it, not the system prompt again on every press.
-      PermissionAlert.requestAccessibilitySetup()
+      dependencies.showAccessibilitySetupAlert()
       startPermissionWatch()
       send(.beginRejected)
       return
     }
 
-    let target = textInsertionService.captureFocusedTarget()
+    let target = dependencies.captureFocusedTarget()
     if target?.isSecure == true {
-      hudController.showMessage("Secure field", on: target?.displayID)
+      dependencies.showMessage("Secure field", target?.displayID)
       send(.beginRejected)
       return
     }
@@ -382,26 +398,26 @@ final class DirectDictationController {
     sessionStartTask = Task { [weak self] in
       guard let self else { return }
       do {
-        try await speechService.start(
-          locale: locale,
-          updateHandler: { [weak self] update in
+        try await dependencies.startRecognition(
+          locale,
+          { [weak self] update in
             Task { @MainActor [weak self] in
               self?.receive(update)
             }
           },
-          failureHandler: { [weak self] message in
+          { [weak self] message in
             Task { @MainActor [weak self] in
               self?.fail(message: message, wasCancelled: false)
             }
           },
-          levelHandler: { [weak self] level in
+          { [weak self] level in
             Task { @MainActor [weak self] in
-              self?.hudController.showAudioLevel(level)
+              self?.dependencies.showAudioLevel(level)
             }
           }
         )
         guard !Task.isCancelled else {
-          await speechService.cancel()
+          await dependencies.cancelRecognition()
           send(.sessionEnded)
           return
         }
@@ -432,28 +448,36 @@ final class DirectDictationController {
   ///
   /// - Parameter speakingDuration: The completed session's measured speech time.
   private func finishRecognition(speakingDuration: TimeInterval) {
-    Task { [weak self] in
+    finishTask = Task { [weak self] in
       guard let self else { return }
       do {
-        let text = try await speechService.finish()
-        hudController.hide()
-        let outcome = await textInsertionService.insert(text, into: focusedTarget)
+        let text = try await dependencies.finishRecognition()
+        dependencies.hideHUD()
+        // Delivery follows the session snapshot, so a Settings change
+        // mid-session applies to the next session (ADR-0004).
+        let session = currentSessionSettings ?? settings.sessionSettings
+        if session.historyEnabled, !text.isEmpty {
+          // Before the outcome routing: words the paste then loses are
+          // exactly the words history exists to keep.
+          await dependencies.recordHistory(text, session.historyFolder)
+        }
+        let outcome = await dependencies.insertText(
+          text, focusedTarget, session.insertionDestination
+        )
         switch outcome {
         case .inserted, .copiedToClipboard:
-          hudController.playPasteSound()
+          dependencies.playPasteSound()
           send(.sessionEnded)
           let wordCount = UsageMetrics.wordCount(in: text)
-          await usageTracker.recordSession(
-            wordCount: wordCount,
-            speakingDuration: speakingDuration
-          )
+          await dependencies.recordSession(wordCount, speakingDuration)
         case .unavailable:
           send(.sessionEnded)
-          hudController.showMessage("Couldn't insert text")
+          dependencies.showMessage("Couldn't insert text", nil)
         }
       } catch {
         fail(message: error.localizedDescription, wasCancelled: false)
       }
+      finishTask = nil
     }
   }
 
@@ -470,9 +494,9 @@ final class DirectDictationController {
       }
       Task { [weak self] in
         guard let self else { return }
-        await speechService.cancel()
+        await dependencies.cancelRecognition()
         send(.sessionEnded)
-        hudController.showMessage(message)
+        dependencies.showMessage(message, nil)
       }
     } else {
       perform(effects)
@@ -494,8 +518,8 @@ final class DirectDictationController {
   }
 
   private func installTriggerMonitor() {
-    guard PermissionService.hasAccessibilityAccess else {
-      PermissionService.requestAccessibilityAccess()
+    guard dependencies.hasAccessibilityAccess() else {
+      dependencies.requestAccessibilityAccess()
       startPermissionWatch()
       return
     }
@@ -504,13 +528,13 @@ final class DirectDictationController {
     // the tap can still be refused. Only a fresh launch clears that, and saying
     // so is the whole point of the dialog.
     guard keyEventMonitor?.start() == true else {
-      PermissionAlert.requestRelaunch()
+      dependencies.showRelaunchAlert()
       return
     }
   }
 
   private func preparationFailed(message: String) {
     preparationFailureMessage = message
-    hudController.showMessage(message)
+    dependencies.showMessage(message, nil)
   }
 }

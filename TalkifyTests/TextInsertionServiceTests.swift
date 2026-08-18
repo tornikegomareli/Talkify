@@ -744,6 +744,280 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
+  /// Verifies clipboard-only delivery replaces the clipboard without pasting.
+  @Test func clipboardOnlyReplacesClipboardWithoutPosting() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var postedPaste = false
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: {
+        postedPaste = true
+        return true
+      },
+      waitForPasteRead: {}
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .clipboardOnly
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(!postedPaste)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies clipboard-only delivery never consults the target guards.
+  @Test func clipboardOnlySkipsEveryTargetGuard() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in false },
+      isTargetFocused: { _ in false },
+      postPasteShortcut: { true },
+      waitForPasteRead: {}
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .clipboardOnly
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies clipboard-only delivery succeeds without any captured target.
+  @Test func clipboardOnlyDeliversWithoutTarget() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {}
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: nil,
+      destination: .clipboardOnly
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies insert-and-copy pastes once and leaves the text on the clipboard.
+  @Test func bothPastesAndLeavesTextOnClipboard() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var postedPasteCount = 0
+    var textAvailableWhileTargetReads: String?
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: {
+        postedPasteCount += 1
+        return true
+      },
+      waitForPasteRead: {
+        textAvailableWhileTargetReads = pasteboard.string(forType: .string)
+      }
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .both
+    )
+
+    #expect(outcome == .inserted)
+    #expect(postedPasteCount == 1)
+    #expect(textAvailableWhileTargetReads == "dictated text")
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies insert-and-copy falls back to manual delivery on lost focus.
+  @Test func bothWithUnfocusedTargetUsesCopyFallback() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    var postedPaste = false
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in false },
+      postPasteShortcut: {
+        postedPaste = true
+        return true
+      },
+      waitForPasteRead: {}
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .both
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(!postedPaste)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies a failed paste shortcut leaves staged text as manual delivery.
+  @Test func bothWithFailedPasteShortcutKeepsStagedText() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var waitedForPasteRead = false
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { false },
+      waitForPasteRead: {
+        waitedForPasteRead = true
+      }
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .both
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(!waitedForPasteRead)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  /// Verifies insert-and-copy refuses to stage while a read owns the lease.
+  @Test func bothWithHeldReadLeaseReportsUnavailable() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var postedPaste = false
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: {
+        postedPaste = true
+        return true
+      },
+      waitForPasteRead: {}
+    ))
+    service.clipboardReadLease.withLock { $0 = true }
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .both
+    )
+    service.clipboardReadLease.withLock { $0 = false }
+
+    #expect(outcome == .unavailable)
+    #expect(!postedPaste)
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// Verifies an explicit insert destination matches the default behavior.
+  @Test func explicitInsertDestinationPastesThenRestores() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var textAvailableWhileTargetReads: String?
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {
+        textAvailableWhileTargetReads = pasteboard.string(forType: .string)
+      }
+    ))
+    let outcome = await service.insert(
+      "dictated text",
+      into: makeTarget(),
+      destination: .insert
+    )
+
+    #expect(outcome == .inserted)
+    #expect(textAvailableWhileTargetReads == "dictated text")
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// Verifies empty text completes as a no-op before destination handling.
+  @Test func emptyTextWithClipboardOnlyLeavesClipboardUntouched() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {}
+    ))
+    let outcome = await service.insert(
+      "",
+      into: makeTarget(),
+      destination: .clipboardOnly
+    )
+
+    #expect(outcome == .inserted)
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
   private func makePasteboard() -> NSPasteboard {
     NSPasteboard(
       name: NSPasteboard.Name("TextInsertionServiceTests-\(UUID().uuidString)")
