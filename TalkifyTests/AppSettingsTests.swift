@@ -17,6 +17,7 @@ struct AppSettingsTests {
     #expect(settings.dictationSoundsEnabled)
     #expect(settings.dictationSoundVolume == 0.5)
     #expect(settings.voiceVisual == .waveform)
+    #expect(settings.draftStyle == .pasteOnRelease)
     #expect(settings.waveformStyle == .chartLine)
     #expect(settings.revealStyle == .slide)
     #expect(settings.longDraftStyle == .growDown)
@@ -33,6 +34,7 @@ struct AppSettingsTests {
     settings.soundSet = .chime
     settings.dictationSoundsEnabled = false
     settings.dictationSoundVolume = 0.25
+    settings.draftStyle = .editableDraft
     settings.voiceVisual = .glow
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
@@ -54,6 +56,7 @@ struct AppSettingsTests {
     #expect(reloaded.soundSet == .chime)
     #expect(!reloaded.dictationSoundsEnabled)
     #expect(reloaded.dictationSoundVolume == 0.25)
+    #expect(reloaded.draftStyle == .editableDraft)
     #expect(reloaded.voiceVisual == .glow)
     #expect(reloaded.waveformStyle == .dots)
     #expect(reloaded.revealStyle == .bloom)
@@ -269,6 +272,7 @@ struct AppSettingsTests {
     let snapshot = settings.sessionSettings
 
     settings.soundSet = .chime
+    settings.draftStyle = .editableDraft
     settings.voiceVisual = .glow
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
@@ -279,6 +283,7 @@ struct AppSettingsTests {
 
     #expect(snapshot.sounds.set == .synth8)
     #expect(snapshot.voiceVisual == .waveform)
+    #expect(snapshot.draftStyle == .pasteOnRelease)
     #expect(snapshot.waveformStyle == .chartLine)
     #expect(snapshot.revealStyle == .slide)
     #expect(snapshot.longDraftStyle == .growDown)

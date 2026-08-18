@@ -7,6 +7,16 @@ import Foundation
 /// cancel-while-starting, the no-speech policy) unit-testable
 /// (DictationSessionMachineTests).
 ///
+/// The editable-draft variant adds the `.reviewing` state: recognition
+/// finished, the draft held in the HUD until Return pastes it, the trigger
+/// starts a replacement round, or Escape discards it. The variant itself is
+/// not a machine concern — the controller encodes it by sending
+/// `.finishCompleted` instead of `.sessionEnded` once recognition finishes.
+/// Replacement rounds reuse the starting/recording/finishing states; the
+/// `reviewRound` flag marks one so a round that never delivers (no speech,
+/// a dead recognizer) returns to `.reviewing` with the draft intact, where
+/// an Escape discards everything.
+///
 /// DirectDictationController owns the impure half: it translates monitor
 /// events into actions, runs the begin guards, and executes the returned
 /// effects against the speech service, HUD, and insertion. Async completions
@@ -27,6 +37,10 @@ struct DictationSessionMachine {
     case starting(Gesture)
     case recording(Gesture)
     case finishing
+    /// The editable-draft variant holds the finished draft here until
+    /// Return pastes it, the trigger starts a replacement round, or Escape
+    /// discards it.
+    case reviewing
     case cancelling
   }
 
@@ -46,6 +60,12 @@ struct DictationSessionMachine {
     case recognitionFailed(wasCancelled: Bool)
     case updateReceived(hasVisibleText: Bool)
     case noSpeechTimedOut
+    /// Recognition finished and the editable-draft variant holds the text
+    /// for review instead of inserting it. Sent by the controller in place
+    /// of `.sessionEnded`; moves `.finishing` to `.reviewing`.
+    case finishCompleted
+    /// Return pressed while the draft is under review: paste it.
+    case returnPressed
     /// The terminal reset after a finish inserted, a cancel completed,
     /// or a failure was shown.
     case sessionEnded
@@ -59,12 +79,23 @@ struct DictationSessionMachine {
     case cancelRecognition
     case cancelStartTask
     case setEscapeCapture(Bool)
+    /// Plain Return is swallowed while the draft is under review, so the
+    /// field can never insert a newline where the user asked to paste.
+    /// Modified Return (⌥↩) passes through and inserts one.
+    case setReturnCapture(Bool)
     case startNoSpeechTimer
     case stopNoSpeechTimer
     case showListening(latched: Bool)
     case showLatched
     case showLiveText
     case showFinalizing
+    /// Swap the HUD's read-only band for the editable draft field and give
+    /// the panel key (the editable-draft variant's reviewing state).
+    case showEditableDraft
+    /// Insert the reviewed draft into the session's target, exactly like a
+    /// released session's insertion (same service, same clipboard-restore
+    /// semantics, same paste sound).
+    case pasteDraft
     case hideHUD
     case notifyRecording(Bool)
     case triggerReadAloud
@@ -81,9 +112,20 @@ struct DictationSessionMachine {
   private var finishWhenStarted = false
   private var cancelWhenStarted = false
   private var recordingStartedAt: ContinuousClock.Instant?
+  /// True while a replacement round (started from `.reviewing`) is in
+  /// flight. A round that ends without delivering returns to `.reviewing`
+  /// with the draft intact; an Escape clears it so the whole session ends.
+  private var reviewRound = false
 
   var isSessionActive: Bool {
     state != .idle
+  }
+
+  /// Whether the draft is currently held for editing (the editable-draft
+  /// variant). The controller branches its begin guards on this: a
+  /// replacement round must not recapture the outer target.
+  var isReviewing: Bool {
+    state == .reviewing
   }
 
   mutating func reduce(_ action: Action) -> [Effect] {
@@ -95,6 +137,10 @@ struct DictationSessionMachine {
     case let .menuToggled(now):
       return menuToggled(now: now)
     case .escapePressed:
+      // Escape ends the whole session, draft included: while the draft is
+      // under review, or a replacement round is in flight, it discards
+      // rather than resurrecting the review.
+      reviewRound = false
       return cancel()
     case .readAloudPressed:
       return state == .idle ? [.triggerReadAloud] : []
@@ -110,7 +156,12 @@ struct DictationSessionMachine {
     case let .updateReceived(hasVisibleText):
       return updateReceived(hasVisibleText: hasVisibleText)
     case .noSpeechTimedOut:
-      return hasSpeech ? [] : cancel()
+      if hasSpeech { return [] }
+      return reviewRound ? abortReplacementRound() : cancel()
+    case .finishCompleted:
+      return finishCompleted()
+    case .returnPressed:
+      return returnPressed()
     case .sessionEnded:
       return reset()
     }
@@ -126,6 +177,13 @@ struct DictationSessionMachine {
       return []
     case .recording(.latched):
       return finish(now: now)
+    case .reviewing:
+      // A replacement round: the draft stays held and the recognizer
+      // listens for the words that will replace the selection. The
+      // controller's begin guards skip the outer target capture for it.
+      reviewRound = true
+      pendingGesture = .held(startedAt: now)
+      return [.checkAndBegin]
     case .starting(.held), .recording(.held), .finishing, .cancelling:
       return []
     }
@@ -146,7 +204,7 @@ struct DictationSessionMachine {
         return [.showLatched]
       }
       return finish(now: now)
-    case .idle, .starting(.latched), .recording(.latched), .finishing, .cancelling:
+    case .idle, .reviewing, .starting(.latched), .recording(.latched), .finishing, .cancelling:
       return []
     }
   }
@@ -161,25 +219,36 @@ struct DictationSessionMachine {
       return []
     case .recording:
       return finish(now: now)
+    case .reviewing:
+      // The menu's Stop Dictation ends the review like Return: the draft
+      // is pasted rather than discarded.
+      return returnPressed()
     case .finishing, .cancelling:
       return []
     }
   }
 
   private mutating func beginApproved() -> [Effect] {
-    guard state == .idle, let gesture = pendingGesture else { return [] }
+    let fromReview = state == .reviewing
+    guard state == .idle || fromReview, let gesture = pendingGesture else { return [] }
     pendingGesture = nil
     state = .starting(gesture)
     hasSpeech = false
     finishWhenStarted = false
     cancelWhenStarted = false
     recordingStartedAt = nil
-    return [
+    var effects: [Effect] = [
       .setEscapeCapture(true),
       .showListening(latched: gesture.isLatched),
       .notifyRecording(true),
       .beginRecognition,
     ]
+    if fromReview {
+      // The replacement round hides the editable field, so Return stops
+      // meaning paste for as long as the round runs.
+      effects.insert(.setReturnCapture(false), at: 1)
+    }
+    return effects
   }
 
   private mutating func recognitionStarted(now: ContinuousClock.Instant) -> [Effect] {
@@ -198,7 +267,7 @@ struct DictationSessionMachine {
         effects += finish(now: now)
       }
       return effects
-    case .idle, .recording, .finishing, .cancelling:
+    case .idle, .recording, .finishing, .cancelling, .reviewing:
       return []
     }
   }
@@ -227,7 +296,9 @@ struct DictationSessionMachine {
 
     // The recognizer emits its final results while the session finishes;
     // the band already says "Finalizing…" and must not flash the draft.
-    if state == .finishing {
+    // While the draft is under review nothing is recognized, so no live
+    // text may overwrite the field either.
+    if state == .finishing || state == .reviewing {
       return effects
     }
     effects.append(.showLiveText)
@@ -248,10 +319,32 @@ struct DictationSessionMachine {
     ]
   }
 
+  private mutating func returnPressed() -> [Effect] {
+    guard state == .reviewing else { return [] }
+    // `.finishing` doubles as the paste-in-flight wait: the session has
+    // ended but the terminal reset awaits the insertion outcome, exactly
+    // like a released session's finish.
+    state = .finishing
+    reviewRound = false
+    return [.setEscapeCapture(false), .setReturnCapture(false), .pasteDraft]
+  }
+
+  private mutating func finishCompleted() -> [Effect] {
+    guard state == .finishing else { return [] }
+    state = .reviewing
+    reviewRound = false
+    return [.setEscapeCapture(true), .setReturnCapture(true), .showEditableDraft]
+  }
+
   private mutating func cancel() -> [Effect] {
     switch state {
     case .idle, .finishing, .cancelling:
       return []
+    case .reviewing:
+      // Unreachable in practice (the no-speech timer never runs while
+      // reviewing), but the discard must not resurrect the review.
+      reviewRound = false
+      return discardReview()
     case .starting:
       // The start task tears itself down and reports back as a
       // cancelled recognition failure.
@@ -264,14 +357,46 @@ struct DictationSessionMachine {
     }
   }
 
+  /// A replacement round that never heard anything: the round dies, but
+  /// the review survives with the draft intact. The reset that follows the
+  /// cancelled recognition moves back to `.reviewing` instead of `.idle`.
+  private mutating func abortReplacementRound() -> [Effect] {
+    state = .cancelling
+    return [.stopNoSpeechTimer, .setEscapeCapture(false), .cancelRecognition]
+  }
+
+  /// Escape while the draft is under review: discard the draft, paste
+  /// nothing, end the session exactly like a cancel.
+  private mutating func discardReview() -> [Effect] {
+    reviewRound = false
+    let terminal = reset()
+    return terminal + [.hideHUD]
+  }
+
   private mutating func reset() -> [Effect] {
+    if reviewRound, state == .cancelling {
+      // The round ended without delivering; the draft is still held.
+      reviewRound = false
+      state = .reviewing
+      return [
+        .stopNoSpeechTimer,
+        .setEscapeCapture(true),
+        .setReturnCapture(true),
+        .showEditableDraft,
+      ]
+    }
     state = .idle
     pendingGesture = nil
     hasSpeech = false
     finishWhenStarted = false
     cancelWhenStarted = false
     recordingStartedAt = nil
-    return [.stopNoSpeechTimer, .setEscapeCapture(false), .notifyRecording(false)]
+    return [
+      .stopNoSpeechTimer,
+      .setEscapeCapture(false),
+      .setReturnCapture(false),
+      .notifyRecording(false),
+    ]
   }
 
   private static func timeInterval(for duration: Duration) -> TimeInterval {

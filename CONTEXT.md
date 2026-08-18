@@ -83,6 +83,18 @@ _Avoid_: Mock preview, static screenshot
 An immutable snapshot of all Appearance and Sounds preferences captured when Direct Dictation starts.
 _Avoid_: Draft settings, temporary preferences
 
+**Editable Draft**:
+A Direct Dictation HUD variant that holds the finished draft in the HUD as an editable field when the **Dictation Trigger** is released, instead of inserting it immediately.
+_Avoid_: Draft mode, review mode
+
+**Draft Review**:
+The state of an **Editable Draft** session from recognition finishing until the user ends the session: the draft sits in the HUD's editable field, Return pastes it, the **Dictation Trigger** starts a **Replacement Dictation**, and Escape discards it.
+_Avoid_: Edit mode, review state
+
+**Replacement Dictation**:
+A Direct Dictation round whose recognized text replaces exactly the selection **Draft Review** held when the round began.
+_Avoid_: Selection dictation, voice replace
+
 **Insights**:
 A local Settings section that summarizes aggregate **Direct Dictation** activity.
 _Avoid_: Transcript history, cloud analytics
@@ -92,6 +104,7 @@ _Avoid_: Transcript history, cloud analytics
 - Pressing the **Dictation Trigger** starts **Direct Dictation** immediately
 - The default **Dictation Trigger** is Fn and onboarding lets the user change it
 - Releasing a held **Dictation Trigger** ends **Direct Dictation** and inserts its text
+- With the **Editable Draft** variant, releasing the **Dictation Trigger** ends recognition and holds the text in the HUD for **Draft Review** instead of inserting it
 - Releasing the **Dictation Trigger** before 250 milliseconds counts as a quick tap
 - A quick tap leaves **Direct Dictation** active until the next trigger press
 - The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
@@ -118,7 +131,8 @@ _Avoid_: Transcript history, cloud analytics
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
 - The HUD is display-only during Direct Dictation: mouse clicks pass through it and it never takes focus
-- The HUD accepts the mouse only as a **Drop Target** and while it holds a finished **Drop Transcription**; it never takes focus in either state
+- **Draft Review** is the exception: the editable field takes keyboard focus inside the panel and the panel accepts the mouse so clicks place the cursor, but the panel stays non-activating — Talkify never activates and the previously focused control stays frontmost
+- The HUD accepts the mouse only as a **Drop Target** or while it holds a finished **Drop Transcription**, and during **Draft Review**; it never activates Talkify in any state
 - The HUD's display is locked when the session starts and does not follow windows
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
 - The HUD is the only surface for dictation status and error messages
@@ -201,6 +215,11 @@ _Avoid_: Transcript history, cloud analytics
 - **Live Captions** requests system-audio permission only when first used
 - **Direct Dictation** refuses to record for a focused secure password field and shows “Secure field”
 - Pressing Escape cancels active **Direct Dictation** immediately without inserting text
+- Pressing Escape during **Draft Review** discards the draft and inserts nothing, and ends the whole session
+- Return during **Draft Review** pastes the edited draft into the previously focused control with the same insertion service, clipboard-restore semantics, and paste sound as a released session
+- Pressing the **Dictation Trigger** during **Draft Review** starts a **Replacement Dictation**
+- A **Replacement Dictation** replaces exactly the selection the review held when it began; the rest of the draft stays intact
+- A **Replacement Dictation** that hears no speech, or loses its recognizer, ends the round and returns to **Draft Review** with the draft unchanged; Escape during a round discards everything
 - If **Direct Dictation** hears no speech in the first 15 seconds, it closes and inserts nothing
 - Once speech has arrived, the session stays open until the user ends or cancels it
 - **Direct Dictation** ends by inserting text into the previously focused control

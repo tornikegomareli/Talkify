@@ -13,6 +13,10 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     case triggerPressed(TriggerSlot)
     case triggerReleased(TriggerSlot)
     case cancelPressed
+    /// Plain Return while the draft is under review: paste the draft.
+    /// Captured so the HUD field can never insert a newline where the
+    /// user asked to paste; modified Return (⌥↩) passes through.
+    case returnPressed
     /// Option+Escape — the Read Aloud toggle, matching the shortcut
     /// macOS Spoken Content uses for "speak selection".
     case readAloudPressed
@@ -32,6 +36,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// leaves the app under the pointer believing the button is still down.
   private var capturedMouseButtons: Set<Int64> = []
   private var captureEscape = false
+  /// True while the editable draft is under review: plain Return is
+  /// swallowed and reported as `.returnPressed`.
+  private var captureReturn = false
   /// True while a Settings key recorder is armed: every event passes
   /// through untouched so the rebind keystroke cannot start a session.
   private var suspended = false
@@ -111,12 +118,21 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       heldSlot = nil
       capturedMouseButtons.removeAll()
       captureEscape = false
+      captureReturn = false
     }
   }
 
   func setEscapeCaptureEnabled(_ enabled: Bool) {
     stateLock.withLock {
       captureEscape = enabled
+    }
+  }
+
+  /// Swallows plain Return and reports it as `.returnPressed`; the HUD's
+  /// editable draft field must never see the key that means paste.
+  func setReturnCaptureEnabled(_ enabled: Bool) {
+    stateLock.withLock {
+      captureReturn = enabled
     }
   }
 
@@ -272,10 +288,11 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
     if type == .keyDown {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-      let (readAloud, shouldCapture, plainTrigger) = stateLock.withLock {
+      let (readAloud, shouldCapture, swallowReturn, plainTrigger) = stateLock.withLock {
         (
           readAloudBinding,
           captureEscape,
+          captureReturn,
           plainKeyTrigger(forKeyCode: keyCode, flags: event.flags)
         )
       }
@@ -301,6 +318,14 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       if keyCode == readAloud.keyCode,
        Self.flagsMatch(event.flags, mask: readAloud.modifiers) {
         handler(.readAloudPressed)
+        return nil
+      }
+
+      // Plain Return while the editable draft is under review means
+      // paste; the field never gets the key. Modified Return passes
+      // through, which is how a newline is inserted into the draft.
+      if keyCode == 36, swallowReturn, Self.flagsMatch(event.flags, mask: []) {
+        handler(.returnPressed)
         return nil
       }
 

@@ -39,8 +39,13 @@ final class HUDPanel: NSPanel {
     set { ignoresMouseEvents = !newValue }
   }
 
-  /// Key only while the shape is a drop target or holding a transcript, which
-  /// is the only time it wants the mouse at all.
+  /// Whether the panel may become key for the editable-draft review — the
+  /// dictation occupant's own key surface, set by `HUDStage` while the
+  /// draft is held for editing and cleared again when the shape goes away.
+  var acceptsKey = false
+
+  /// Key only while the shape wants keyboard or mouse: as a drop target,
+  /// holding a transcript, or holding an editable draft.
   ///
   /// NotchDrop's window can become key and its drops land instantly; a window
   /// that can never become key is a slower path for the dragging source. The
@@ -48,7 +53,7 @@ final class HUDPanel: NSPanel {
   /// takes the frontmost app's focus — and during dictation, when the focused
   /// control is the whole point, `acceptsMouse` is false and this is false
   /// with it.
-  override var canBecomeKey: Bool { acceptsMouse }
+  override var canBecomeKey: Bool { acceptsMouse || acceptsKey }
 
   /// The frame is computed from the screen, not proposed by AppKit; without
   /// this the window gets pushed below the menu bar strip it exists to cover.

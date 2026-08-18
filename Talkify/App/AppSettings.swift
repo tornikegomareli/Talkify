@@ -18,6 +18,7 @@ final class AppSettings {
     static let duckOtherAudio = "duckOtherAudioWhileDictating"
     static let soundVolume = "dictationSoundVolume"
     static let voiceVisual = "hudVoiceVisual"
+    static let draftStyle = "hudDraftStyle"
     static let waveformStyle = "hudWaveformStyle"
     static let revealStyle = "hudRevealStyle"
     static let longDraftStyle = "hudLongDraftStyle"
@@ -102,6 +103,12 @@ final class AppSettings {
 
   var voiceVisual: HUDVoiceVisualStyle {
     didSet { defaults.set(voiceVisual.rawValue, forKey: Keys.voiceVisual) }
+  }
+
+  /// What happens to the draft when the session ends: inserted as today,
+  /// or held in the HUD as an editable field until Return or Escape.
+  var draftStyle: HUDDraftStyle {
+    didSet { defaults.set(draftStyle.rawValue, forKey: Keys.draftStyle) }
   }
 
   var waveformStyle: HUDWaveformStyle {
@@ -219,6 +226,8 @@ final class AppSettings {
     dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
+    // A missing pick must keep today's flow: the editable draft is opt-in.
+    draftStyle = Self.stored(in: defaults, key: Keys.draftStyle) ?? .pasteOnRelease
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
@@ -337,6 +346,7 @@ struct DictationSessionSettings: Equatable {
   /// on has to restore the volume even if the toggle flips mid-session.
   let ducksOtherAudio: Bool
   let voiceVisual: HUDVoiceVisualStyle
+  let draftStyle: HUDDraftStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
   let longDraftStyle: HUDLongDraftStyle
@@ -364,6 +374,7 @@ struct DictationSessionSettings: Equatable {
     historyFolder = settings.resolvedHistoryFolder
     ducksOtherAudio = settings.duckOtherAudioWhileDictating
     voiceVisual = settings.voiceVisual
+    draftStyle = settings.draftStyle
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle
     longDraftStyle = settings.longDraftStyle

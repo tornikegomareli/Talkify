@@ -1,7 +1,8 @@
 import AppKit
+import SwiftUI
 
 /// What the HUD says during a Direct Dictation session: listening, the live
-/// draft, finalizing, and the session's sounds.
+/// draft, finalizing, the editable-draft review, and the session's sounds.
 ///
 /// It owns none of the window. `HUDStage` decides where the shape is and who
 /// holds it; this decides what dictation puts in it.
@@ -54,6 +55,53 @@ final class DictationHUDController {
     stage.sounds.playPaste(using: sessionSettings.sounds)
   }
 
+  /// The HUD's current draft text. During Draft Review it is the editable
+  /// field's content; before any words arrive it is the listening
+  /// placeholder.
+  var draftText: String { content.text }
+
+  /// The editable field's selection as UTF-16 offsets into the draft, nil
+  /// while nothing is selected (or the field is not up). A Replacement
+  /// Dictation replaces exactly this range.
+  var draftSelectionRange: NSRange? {
+    guard let selection = content.selection else { return nil }
+    switch selection.indices {
+    case let .selection(indices):
+      return NSRange(indices, in: content.text)
+    case .multiSelection:
+      return nil
+    default:
+      return nil
+    }
+  }
+
+  /// Writes the draft back after a Replacement Dictation: the new text with
+  /// the cursor placed after the inserted words, or the untouched draft
+  /// when the round delivered nothing.
+  func setDraft(_ text: String, selection: TextSelection? = nil) {
+    content.text = text
+    if let selection {
+      content.selection = selection
+    }
+  }
+
+  /// Recognition finished and the editable-draft variant holds its draft:
+  /// the HUD swaps the read-only band for the editable field and the panel
+  /// takes key, so the user can edit in place, start a Replacement
+  /// Dictation with the trigger, Return to paste, or Escape to discard.
+  /// The app never activates: the panel is non-activating, the previously
+  /// focused control stays frontmost, and its window takes key back the
+  /// moment the review ends.
+  func showEditableDraft() {
+    guard stage.occupant == .dictation else { return }
+    stopWatchdog()
+    content.showsVoiceVisual = false
+    content.isAudioAlive = true
+    content.audioLevel = 0
+    content.isReviewing = true
+    stage.enableDraftEditing()
+  }
+
   func showMessage(_ text: String, on displayID: CGDirectDisplayID? = nil) {
     stopVoiceVisual()
     stage.showMessage(text, on: displayID)
@@ -74,7 +122,12 @@ final class DictationHUDController {
     // and the transcription keeps running with the status item carrying it.
     stage.claim(.dictation, on: screen, rendering: settings)
     startVoiceVisual()
+    content.isReviewing = false
     content.text = placeholder
+    // A fresh round listens display-only, exactly like any dictation:
+    // the review's key and mouse are re-armed only once the draft is held
+    // again (showEditableDraft).
+    stage.endDraftEditing()
     stage.revealDictation()
   }
 
@@ -102,7 +155,8 @@ final class DictationHUDController {
   /// for instead of sitting on "Listening…" while nothing arrives; passing nil
   /// restores whatever the session was saying before.
   func showModelDownload(_ text: String?) {
-    guard isListening else { return }
+    // A download line must never clobber the draft being reviewed.
+    guard isListening, !content.isReviewing else { return }
     content.text = text ?? placeholder
   }
 
@@ -135,6 +189,8 @@ final class DictationHUDController {
     stopWatchdog()
     content.isDismissing = true
     content.showsVoiceVisual = false
+    content.isReviewing = false
+    content.selection = nil
     stage.retract()
   }
 

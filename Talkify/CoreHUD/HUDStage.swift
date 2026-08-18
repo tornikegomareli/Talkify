@@ -76,10 +76,35 @@ final class HUDStage {
     )
   }
 
-  /// Whether the shape currently takes the mouse. Only a drop surface does.
+  /// Whether the shape currently takes the mouse. Only a drop surface does,
+  /// plus the editable-draft review while the field is up.
   var acceptsMouse: Bool {
     get { panel.acceptsMouse }
     set { panel.acceptsMouse = newValue }
+  }
+
+  /// Gives the dictation surface the key for the editable-draft review.
+  ///
+  /// The panel becomes key so the draft field can take focus — the app
+  /// never activates, the panel stays `.nonactivatingPanel`, and the
+  /// previously focused control stays frontmost — and with key comes the
+  /// mouse, so clicks place the cursor in the field instead of leaking
+  /// into the app below (which would steal key mid-review). The shape
+  /// arbitration is unchanged: this is a mode of the dictation occupant.
+  func enableDraftEditing() {
+    panel.acceptsKey = true
+    acceptsMouse = true
+    panel.makeKey()
+  }
+
+  /// Ends the editable-draft review's key surface. The panel stops taking
+  /// key or mouse, and a key panel resigns so the previously focused
+  /// control's window takes key back — which is what lets the review's
+  /// Return paste land in the right place.
+  func endDraftEditing() {
+    panel.acceptsKey = false
+    acceptsMouse = false
+    panel.resignKey()
   }
 
   /// The live sound preferences. A Drop Transcription has no session snapshot
@@ -122,16 +147,21 @@ final class HUDStage {
     orderOutTask?.cancel()
     if occupant != .message { cancelMessageDismiss() }
     if occupant != .drop { evictDrop() }
+    // A fresh claim starts without the review's key surface; the
+    // editable-draft mode arms it again once the draft is held.
+    panel.acceptsKey = false
     self.occupant = occupant
     renderedSettings = settings ?? self.settings.sessionSettings
     mount(on: screen)
   }
 
   /// Gives the shape up. The panel stays front while the retract plays, then
-  /// orders out and the drop surface clears itself down.
+  /// orders out and the drop surface clears itself down. The review's key
+  /// surface ends here too: a key panel resigns, handing the previously
+  /// focused control back its AX focus.
   func retract() {
     guard occupant != .none else { return }
-    acceptsMouse = false
+    endDraftEditing()
     occupant = .none
     dictationContent.isRevealed = false
     dropContent.isRevealed = false

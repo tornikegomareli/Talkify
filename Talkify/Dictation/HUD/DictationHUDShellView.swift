@@ -9,7 +9,10 @@ struct DictationHUDShellView: View {
 
   let screen: HUDScreenSnapshot
   let settings: DictationSessionSettings
-  let content: DictationHUDContent
+  /// `@Bindable` so the editable-draft review's field can bind its text and
+  /// selection straight into the shared content model.
+  @Bindable var content: DictationHUDContent
+  @FocusState private var draftFieldFocused: Bool
 
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
@@ -125,6 +128,7 @@ struct DictationHUDShellView: View {
             value: content.text
           )
           .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
+          .animation(.spring(duration: 0.25, bounce: 0), value: content.isReviewing)
       },
       overlays: {
         particleCloud
@@ -163,10 +167,14 @@ struct DictationHUDShellView: View {
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
   /// draft leading-aligned beside it; the other visuals center the draft.
+  /// The editable-draft review swaps the whole band for the editable
+  /// field, whatever the visual.
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if showsCompactBand {
+      if content.isReviewing {
+        editableDraftField
+      } else if showsCompactBand {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
@@ -184,6 +192,29 @@ struct DictationHUDShellView: View {
     .padding(.horizontal, (content.languageTag == nil ? 24 : 46) * metrics.scale)
     .padding(.vertical, 9 * metrics.scale)
     .frame(minHeight: metrics.textBandHeight)
+  }
+
+  /// The editable-draft review field: the finished draft, editable in place
+  /// with the keyboard (cursor, selection, delete, typing). Plain Return is
+  /// swallowed by the event tap and pastes; ⌥↩ inserts a newline. The panel
+  /// is non-activating, so editing never activates Talkify — the previously
+  /// focused control stays frontmost and takes key back the moment the
+  /// review ends.
+  @ViewBuilder
+  private var editableDraftField: some View {
+    TextEditor(text: $content.text, selection: $content.selection)
+      .font(.system(size: 15 * metrics.scale, weight: .medium))
+      .foregroundStyle(.white)
+      .tint(.white)
+      .scrollContentBackground(.hidden)
+      .scrollIndicators(.hidden)
+      .focused($draftFieldFocused)
+      .frame(minHeight: metrics.maxTextBandHeight)
+      .onAppear {
+        // The field takes focus the moment the review starts; the panel
+        // is already key by then (HUDStage.enableDraftEditing).
+        draftFieldFocused = true
+      }
   }
 
   @ViewBuilder

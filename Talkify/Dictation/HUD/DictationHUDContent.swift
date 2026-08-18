@@ -1,4 +1,5 @@
 import Observation
+import SwiftUI
 
 /// What the HUD currently says — the one mutable model shared between the
 /// AppKit controller (which writes it) and the SwiftUI shell and visuals
@@ -7,6 +8,14 @@ import Observation
 @Observable
 final class DictationHUDContent {
   var text = ""
+  /// True from recognition finishing until Return or Escape: the draft is
+  /// held in the editable field of the editable-draft variant. The shell
+  /// swaps the read-only band for the field, and the panel takes key.
+  var isReviewing = false
+  /// The editable field's selection, written by the shell's TextEditor and
+  /// read when a Replacement Dictation begins so the round knows exactly
+  /// which range of the draft to replace.
+  var selection: TextSelection?
   /// Drives the reveal/dismiss animation.
   var isRevealed = false
   /// True only while listening — the visuals react to the microphone, so

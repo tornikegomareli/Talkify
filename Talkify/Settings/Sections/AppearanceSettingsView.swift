@@ -86,6 +86,14 @@ struct AppearanceSettingsView: View {
           optionLabel: { $0.rawValue },
           selection: $settings.longDraftStyle
         )
+
+        SettingsPickerRow(
+          title: "Draft after release",
+          description: "Insert the text immediately, or hold it in the HUD for editing before Return",
+          options: HUDDraftStyle.allCases,
+          optionLabel: { $0.rawValue },
+          selection: $settings.draftStyle
+        )
       }
     }
   }

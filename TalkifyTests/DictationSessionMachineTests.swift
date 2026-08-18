@@ -214,6 +214,7 @@ struct DictationSessionMachineTests {
     #expect(effects == [
       .stopNoSpeechTimer,
       .setEscapeCapture(false),
+      .setReturnCapture(false),
       .notifyRecording(false),
     ])
     #expect(machine.state == .idle)
@@ -230,5 +231,161 @@ struct DictationSessionMachineTests {
     let effects = machine.reduce(.menuToggled(now: t0.advanced(by: .seconds(4))))
     #expect(machine.state == .finishing)
     #expect(effects.contains(.showFinalizing))
+  }
+
+  /// Drives a machine into `.reviewing`: a finished main round whose
+  /// controller completed it into the editable draft (the variant encodes
+  /// itself by sending `.finishCompleted` instead of `.sessionEnded`).
+  private func reviewingMachine() -> Machine {
+    var machine = recordingMachine()
+    _ = machine.reduce(.triggerReleased(now: t0.advanced(by: .seconds(3))))
+    _ = machine.reduce(.finishCompleted)
+    return machine
+  }
+
+  @Test func finishCompletedMovesTheSessionToReview() {
+    var machine = recordingMachine()
+    _ = machine.reduce(.triggerReleased(now: t0.advanced(by: .seconds(3))))
+    let effects = machine.reduce(.finishCompleted)
+    #expect(effects == [.setEscapeCapture(true), .setReturnCapture(true), .showEditableDraft])
+    #expect(machine.state == .reviewing)
+    #expect(machine.isReviewing)
+  }
+
+  @Test func finishCompletedWhileNotFinishingIsIgnored() {
+    var machine = recordingMachine()
+    #expect(machine.reduce(.finishCompleted).isEmpty)
+    #expect(machine.state == .recording(.held(startedAt: t0)))
+  }
+
+  @Test func returnWhileReviewingPastesTheDraft() {
+    var machine = reviewingMachine()
+    let effects = machine.reduce(.returnPressed)
+    #expect(effects == [.setEscapeCapture(false), .setReturnCapture(false), .pasteDraft])
+    // The session waits in `.finishing` for the paste to land, then resets.
+    #expect(machine.state == .finishing)
+    let reset = machine.reduce(.sessionEnded)
+    #expect(reset.contains(.notifyRecording(false)))
+    #expect(machine.state == .idle)
+  }
+
+  @Test func returnWhileNotReviewingIsIgnored() {
+    var machine = recordingMachine()
+    #expect(machine.reduce(.returnPressed).isEmpty)
+    #expect(machine.state == .recording(.held(startedAt: t0)))
+  }
+
+  @Test func menuToggleWhileReviewingPastesLikeReturn() {
+    var machine = reviewingMachine()
+    let effects = machine.reduce(.menuToggled(now: t0.advanced(by: .seconds(5))))
+    #expect(effects == [.setEscapeCapture(false), .setReturnCapture(false), .pasteDraft])
+    #expect(machine.state == .finishing)
+  }
+
+  @Test func escapeWhileReviewingDiscardsTheDraft() {
+    var machine = reviewingMachine()
+    let effects = machine.reduce(.escapePressed)
+    #expect(effects == [
+      .stopNoSpeechTimer,
+      .setEscapeCapture(false),
+      .setReturnCapture(false),
+      .notifyRecording(false),
+      .hideHUD,
+    ])
+    #expect(machine.state == .idle)
+    #expect(!machine.isReviewing)
+  }
+
+  @Test func triggerWhileReviewingStartsAReplacementRound() {
+    var machine = reviewingMachine()
+    let pressAt = t0.advanced(by: .seconds(4))
+    #expect(machine.reduce(.triggerPressed(now: pressAt)) == [.checkAndBegin])
+    let effects = machine.reduce(.beginApproved)
+    #expect(effects == [
+      .setEscapeCapture(true),
+      .setReturnCapture(false),
+      .showListening(latched: false),
+      .notifyRecording(true),
+      .beginRecognition,
+    ])
+    #expect(machine.state == .starting(.held(startedAt: pressAt)))
+  }
+
+  @Test func quickReleaseLatchesAReplacementRound() {
+    var machine = reviewingMachine()
+    _ = machine.reduce(.triggerPressed(now: t0.advanced(by: .seconds(4))))
+    _ = machine.reduce(.beginApproved)
+    let effects = machine.reduce(.triggerReleased(now: t0.advanced(by: .seconds(4) + .milliseconds(100))))
+    #expect(effects == [.showLatched])
+    #expect(machine.state == .starting(.latched))
+  }
+
+  @Test func replacementRoundFinishesBackToReview() {
+    var machine = reviewingMachine()
+    _ = machine.reduce(.triggerPressed(now: t0.advanced(by: .seconds(4))))
+    _ = machine.reduce(.beginApproved)
+    _ = machine.reduce(.recognitionStarted(now: t0.advanced(by: .seconds(5))))
+    _ = machine.reduce(.triggerReleased(now: t0.advanced(by: .seconds(6))))
+    #expect(machine.state == .finishing)
+    let effects = machine.reduce(.finishCompleted)
+    #expect(effects == [.setEscapeCapture(true), .setReturnCapture(true), .showEditableDraft])
+    #expect(machine.state == .reviewing)
+  }
+
+  @Test func noSpeechDuringReplacementReturnsToReview() {
+    var machine = reviewingMachine()
+    _ = machine.reduce(.triggerPressed(now: t0.advanced(by: .seconds(4))))
+    _ = machine.reduce(.beginApproved)
+    _ = machine.reduce(.recognitionStarted(now: t0.advanced(by: .seconds(5))))
+    let abort = machine.reduce(.noSpeechTimedOut)
+    #expect(abort == [.stopNoSpeechTimer, .setEscapeCapture(false), .cancelRecognition])
+    #expect(machine.state == .cancelling)
+    // The round ended without delivering: the review comes back intact.
+    let reset = machine.reduce(.sessionEnded)
+    #expect(reset == [
+      .stopNoSpeechTimer,
+      .setEscapeCapture(true),
+      .setReturnCapture(true),
+      .showEditableDraft,
+    ])
+    #expect(machine.state == .reviewing)
+  }
+
+  @Test func failureDuringReplacementReturnsToReview() {
+    var machine = reviewingMachine()
+    _ = machine.reduce(.triggerPressed(now: t0.advanced(by: .seconds(4))))
+    _ = machine.reduce(.beginApproved)
+    _ = machine.reduce(.recognitionStarted(now: t0.advanced(by: .seconds(5))))
+    let effects = machine.reduce(.recognitionFailed(wasCancelled: false))
+    #expect(effects == [.stopNoSpeechTimer, .setEscapeCapture(false), .cancelRecognition])
+    let reset = machine.reduce(.sessionEnded)
+    #expect(reset == [
+      .stopNoSpeechTimer,
+      .setEscapeCapture(true),
+      .setReturnCapture(true),
+      .showEditableDraft,
+    ])
+    #expect(machine.state == .reviewing)
+  }
+
+  @Test func escapeDuringReplacementDiscardsTheWholeSession() {
+    var machine = reviewingMachine()
+    _ = machine.reduce(.triggerPressed(now: t0.advanced(by: .seconds(4))))
+    _ = machine.reduce(.beginApproved)
+    _ = machine.reduce(.recognitionStarted(now: t0.advanced(by: .seconds(5))))
+    let effects = machine.reduce(.escapePressed)
+    #expect(effects == [.stopNoSpeechTimer, .setEscapeCapture(false), .hideHUD, .cancelRecognition])
+    #expect(machine.state == .cancelling)
+    // Escape means discard everything: the review must not come back.
+    let reset = machine.reduce(.sessionEnded)
+    #expect(reset.contains(.notifyRecording(false)))
+    #expect(machine.state == .idle)
+  }
+
+  @Test func updatesWhileReviewingNeverShowTheDraft() {
+    var machine = reviewingMachine()
+    let effects = machine.reduce(.updateReceived(hasVisibleText: true))
+    #expect(!effects.contains(.showLiveText))
+    #expect(machine.state == .reviewing)
   }
 }
