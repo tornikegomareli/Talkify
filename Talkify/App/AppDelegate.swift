@@ -41,6 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     guard !Self.isHostingTests else { return }
+
+    // Before anything can be staged: a crash or a force-quit while a
+    // transcript card was on screen leaves the user's speech in cleartext
+    // under $TMPDIR, and nothing else ever removes it.
+    StagedTranscript.sweep()
+
     let settings = AppSettings()
     self.settings = settings
     // One shape, two features. The stage owns the window and hands it out;
