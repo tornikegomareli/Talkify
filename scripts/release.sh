@@ -6,6 +6,11 @@
 #   scripts/release.sh 0.2.0            # build, publish, update the cask
 #   scripts/release.sh 0.2.0 --dry-run  # build and package only, publish nothing
 #
+# The update-signing public key is compared against the last tagged release
+# before anything is built. Changing it orphans every existing install, so a
+# deliberate rotation has to say so:
+#   scripts/release.sh 0.3.0 --confirm-key-rotation
+#
 # Two copies of the same DMG ship with every release. Talkify-vX.Y.Z.dmg is the
 # one people download, so the file in their Downloads folder says which version
 # it is. Talkify.dmg is a byte-identical copy that keeps
@@ -25,10 +30,18 @@ set -euo pipefail
 
 VERSION="${1:-}"
 DRY_RUN=false
-[[ "${2:-}" == "--dry-run" ]] && DRY_RUN=true
+CONFIRM_KEY_ROTATION=false
+shift || true
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+    --confirm-key-rotation) CONFIRM_KEY_ROTATION=true ;;
+    *) echo "unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
 
 if [[ -z "$VERSION" ]]; then
-  echo "usage: scripts/release.sh <version> [--dry-run]" >&2
+  echo "usage: scripts/release.sh <version> [--dry-run] [--confirm-key-rotation]" >&2
   exit 1
 fi
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -96,6 +109,41 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
   fail "tag $TAG already exists"
 fi
 echo "  version $VERSION, tag $TAG, branch $CURRENT_BRANCH"
+
+# The public key every installed copy checks updates against. If it changes,
+# those copies stop trusting anything signed with the new one, and a key
+# swapped in by someone else would be trusted by every install from here on.
+# Neither is something to discover after publishing.
+read_public_key() {
+  /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" /dev/stdin <<<"$1" 2>/dev/null || true
+}
+CURRENT_KEY="$(read_public_key "$(cat "$REPO_ROOT/Talkify/Info.plist")")"
+[[ -n "$CURRENT_KEY" ]] || fail "Talkify/Info.plist has no SUPublicEDKey"
+
+PREVIOUS_TAG="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+if [[ -z "$PREVIOUS_TAG" ]]; then
+  echo "  no previous tag to compare the update key against (first release)"
+elif PREVIOUS_PLIST="$(git show "$PREVIOUS_TAG:Talkify/Info.plist" 2>/dev/null)"; then
+  PREVIOUS_KEY="$(read_public_key "$PREVIOUS_PLIST")"
+  if [[ -z "$PREVIOUS_KEY" ]]; then
+    echo "  $PREVIOUS_TAG carried no SUPublicEDKey; nothing to compare"
+  elif [[ "$CURRENT_KEY" == "$PREVIOUS_KEY" ]]; then
+    echo "  update key unchanged since $PREVIOUS_TAG"
+  elif $CONFIRM_KEY_ROTATION; then
+    echo "  update key CHANGED since $PREVIOUS_TAG, confirmed by flag"
+    echo "    was: $PREVIOUS_KEY"
+    echo "    now: $CURRENT_KEY"
+  else
+    fail "SUPublicEDKey changed since $PREVIOUS_TAG.
+    was: $PREVIOUS_KEY
+    now: $CURRENT_KEY
+  Every existing install trusts the old key and will refuse updates signed
+  with the new one. If this is a deliberate rotation, re-run with
+  --confirm-key-rotation. If it is not, find out who changed it."
+  fi
+else
+  echo "  $PREVIOUS_TAG has no Info.plist; nothing to compare"
+fi
 
 # ------------------------------------------------------------------- tests
 
@@ -404,7 +452,11 @@ PREV_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
 
 # The ZIP ships alongside the DMG because the appcast's enclosure URL points
 # at it. Without it every existing install would poll a 404 forever.
-gh release create "$TAG" "$DMG" "$STABLE_DMG" "$SPARKLE_ZIP" \
+#
+# appcast.xml goes up too, as the immutable copy of what this tag published.
+# The live SUFeedURL still reads the one on main, which anyone with write
+# access could rewrite; this asset is what that claim can be checked against.
+gh release create "$TAG" "$DMG" "$STABLE_DMG" "$SPARKLE_ZIP" "$APPCAST" \
   --title "Talkify $VERSION" \
   --notes-file "$NOTES_FILE"
 
