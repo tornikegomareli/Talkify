@@ -64,6 +64,8 @@ STABLE_DMG="$BUILD_DIR/Talkify.dmg"
 SPARKLE_DIR="$BUILD_DIR/sparkle"
 SPARKLE_ZIP="$SPARKLE_DIR/Talkify-$TAG.zip"
 APPCAST="$REPO_ROOT/appcast.xml"
+# Hand-written release notes for this version, used instead of the commit log.
+CURATED_NOTES="$REPO_ROOT/docs/release-notes/$VERSION.md"
 CASK="$REPO_ROOT/Casks/talkify.rb"
 TEAM_ID="539293JFA3"
 NOTARY_PROFILE="${NOTARY_PROFILE:-camus-notary}"
@@ -443,7 +445,11 @@ PREV_TAG="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
   echo
   echo "## Changes"
   echo
-  if [[ -n "$PREV_TAG" ]]; then
+  # Written notes win when they exist: a commit log says what changed in the
+  # code, which is not the same as what changed for the person reading it.
+  if [[ -f "$CURATED_NOTES" ]]; then
+    cat "$CURATED_NOTES"
+  elif [[ -n "$PREV_TAG" ]]; then
     git log --no-merges --pretty='- %s' "$PREV_TAG..$TAG"
   else
     git log --no-merges --pretty='- %s' -20 "$TAG"
