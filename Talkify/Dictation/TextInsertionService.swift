@@ -138,8 +138,17 @@ final class TextInsertionService {
   ///   - text: The finalized text to deliver.
   ///   - target: The focus boundary captured when Direct Dictation began.
   /// - Returns: The terminal delivery outcome used by the session controller.
-  func insert(_ text: String, into target: Target?) async -> InsertionOutcome {
+  func insert(
+    _ text: String,
+    into target: Target?,
+    destination: InsertionDestination = .insert
+  ) async -> InsertionOutcome {
     guard !text.isEmpty else { return .inserted }
+
+    // Clipboard-only returns before any of the target checks: there is no
+    // control to paste into, so there is nothing to validate.
+    guard destination.pastes else { return copyToClipboard(text) }
+
     guard let target else {
       return copyToClipboard(text)
     }
@@ -151,7 +160,26 @@ final class TextInsertionService {
     guard dependencies.isTargetFocused(target) else {
       return copyToClipboard(text)
     }
+
+    guard destination.restoresClipboard else {
+      return await pasteLeavingClipboard(text, into: target)
+    }
     return await pasteAndRestoreClipboard(text, into: target)
+  }
+
+  /// Insert-and-copy: the text is put on the clipboard and left there, so the
+  /// snapshot and the guarded restore are skipped entirely. Leaving it is the
+  /// point of the pick, and it is what lets a clipboard-history manager keep
+  /// the dictation.
+  private func pasteLeavingClipboard(
+    _ text: String,
+    into target: Target
+  ) async -> InsertionOutcome {
+    guard copyToClipboard(text) == .copiedToClipboard else { return .unavailable }
+    guard dependencies.isTargetFocused(target) else { return .copiedToClipboard }
+    guard dependencies.postPasteShortcut() else { return .copiedToClipboard }
+    await dependencies.waitForPasteRead()
+    return .inserted
   }
 
   private static func focusedElement() -> AXUIElement? {

@@ -67,6 +67,10 @@ _Avoid_: Drop zone, catch area
 A finished **Drop Transcription** held in a temporary folder under its final name while the HUD offers it, before a drag or the card's timer decides where it lands.
 _Avoid_: Draft, cache, pending file
 
+**Insertion destination**:
+Where a finished **Direct Dictation** session's text goes: into the focused control, onto the clipboard, or both.
+_Avoid_: Output mode, result mode, paste mode
+
 **Settings section**:
 A navigable category of persisted application preferences with a visible user-facing purpose.
 _Avoid_: Placeholder tab, settings page
@@ -131,7 +135,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, and sound volume
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, and the insertion destination
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
@@ -196,7 +200,12 @@ _Avoid_: Transcript history, cloud analytics
 - Pressing Escape cancels active **Direct Dictation** immediately without inserting text
 - If **Direct Dictation** hears no speech in the first 15 seconds, it closes and inserts nothing
 - Once speech has arrived, the session stays open until the user ends or cancels it
-- **Direct Dictation** ends by inserting text into the previously focused control
+- **Direct Dictation** ends by inserting text into the previously focused control, unless the **Insertion destination** says otherwise
+- The **Insertion destination** is a Settings pick with three values: insert into the app (paste, then restore the previous clipboard, the default and the behaviour that shipped before the pick existed), copy to the clipboard (never paste), and insert and copy (paste and deliberately leave the text on the clipboard)
+- Copy to the clipboard returns before focus validation, because a session with nothing to paste into has no target to validate
+- Insert and copy skips the clipboard snapshot and the guarded restore, since leaving the text on the clipboard is the whole point of it
+- A copy-to-the-clipboard session is a completed session: it plays the Paste sound and records **Insights** usage like any other
+- The **Insertion destination** rides the Dictation session settings snapshot, so changing the pick mid-session cannot send that session's text somewhere it did not agree to
 - **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
 - If an app exposes no focused element, Talkify captures and later validates the frontmost application instead
 - Talkify sends the paste event globally only after the captured focus boundary passes validation

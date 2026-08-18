@@ -242,6 +242,8 @@ private struct SettingsContent: View {
         switch section {
         case .appearance:
           AppearanceSettingsView(settings: settings)
+        case .dictation:
+          DictationSettingsView(settings: settings)
         case .sounds:
           SoundsSettingsView(settings: settings, sounds: sounds)
         case .dropTranscription:

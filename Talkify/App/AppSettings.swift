@@ -15,6 +15,7 @@ final class AppSettings {
   private enum Keys {
     static let soundSet = "dictationSoundSet"
     static let soundsEnabled = "dictationSoundsEnabled"
+    static let insertionDestination = "insertionDestination"
     static let soundVolume = "dictationSoundVolume"
     static let voiceVisual = "hudVoiceVisual"
     static let waveformStyle = "hudWaveformStyle"
@@ -38,6 +39,14 @@ final class AppSettings {
 
   var soundSet: DictationSoundSet {
     didSet { defaults.set(soundSet.rawValue, forKey: Keys.soundSet) }
+  }
+
+  /// Where a finished session's text goes. Defaults to the behaviour that
+  /// shipped before the pick existed.
+  var insertionDestination: InsertionDestination {
+    didSet {
+      defaults.set(insertionDestination.rawValue, forKey: Keys.insertionDestination)
+    }
   }
 
   var dictationSoundsEnabled: Bool {
@@ -175,6 +184,7 @@ final class AppSettings {
     self.defaults = defaults
     soundSet = Self.stored(in: defaults, key: Keys.soundSet) ?? .synth8
     dictationSoundsEnabled = defaults.object(forKey: Keys.soundsEnabled) as? Bool ?? true
+    insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
     let storedSoundVolume = defaults.object(forKey: Keys.soundVolume) as? Double ?? 0.5
     storedDictationSoundVolume = DictationSoundSettings.normalizedVolume(storedSoundVolume)
     transcriptDestination = Self.stored(in: defaults, key: Keys.transcriptDestination) ?? .besideSource
@@ -226,6 +236,9 @@ final class AppSettings {
 /// this value until its end and paste sounds have played.
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
+  /// Captured with everything else, so changing the pick mid-session cannot
+  /// send the text somewhere the session did not agree to (ADR-0004).
+  let insertionDestination: InsertionDestination
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -249,6 +262,7 @@ struct DictationSessionSettings: Equatable {
       isEnabled: settings.dictationSoundsEnabled,
       volume: settings.dictationSoundVolume
     )
+    insertionDestination = settings.insertionDestination
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

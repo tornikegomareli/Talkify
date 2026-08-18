@@ -437,7 +437,11 @@ final class DirectDictationController {
       do {
         let text = try await speechService.finish()
         hudController.hide()
-        let outcome = await textInsertionService.insert(text, into: focusedTarget)
+        let outcome = await textInsertionService.insert(
+          text,
+          into: focusedTarget,
+          destination: currentSessionSettings?.insertionDestination ?? .insert
+        )
         switch outcome {
         case .inserted, .copiedToClipboard:
           hudController.playPasteSound()
