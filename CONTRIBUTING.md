@@ -74,14 +74,11 @@ comprehension, not about tooling.
 the pull request is enough.
 
 **Understand what you submit.** You must be able to explain every line of your
-change, why it is written that way, and what happens at its edges, without asking
-a model to explain it back to you. If a reviewer asks why a guard is there and the
+change, why it is written that way, and what happens at its edges, you can use AI to explain code to you, you can use AI to get more understanding but most important is that you need to understand what code you ship, because this code need to be maintained in the future. If a reviewer asks why a guard is there and the
 honest answer is "the agent put it there", the change is not ready. Submitting
 output you have not read moves the work of finding its bugs onto the maintainer.
 
 **Text and code only.** Do not submit generated images, icons, audio or video.
-Talkify already carries two asset licensing problems it has to fix before release,
-listed in [Licensing](#licensing), and generated assets add a third kind.
 
 **Run it.** A change to dictation, the HUD, insertion or Read Aloud needs to have
 been used on a real Mac, not only compiled. Say in the pull request what you
@@ -250,18 +247,6 @@ change makes a new decision of that size, add an ADR alongside it.
 
 Talkify is [MIT](LICENSE). Opening a pull request licenses your contribution under
 the same terms and allows the maintainer to modify it.
-
-Assets are the one place this repo is not clean, and it must be fixed before
-release:
-
-- `Talkify/Resources/Sounds/` holds a CC-BY-NC sound set. See
-  `Talkify/Resources/Sounds/LICENSE-SOUNDS.txt`
-- `Talkify/Assets.xcassets/Siri/` holds the Siri-orb prototype artwork, which
-  publishes no license and imitates Apple's own orb. It cannot ship. See the
-  flagged ambiguity in `CONTEXT.md`
-
-Do not add a sound, an icon or an image without naming its license in the pull
-request. An asset with an unclear license will not be merged.
 
 ## Working as or with an agent
 
