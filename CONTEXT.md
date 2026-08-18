@@ -117,7 +117,7 @@ _Avoid_: Transcript history, cloud analytics
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
-- The HUD window is click-through during Direct Dictation and never takes focus; a configured global mouse-button **Dictation Trigger** is handled separately from the window
+- The HUD is display-only during Direct Dictation: mouse clicks pass through it and it never takes focus
 - The HUD accepts the mouse only as a **Drop Target** and while it holds a finished **Drop Transcription**; it never takes focus in either state
 - The HUD's display is locked when the session starts and does not follow windows
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
@@ -242,7 +242,7 @@ _Avoid_: Transcript history, cloud analytics
 - The bound key of a chord is the one that cannot be a required modifier: fn pressed before or after ⌥ still binds fn, because only command, option, control and shift can be required
 - A **Dictation Trigger** fires on exactly the modifiers it was recorded with and no others: fn alone no longer starts a session once the trigger is fn + ⌥, which is the point of binding a combination on a keyboard where every single key is already spoken for
 - A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first, and starts the moment it completes, whichever key completed it
-- A trigger key is swallowed only while its exact binding matches; a bound mouse button is captured from down through up so a later modifier can complete its combination without leaking the button's usual action, while the modifier itself still passes through
+- Only the trigger's own key or button is swallowed, and only while its exact binding is pressed: a modifier that merely completes or breaks the combination passes through, and binding ⌥ + Middle Click leaves plain middle click doing what it always did
 - The Shortcuts section draws the user's own keyboard above the recorders, with each binding's keys lit in its own color, because which keys are still free is a question about a physical object that a list of labels cannot answer
 - The drawn keyboard takes its shape from the attached keyboard and its legends from the selected input source, so it matches the board in front of the user rather than a US one: an ISO board puts § left of 1, moves the backtick beside left ⇧ and runs Return down two rows, and an AZERTY or Georgian source relabels the same keys
 - The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label
@@ -254,7 +254,8 @@ _Avoid_: Transcript history, cloud analytics
 - Each binding is a row whose keys are drawn as one cap per physical key on the leading edge, modifiers first in the order macOS writes them, and whose description names those keys in the sentence that says what they do
 - The whole row is the recorder: clicking anywhere in it arms, and while armed the caps collapse to one placeholder and the description says what to press
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
-- While Talkify is ready, a bound mouse button is reserved from down through up: an exact match starts the hold gesture, mouse up ends it, and releasing a required keyboard modifier ends it early without leaking the later mouse up
+- A mouse-button **Dictation Trigger** behaves as its key equivalent does: the matching press starts the hold gesture, the release ends it, and releasing a required modifier ends it early
+- A swallowed mouse button stays swallowed through its drag and its release, because letting the release through after eating the press leaves the application under the pointer believing the button is still down
 - While a shortcut recorder is armed, global trigger handling pauses so the rebind input cannot start a session
 - The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them
 - Talkify swallows the configured Read Aloud shortcut so the system speak-selection never double-fires; plain Escape remains the dictation cancel, captured only mid-session

@@ -10,6 +10,9 @@ struct ShortcutRow: View {
   let isRecording: Bool
   let accent: Color
   let acceptsMouseButton: Bool
+  /// A mouse button's cap spells its name out, so the last cap needs the room
+  /// for it. Only the last one can be the button; the rest are modifiers.
+  let isMouseBinding: Bool
   /// What has been clicked on the keyboard so far, shown in place of the
   /// binding while the row is armed.
   var pickedCaps: [String] = []
@@ -24,13 +27,13 @@ struct ShortcutRow: View {
       HStack(spacing: 6) {
         if isRecording, !pickedCaps.isEmpty {
           ForEach(Array(pickedCaps.enumerated()), id: \.offset) { _, symbol in
-            cap(symbol, isArmed: true)
+            cap(symbol, isArmed: true, isWide: false)
           }
         } else if isRecording {
-          cap("…", isArmed: true)
+          cap("…", isArmed: true, isWide: false)
         } else {
-          ForEach(Array(caps.enumerated()), id: \.offset) { _, symbol in
-            cap(symbol, isArmed: false)
+          ForEach(Array(caps.enumerated()), id: \.offset) { index, symbol in
+            cap(symbol, isArmed: false, isWide: isMouseBinding && index == caps.count - 1)
           }
         }
       }
@@ -71,9 +74,9 @@ struct ShortcutRow: View {
       : "Press a shortcut, or click keys on the keyboard above."
   }
 
-  private func cap(_ symbol: String, isArmed: Bool) -> some View {
+  private func cap(_ symbol: String, isArmed: Bool, isWide: Bool) -> some View {
     let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
-    let width: CGFloat = symbol == "Middle" || symbol.hasPrefix("Mouse ") ? 54 : 34
+    let width: CGFloat = isWide ? 54 : 34
     return Text(symbol)
       .font(.system(size: symbol.count > 2 ? 10 : 13, weight: .medium))
       .foregroundStyle(isArmed ? accent : .white.opacity(0.9))

@@ -20,11 +20,11 @@ struct KeyBinding: Equatable, Codable {
   /// Menu key-equivalent character; empty when not representable (bare
   /// modifiers) — the menu falls back to a badge then.
   var keyEquivalent: String
-  /// Historical accessors kept so keyboard callers and the persisted JSON
-  /// shape do not need a migration. Mouse bindings have no keycode or
-  /// modifier-key state in memory.
-  var keyCode: Int64 {
-    guard case let .key(code, _) = input else { return -1 }
+  /// The bound key, or nil for a mouse button. Optional rather than a
+  /// stand-in number: comparing it against a keycode from an event is then
+  /// false for a mouse binding without every caller remembering to ask.
+  var keyCode: Int64? {
+    guard case let .key(code, _) = input else { return nil }
     return code
   }
 
@@ -56,7 +56,7 @@ struct KeyBinding: Equatable, Codable {
 
   /// The flag bit a modifier-key binding toggles in flagsChanged events.
   var modifierKeyMask: CGEventFlags {
-    Self.modifierMask(forKeyCode: keyCode)
+    keyCode.map(Self.modifierMask(forKeyCode:)) ?? []
   }
 
   init(
@@ -134,6 +134,10 @@ struct KeyBinding: Equatable, Codable {
     input == other.input && modifierFlags == other.modifierFlags
   }
 
+  /// Hand-written so a keyboard binding keeps the flat shape it has always
+  /// been stored in: a mouse binding adds `mouseButtonNumber` and writes no
+  /// keycode, and anything written before mouse buttons existed decodes as
+  /// the key it always was.
   private enum CodingKeys: String, CodingKey {
     case keyCode
     case modifierFlags
@@ -146,57 +150,17 @@ struct KeyBinding: Equatable, Codable {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     modifierFlags = try container.decode(UInt64.self, forKey: .modifierFlags)
-    let relevantModifiers: CGEventFlags = [
-      .maskCommand, .maskAlternate, .maskControl, .maskShift,
-    ]
-    guard CGEventFlags(rawValue: modifierFlags).intersection(relevantModifiers).rawValue
-      == modifierFlags
-    else {
-      throw DecodingError.dataCorruptedError(
-        forKey: .modifierFlags,
-        in: container,
-        debugDescription: "Invalid modifier flags"
-      )
-    }
     label = try container.decode(String.self, forKey: .label)
     keyEquivalent = try container.decode(String.self, forKey: .keyEquivalent)
 
-    if let mouseButtonNumber = try container.decodeIfPresent(
-      Int64.self,
-      forKey: .mouseButtonNumber
-    ) {
-      guard Self.supportedMouseButtons.contains(mouseButtonNumber),
-         try container.decode(Int64.self, forKey: .keyCode) == -1,
-         try container.decode(Bool.self, forKey: .isModifierKey) == false,
-         keyEquivalent.isEmpty
-      else {
-        throw DecodingError.dataCorruptedError(
-          forKey: .mouseButtonNumber,
-          in: container,
-          debugDescription: "Invalid mouse-button binding"
-        )
-      }
-      input = .mouseButton(mouseButtonNumber)
-      return
-    }
-
-    let keyCode = try container.decode(Int64.self, forKey: .keyCode)
-    let isModifier = try container.decode(Bool.self, forKey: .isModifierKey)
-    guard keyCode >= 0,
-       keyCode <= Int64(UInt16.max),
-       (Self.modifierKeyName(forKeyCode: keyCode) != nil) == isModifier,
-       !isModifier
-         || !CGEventFlags(rawValue: modifierFlags).contains(
-           Self.modifierMask(forKeyCode: keyCode)
-         )
-    else {
-      throw DecodingError.dataCorruptedError(
-        forKey: .keyCode,
-        in: container,
-        debugDescription: "Invalid keyboard binding"
+    if let number = try container.decodeIfPresent(Int64.self, forKey: .mouseButtonNumber) {
+      input = .mouseButton(number)
+    } else {
+      input = .key(
+        code: try container.decode(Int64.self, forKey: .keyCode),
+        isModifier: try container.decode(Bool.self, forKey: .isModifierKey)
       )
     }
-    input = .key(code: keyCode, isModifier: isModifier)
   }
 
   func encode(to encoder: Encoder) throws {
@@ -210,8 +174,6 @@ struct KeyBinding: Equatable, Codable {
       try container.encode(code, forKey: .keyCode)
       try container.encode(isModifier, forKey: .isModifierKey)
     case let .mouseButton(number):
-      try container.encode(-1, forKey: .keyCode)
-      try container.encode(false, forKey: .isModifierKey)
       try container.encode(number, forKey: .mouseButtonNumber)
     }
   }

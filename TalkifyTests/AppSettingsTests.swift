@@ -124,24 +124,6 @@ struct AppSettingsTests {
     #expect(!binding.isMouseButton)
   }
 
-  @Test func unsupportedStoredMouseButtonFallsBackToTheDefaultTrigger() {
-    let defaults = freshDefaults()
-    let json = """
-      {
-        "keyCode": -1,
-        "modifierFlags": 0,
-        "isModifierKey": false,
-        "label": "Mouse 33",
-        "keyEquivalent": "",
-        "mouseButtonNumber": 32
-      }
-      """
-    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
-
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.dictationTriggerBinding == .fnTrigger)
-  }
-
   @Test func readAloudRejectsAStoredMouseBinding() throws {
     let defaults = freshDefaults()
     let middleClick = try #require(KeyBinding.mouseButton(number: 2))
@@ -154,85 +136,37 @@ struct AppSettingsTests {
     #expect(settings.readAloudBinding == .optionEscape)
   }
 
-  @Test func readAloudRejectsAStoredBareModifier() throws {
-    let defaults = freshDefaults()
-    defaults.set(
-      try JSONEncoder().encode(KeyBinding.rightOptionTrigger),
-      forKey: "readAloudBinding"
-    )
+  /// The label is captured at record time, so the same binding recorded and
+  /// clicked are not equal values. A clash is about the input, not the label.
+  @Test func aClashIsFoundByInputRatherThanByLabel() throws {
+    let settings = AppSettings(defaults: freshDefaults())
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    var relabelled = middleClick
+    relabelled.label = "Wheel"
+    settings.dictationTriggerBinding = middleClick
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
 
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.readAloudBinding == .optionEscape)
+    #expect(settings.roleUsing(relabelled, excluding: .secondLanguage) == .dictation)
+    #expect(settings.roleUsing(middleClick, excluding: .dictation) == nil)
   }
 
-  @Test func aStoredModifierKeyCannotPretendToBeAPlainKey() {
-    let defaults = freshDefaults()
-    let json = """
-      {
-        "keyCode": 61,
-        "modifierFlags": 0,
-        "isModifierKey": false,
-        "label": "right option",
-        "keyEquivalent": ""
-      }
-      """
-    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
-
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.dictationTriggerBinding == .fnTrigger)
-  }
-
-  @Test func unsupportedStoredModifierBitsFallBackToTheDefaultTrigger() {
-    let defaults = freshDefaults()
-    let json = """
-      {
-        "keyCode": 35,
-        "modifierFlags": 8388608,
-        "isModifierKey": false,
-        "label": "P",
-        "keyEquivalent": "p"
-      }
-      """
-    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
-
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.dictationTriggerBinding == .fnTrigger)
-  }
-
-  @Test func inconsistentStoredMousePayloadFallsBackToTheDefaultTrigger() {
-    let defaults = freshDefaults()
-    let json = """
-      {
-        "keyCode": 35,
-        "modifierFlags": 0,
-        "isModifierKey": false,
-        "label": "Middle Click",
-        "keyEquivalent": "",
-        "mouseButtonNumber": 2
-      }
-      """
-    defaults.set(Data(json.utf8), forKey: "dictationTriggerBinding")
-
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.dictationTriggerBinding == .fnTrigger)
-  }
-
-  @Test func reenablingSecondLanguageRepairsAStoredTriggerConflict() throws {
+  /// A second language that is off holds no binding, so nothing clashes with
+  /// it — and turning it back on says so on the row rather than rewriting the
+  /// trigger the user picked.
+  @Test func anOffSecondLanguageClashesWithNothingAndKeepsItsTrigger() throws {
     let settings = AppSettings(defaults: freshDefaults())
     let middleClick = try #require(KeyBinding.mouseButton(number: 2))
     settings.secondaryRecognitionLocaleIdentifier = "de_DE"
     settings.secondaryTriggerBinding = middleClick
     settings.secondaryRecognitionLocaleIdentifier = ""
-    settings.dictationTriggerBinding = middleClick
 
+    #expect(settings.roleUsing(middleClick, excluding: .dictation) == nil)
+
+    settings.dictationTriggerBinding = middleClick
     settings.secondaryRecognitionLocaleIdentifier = "de_DE"
 
-    #expect(!settings.secondaryTriggerBinding.hasSameInputAndModifiers(
-      as: settings.dictationTriggerBinding
-    ))
-    #expect(!settings.secondaryTriggerBinding.hasSameInputAndModifiers(
-      as: settings.readAloudBinding
-    ))
+    #expect(settings.secondaryTriggerBinding == middleClick)
+    #expect(settings.roleUsing(middleClick, excluding: .secondLanguage) == .dictation)
   }
 
   @Test func languagesDefaultToOneFollowingTheMac() {

@@ -107,8 +107,8 @@ enum KeyboardMap {
     if modifiers.contains(.maskCommand) { caps.append("⌘") }
     if let buttonNumber = binding.mouseButtonNumber {
       caps.append(KeyBinding.mouseButtonCap(number: buttonNumber))
-    } else {
-      caps.append(cap(for: binding.keyCode, layout: layout))
+    } else if let keyCode = binding.keyCode {
+      caps.append(cap(for: keyCode, layout: layout))
     }
     return caps
   }
@@ -125,7 +125,7 @@ enum KeyboardMap {
   /// requires. A modifier appears on both sides of the board, so both light —
   /// the binding does not care which one is pressed unless it named a side.
   static func highlighted(for binding: KeyBinding) -> Set<Int64> {
-    var keyCodes: Set<Int64> = binding.isMouseButton ? [] : [binding.keyCode]
+    var keyCodes = Set(binding.keyCode.map { [$0] } ?? [])
     let modifiers = binding.modifiers
     if modifiers.contains(.maskCommand) { keyCodes.formUnion([55, 54]) }
     if modifiers.contains(.maskAlternate) { keyCodes.formUnion([58, 61]) }

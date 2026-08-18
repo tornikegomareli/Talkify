@@ -168,7 +168,6 @@ final class AppSettings {
         secondaryRecognitionLocaleIdentifier,
         forKey: Keys.secondaryRecognitionLocale
       )
-      repairSecondaryTriggerConflictIfNeeded()
     }
   }
 
@@ -233,14 +232,12 @@ final class AppSettings {
     dictationTriggerBinding = Self.storedBinding(
       in: defaults,
       key: Keys.dictationTriggerBinding,
-      allowsMouseButton: true,
-      allowsBareModifier: true
+      allowsMouseButton: true
     ) ?? .fnTrigger
     readAloudBinding = Self.storedBinding(
       in: defaults,
       key: Keys.readAloudBinding,
-      allowsMouseButton: false,
-      allowsBareModifier: false
+      allowsMouseButton: false
     ) ?? .optionEscape
     recognitionLocaleIdentifier = defaults.string(forKey: Keys.recognitionLocale) ?? ""
     secondaryRecognitionLocaleIdentifier =
@@ -248,10 +245,8 @@ final class AppSettings {
     secondaryTriggerBinding = Self.storedBinding(
       in: defaults,
       key: Keys.secondaryTriggerBinding,
-      allowsMouseButton: true,
-      allowsBareModifier: true
+      allowsMouseButton: true
     ) ?? .rightOptionTrigger
-    repairSecondaryTriggerConflictIfNeeded()
   }
 
   private static func stored<Value: RawRepresentable<String>>(
@@ -261,16 +256,17 @@ final class AppSettings {
     defaults.string(forKey: key).flatMap { Value(rawValue: $0) }
   }
 
+  /// `allowsMouseButton` is false for Read Aloud, which fires from keyDown
+  /// and so has no mouse path at all: a stored mouse binding there could only
+  /// ever be dead.
   private static func storedBinding(
     in defaults: UserDefaults,
     key: String,
-    allowsMouseButton: Bool,
-    allowsBareModifier: Bool
+    allowsMouseButton: Bool
   ) -> KeyBinding? {
     guard let data = defaults.data(forKey: key),
        let binding = try? JSONDecoder().decode(KeyBinding.self, from: data),
-       allowsMouseButton || !binding.isMouseButton,
-       allowsBareModifier || !binding.isModifierKey
+       allowsMouseButton || !binding.isMouseButton
     else { return nil }
     return binding
   }
@@ -281,31 +277,51 @@ final class AppSettings {
     }
   }
 
-  /// A disabled second language keeps its trigger preference. If another role
-  /// takes that exact binding while it is off, enabling the language must not
-  /// bring back a row whose trigger runtime silently drops as a duplicate.
-  private func repairSecondaryTriggerConflictIfNeeded() {
-    guard isSecondLanguageEnabled,
-       secondaryTriggerBinding.hasSameInputAndModifiers(as: dictationTriggerBinding)
-         || secondaryTriggerBinding.hasSameInputAndModifiers(as: readAloudBinding)
-    else { return }
+  func binding(for role: BindingRole) -> KeyBinding {
+    switch role {
+    case .dictation: dictationTriggerBinding
+    case .secondLanguage: secondaryTriggerBinding
+    case .readAloud: readAloudBinding
+    }
+  }
 
-    let controlOption = KeyBinding(
-      keyCode: 58,
-      modifierFlags: CGEventFlags.maskControl.rawValue,
-      isModifierKey: true,
-      label: "⌃ ⌥",
-      keyEquivalent: ""
-    )
-    let occupied = [dictationTriggerBinding, readAloudBinding]
-    if let fallback = [
-      KeyBinding.rightOptionTrigger,
-      KeyBinding.fnTrigger,
-      controlOption,
-    ].first { candidate in
-      !occupied.contains { $0.hasSameInputAndModifiers(as: candidate) }
-    } {
-      secondaryTriggerBinding = fallback
+  func setBinding(_ binding: KeyBinding, for role: BindingRole) {
+    switch role {
+    case .dictation: dictationTriggerBinding = binding
+    case .secondLanguage: secondaryTriggerBinding = binding
+    case .readAloud: readAloudBinding = binding
+    }
+  }
+
+  /// The role already using this exact input and modifiers, if any.
+  ///
+  /// One rule in one place: the recorders, the Language section and
+  /// `setBindings` would otherwise each decide for themselves what clashes.
+  /// A second language that is off holds no binding, so it clashes with
+  /// nothing. Only the input matters — the same binding recorded and clicked
+  /// carries a different label, and comparing whole values would miss it.
+  func roleUsing(_ candidate: KeyBinding, excluding role: BindingRole) -> BindingRole? {
+    BindingRole.allCases.first { other in
+      guard other != role else { return false }
+      guard other != .secondLanguage || isSecondLanguageEnabled else { return false }
+      return binding(for: other).hasSameInputAndModifiers(as: candidate)
+    }
+  }
+}
+
+/// Which recorded binding is being talked about. Shared so the Shortcuts
+/// section, the Language section and the event tap all name the same three
+/// roles.
+enum BindingRole: Hashable, CaseIterable {
+  case dictation
+  case secondLanguage
+  case readAloud
+
+  var title: String {
+    switch self {
+    case .dictation: "Direct Dictation"
+    case .secondLanguage: "Second Language"
+    case .readAloud: "Read Aloud"
     }
   }
 }

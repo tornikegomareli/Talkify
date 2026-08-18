@@ -84,8 +84,9 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 
 The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**.
 Direct Dictation can use a keyboard key, Middle Click by pressing the scroll
-wheel, or another auxiliary mouse button. A bound mouse button no longer
-performs its usual action while Talkify is ready.
+wheel, or another auxiliary mouse button. A bound button keeps its usual action
+unless the exact combination you bound is pressed, so binding ⌥ + Middle Click
+leaves plain middle click alone.
 
 ## Drop a file on the notch
 
