@@ -135,6 +135,7 @@ _Avoid_: Transcript history, cloud analytics
 - **Direct Dictation** can lower other audio while it listens and put it back when the session ends, cancels or fails; it is off by default because the control it moves is system-wide
 - macOS has no per-application ducking, so lowering other audio moves the default output device's own volume and quiets Talkify's session sounds along with everything else
 - A lowered volume is restored only while it is still the value Talkify set: a volume the user changed mid-session is theirs, the same rule the clipboard restore follows
+- The device that was lowered is the one restored, not whichever output is default when the session ends: the default can change mid-session, and the volume that needs putting back belongs to the device that was quieted
 - An output with no settable volume does not duck, and neither does one already at silence
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
