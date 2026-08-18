@@ -40,14 +40,21 @@ final class ReadAloudController: NSObject {
       return
     }
 
-    let selection = selectionReader.selectedText()?
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let selection, !selection.isEmpty else {
+    let text: String
+    switch selectionReader.selection() {
+    case let .text(selected):
+      text = selected
+    case .secureField:
+      // Speaking a password out loud is a worse leak than pasting one, so
+      // Read Aloud refuses the same fields Direct Dictation does.
+      hudController.showMessage("Secure field")
+      return
+    case .none:
       hudController.showMessage("No text selected")
       return
     }
 
-    let utterance = AVSpeechUtterance(string: selection)
+    let utterance = AVSpeechUtterance(string: text)
     if !settings.readAloudVoiceID.isEmpty,
      let voice = AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID) {
       utterance.voice = voice
