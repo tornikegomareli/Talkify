@@ -17,6 +17,11 @@ final class DictationHUDContent {
   /// read when a Replacement Dictation begins so the round knows exactly
   /// which range of the draft to replace.
   var selection: TextSelection?
+  /// While a Replacement Dictation listens, the UTF-16 range in `text` that
+  /// the band highlights as the landing zone: the selected words before any
+  /// arrive, then the streaming words spliced over them. nil outside a
+  /// listening replacement round.
+  var replacementHighlight: NSRange?
   /// Drives the reveal/dismiss animation.
   var isRevealed = false
   /// True only while listening — the visuals react to the microphone, so

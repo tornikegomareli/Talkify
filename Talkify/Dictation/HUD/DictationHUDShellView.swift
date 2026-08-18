@@ -71,6 +71,12 @@ struct DictationHUDShellView: View {
     )
   }
 
+  /// The tone of the review selection highlight, shared by the editable
+  /// field's tint and the band's replacement-round highlight, so both read
+  /// as the same selection family: translucent white that shades the
+  /// background while the white text stays legible behind it.
+  nonisolated private static let reviewHighlight = Color.white.opacity(0.4)
+
   private var filletSize: CGFloat {
     HUDNotchGeometry.filletSize(for: screen)
   }
@@ -144,13 +150,16 @@ struct DictationHUDShellView: View {
   /// Draft text lives in the band below the housing. The editable-draft
   /// review swaps the whole band for the editable field while the draft is
   /// settled; while a replacement round listens under that review the band
-  /// keeps the text with the compact indicator beside it, and the visual
-  /// stays away from the text.
+  /// keeps the text with the compact indicator beside it and the selection
+  /// it targets visibly highlighted, and the visual stays away from the
+  /// text.
   @ViewBuilder
   private var textBand: some View {
     Group {
       if content.isReviewing && !content.showsVoiceVisual {
         editableDraftField
+      } else if content.isReviewing && content.showsVoiceVisual {
+        replacementRoundDraft
       } else if bandLayout.showsCompactBand {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
@@ -174,6 +183,56 @@ struct DictationHUDShellView: View {
     .frame(minHeight: content.isReviewing ? metrics.maxTextBandHeight : metrics.textBandHeight)
   }
 
+  /// The replacement round's band: the compact indicator beside the draft,
+  /// which stays fully visible with a translucent highlight behind exactly
+  /// the range the round will commit.
+  private var replacementRoundDraft: some View {
+    HStack(alignment: .top, spacing: 10 * metrics.scale) {
+      if !reduceMotion {
+        HUDCompactIndicatorView(content: content, scale: metrics.scale)
+          .padding(.top, 3 * metrics.scale)
+      }
+      replacementDraftText
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+
+  /// The replacement round's draft text: the same long-draft semantics, but
+  /// rendered from an attributed string so the selection the round is
+  /// overwriting stays visibly highlighted as the words stream in place.
+  @ViewBuilder
+  private var replacementDraftText: some View {
+    switch settings.longDraftStyle {
+    case .tailOnly:
+      highlightedDraftText
+        .lineLimit(1)
+        .truncationMode(.head)
+    case .growDown:
+      highlightedDraftText
+        .lineLimit(4)
+        .multilineTextAlignment(.leading)
+    case .shrinkToFit:
+      highlightedDraftText
+        .lineLimit(1)
+        .truncationMode(.head)
+        .minimumScaleFactor(0.55)
+    }
+  }
+
+  /// The draft with the replacement landing zone painted over it, as an
+  /// attributed string: `content.replacementHighlight` is maintained by the
+  /// controller in sync with `content.text` while a round listens.
+  private var highlightedDraftText: Text {
+    var attributed = AttributedString(content.text)
+    if let range = content.replacementHighlight,
+       let selected = Range(range, in: content.text),
+       let start = AttributedString.Index(selected.lowerBound, within: attributed),
+       let end = AttributedString.Index(selected.upperBound, within: attributed) {
+      attributed[start..<end].backgroundColor = Self.reviewHighlight
+    }
+    return Text(attributed)
+  }
+
   /// The editable-draft review field: the finished draft, editable in place
   /// with the keyboard (cursor, selection, delete, typing). Plain Return is
   /// swallowed by the event tap and pastes; ⌥↩ inserts a newline. The panel
@@ -190,7 +249,7 @@ struct DictationHUDShellView: View {
     TextEditor(text: $content.text, selection: $content.selection)
       .font(.system(size: 15 * metrics.scale, weight: .medium))
       .foregroundStyle(.white)
-      .tint(.white.opacity(0.4))
+      .tint(Self.reviewHighlight)
       .scrollContentBackground(.hidden)
       .scrollIndicators(.hidden)
       .focused($draftFieldFocused)

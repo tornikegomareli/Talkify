@@ -77,6 +77,29 @@ struct DraftReplacementTests {
     #expect(draft[draft.index(before: cursor)] == "n")
   }
 
+  @Test func replacementHighlightMarksTheSelectionBeforeAnyWordsArrive() {
+    // The bug: while a replacement round listened, the streaming draft
+    // rendered with no visible mark of the range being replaced. The
+    // selection itself must be the highlighted landing zone before any
+    // words stream.
+    let round = replacement("the quick fox jumps", 10, 3)
+    #expect(round.highlightRange(liveText: "") == NSRange(location: 10, length: 3))
+    #expect(round.highlightRange(liveText: "   ") == NSRange(location: 10, length: 3))
+  }
+
+  @Test func replacementHighlightTracksTheStreamingWordsInPlace() throws {
+    // Once words arrive they occupy exactly the selection's position, and
+    // the highlight follows them so the landing zone never blinks away.
+    let round = replacement("the quick fox jumps", 10, 3)
+    #expect(round.highlightRange(liveText: "brown") == NSRange(location: 10, length: 5))
+    #expect(round.highlightRange(liveText: "bro") == NSRange(location: 10, length: 3))
+    // The highlight sits in the same preview the band shows: it highlights
+    // the "brown" the preview splices in.
+    let preview = round.preview(liveText: "brown")
+    let span = try #require(Range(round.highlightRange(liveText: "brown"), in: preview))
+    #expect(String(preview[span]) == "brown")
+  }
+
   @Test func outOfBoundsSelectionLeavesTheDraftUntouched() {
     let round = replacement("short", 50, 3)
     #expect(round.preview(liveText: "x") == "short")

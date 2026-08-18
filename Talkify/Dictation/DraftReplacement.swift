@@ -42,6 +42,17 @@ struct DraftReplacement {
     return draft.replacingCharacters(in: selected, with: text)
   }
 
+  /// The UTF-16 range in `preview(liveText:)` the band highlights as the
+  /// round's landing zone: exactly the selected words before any stream,
+  /// then the space the streaming words occupy as they arrive. The draft
+  /// stays visible with the selection marked while the round listens.
+  func highlightRange(liveText: String) -> NSRange {
+    guard let selected = Range(range, in: draft) else { return range }
+    let start = selected.lowerBound.utf16Offset(in: draft)
+    let length = hasWords(liveText) ? liveText.utf16.count : range.length
+    return NSRange(location: start, length: length)
+  }
+
   /// Whether the round's recognized text actually contains words: speech
   /// that never produced a word (trailing silence, a release with nothing
   /// said) leaves the draft untouched instead of deleting the selection.

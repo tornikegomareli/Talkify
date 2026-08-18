@@ -219,7 +219,7 @@ _Avoid_: Transcript history, cloud analytics
 - Return during **Draft Review** pastes the edited draft into the previously focused control with the same insertion service, clipboard-restore semantics, and paste sound as a released session
 - Pressing the **Dictation Trigger** during **Draft Review** starts a **Replacement Dictation**
 - A **Replacement Dictation** replaces exactly the selection the review held when it began; the rest of the draft stays intact
-- While a **Replacement Dictation** listens, its words stream into the held draft at the selected range, so the draft never leaves the screen and the replacement lands visibly where it will commit
+- While a **Replacement Dictation** listens, its words stream into the held draft at the selected range, so the draft never leaves the screen and the replacement lands visibly where it will commit; the selected range stays highlighted through the round
 - A **Replacement Dictation** that hears no speech, or loses its recognizer, ends the round and returns to **Draft Review** with the draft unchanged; Escape during a round discards everything
 - If **Direct Dictation** hears no speech in the first 15 seconds, it closes and inserts nothing
 - Once speech has arrived, the session stays open until the user ends or cancels it

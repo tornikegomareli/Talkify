@@ -99,6 +99,7 @@ final class DictationHUDController {
     content.isAudioAlive = true
     content.audioLevel = 0
     content.isReviewing = true
+    content.replacementHighlight = nil
     stage.enableDraftEditing()
   }
 
@@ -169,9 +170,16 @@ final class DictationHUDController {
     content.text = text ?? placeholder
   }
 
-  func showLiveText(_ text: String) {
+  func showLiveText(_ text: String, replacementHighlight range: NSRange? = nil) {
     guard isListening, !text.isEmpty else { return }
     content.text = text
+    content.replacementHighlight = range
+  }
+
+  /// Marks the selection a replacement round will overwrite, before any
+  /// words arrive; `showLiveText` keeps it in sync as the words stream.
+  func markReplacementSelection(_ range: NSRange) {
+    content.replacementHighlight = range
   }
 
   /// Speech has stopped but the recognized text has not arrived yet.
@@ -200,6 +208,7 @@ final class DictationHUDController {
     content.showsVoiceVisual = false
     content.isReviewing = false
     content.selection = nil
+    content.replacementHighlight = nil
     stage.retract()
   }
 

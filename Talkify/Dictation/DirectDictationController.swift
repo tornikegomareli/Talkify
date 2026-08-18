@@ -381,16 +381,17 @@ final class DirectDictationController {
     case .showLatched:
       dependencies.showLatched()
     case .showLiveText:
-      if let pendingLiveText {
+      if let pendingLiveText, let pendingReplacement {
         // A replacement round keeps its held draft on screen with the
-        // streaming words spliced over the selection; a fresh round shows
+        // streaming words spliced over the selection, and highlights
+        // exactly the range the round will commit; a fresh round shows
         // the words alone (DraftReplacement).
-        dependencies.showLiveText(
-          DraftReplacement.liveBandText(
-            replacement: pendingReplacement,
-            liveText: pendingLiveText
-          )
+        hudController?.showLiveText(
+          DraftReplacement.liveBandText(replacement: pendingReplacement, liveText: pendingLiveText),
+          replacementHighlight: pendingReplacement.highlightRange(liveText: pendingLiveText)
         )
+      } else if let pendingLiveText {
+        dependencies.showLiveText(pendingLiveText)
       }
     case .showFinalizing:
       dependencies.showFinalizing()
@@ -438,6 +439,12 @@ final class DirectDictationController {
     // recognizer the session already runs on is warm by definition.
     if machine.isReviewing {
       pendingReplacement = captureDraftSelection()
+      // The selection the round will overwrite is marked from the start,
+      // before any words arrive, so the highlight is on screen the moment
+      // the round begins listening.
+      if let pendingReplacement {
+        hudController?.markReplacementSelection(pendingReplacement.range)
+      }
       send(.beginApproved)
       return
     }
