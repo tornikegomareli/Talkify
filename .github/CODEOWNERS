@@ -1,0 +1,13 @@
+# Everything an update-channel compromise would have to go through.
+#
+# Talkify is unsandboxed by necessity (a CGEvent tap and the Accessibility
+# APIs), so Sparkle is the one remote-influenced path into a fully privileged
+# process. These paths decide which signing key is trusted, what the feed
+# says, and what the release script does with both. A change to any of them
+# should be looked at by a human who is not the one proposing it.
+
+/Talkify/Info.plist       @tornikegomareli
+/appcast.xml              @tornikegomareli
+/scripts/                 @tornikegomareli
+/Casks/                   @tornikegomareli
+/.github/                 @tornikegomareli
