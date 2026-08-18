@@ -212,6 +212,9 @@ _Avoid_: Transcript history, cloud analytics
 - Early versions persist no audio, recognized text, captions, or transcript history
 - An off-by-default **Save transcription history** setting exists; turning it on is the one explicit exception to the no-persistence line above
 - While history is on, each completed **Direct Dictation** session appends a timestamped entry to a daily plain-text file in a user-visible folder defaulting to `~/Documents/Talkify/`
+- A history entry names the application the text was aimed at, meaning the one that held focus when the session started, because a record of what was said is easier to use later when it says where it was being said
+- History is written before insertion, so an entry names where the words were headed rather than where they landed; a clipboard-only session names the clipboard, since it aimed at no application at all
+- An entry whose application cannot be named keeps the bare timestamp rather than reading "Unknown"
 - The history folder is the user's pick, and Clear History removes only the day files Talkify wrote there
 - The history choice is captured in the Dictation session settings snapshot at session start
 - A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened

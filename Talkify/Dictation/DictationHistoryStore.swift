@@ -35,6 +35,30 @@ actor DictationHistoryStore {
     )
   }
 
+  /// The entry's heading: the time, and where the text was going.
+  ///
+  /// The source is where the words were aimed, which is the application that
+  /// held focus when the session started. History is written before insertion
+  /// so a failed paste cannot lose the text, so where it landed is not known
+  /// yet. An unnamed source leaves the heading as the bare timestamp rather
+  /// than writing "Unknown".
+  static func heading(
+    for date: Date,
+    source: String?,
+    calendar: Calendar = .current
+  ) -> String {
+    let time = timestamp(for: date, calendar: calendar)
+    guard let source, !source.trimmingCharacters(in: .whitespaces).isEmpty else {
+      return time
+    }
+    // Newlines would forge a second entry inside this one.
+    let clean = source
+      .replacingOccurrences(of: "\n", with: " ")
+      .replacingOccurrences(of: "\r", with: " ")
+      .trimmingCharacters(in: .whitespaces)
+    return "\(time) \(clean)"
+  }
+
   private let calendar: Calendar
 
   init(calendar: Calendar = .current) {
@@ -43,7 +67,12 @@ actor DictationHistoryStore {
 
   /// Appends one session's text to its day file, creating the folder and the
   /// file as needed. Nothing is ever overwritten: a day file only grows.
-  func record(_ text: String, at date: Date = .now, in folder: URL) throws {
+  func record(
+    _ text: String,
+    from source: String? = nil,
+    at date: Date = .now,
+    in folder: URL
+  ) throws {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return }
 
@@ -53,7 +82,8 @@ actor DictationHistoryStore {
     )
 
     let fileURL = folder.appending(path: Self.fileName(for: date, calendar: calendar))
-    let entry = "\(Self.timestamp(for: date, calendar: calendar))\n\(trimmed)\n\n"
+    let heading = Self.heading(for: date, source: source, calendar: calendar)
+    let entry = "\(heading)\n\(trimmed)\n\n"
     let entryData = Data(entry.utf8)
 
     if let handle = try? FileHandle(forWritingTo: fileURL) {

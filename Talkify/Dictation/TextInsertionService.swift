@@ -36,17 +36,23 @@ final class TextInsertionService {
 
     let isSecure: Bool
     let displayID: CGDirectDisplayID?
+    /// The application that held focus when the session began, for the
+    /// history entry to name. Resolved at capture time rather than at write
+    /// time, because by then the application may be gone.
+    let applicationName: String?
 
     init(
       element: AXUIElement?,
       processIdentifier: pid_t,
       isSecure: Bool,
-      displayID: CGDirectDisplayID?
+      displayID: CGDirectDisplayID?,
+      applicationName: String? = nil
     ) {
       self.element = element
       self.processIdentifier = processIdentifier
       self.isSecure = isSecure
       self.displayID = displayID
+      self.applicationName = applicationName
     }
   }
 
@@ -117,7 +123,10 @@ final class TextInsertionService {
         element: element,
         processIdentifier: processIdentifier,
         isSecure: isSecureTextField(element),
-        displayID: displayID(for: element)
+        displayID: displayID(for: element),
+        applicationName: NSRunningApplication(
+          processIdentifier: processIdentifier
+        )?.localizedName
       )
     }
 
@@ -128,7 +137,8 @@ final class TextInsertionService {
       element: nil,
       processIdentifier: application.processIdentifier,
       isSecure: false,
-      displayID: nil
+      displayID: nil,
+      applicationName: application.localizedName
     )
   }
 
