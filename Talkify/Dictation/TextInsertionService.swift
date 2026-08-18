@@ -175,18 +175,31 @@ final class TextInsertionService {
     return await pasteAndRestoreClipboard(text, into: target)
   }
 
-  private static func focusedElement() -> AXUIElement? {
-    let systemWideElement = AXUIElementCreateSystemWide()
+  /// An AX attribute read as an element.
+  ///
+  /// `.success` says the attribute was read, not that it holds the type its
+  /// name implies, so the type is checked before the cast. CFTypeRef has no
+  /// meaningful `as?`, which is why this is a type-ID check rather than a
+  /// conditional cast.
+  private static func element(
+    _ owner: AXUIElement,
+    _ attribute: String
+  ) -> AXUIElement? {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(
-      systemWideElement,
-      kAXFocusedUIElementAttribute as CFString,
+      owner,
+      attribute as CFString,
       &value
     ) == .success,
-    let value else {
+    let value,
+    CFGetTypeID(value) == AXUIElementGetTypeID() else {
       return nil
     }
     return (value as! AXUIElement)
+  }
+
+  private static func focusedElement() -> AXUIElement? {
+    element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
   }
 
   private func isSecureTextField(_ element: AXUIElement) -> Bool {
@@ -222,17 +235,7 @@ final class TextInsertionService {
   }
 
   private func window(for element: AXUIElement) -> AXUIElement? {
-    var value: CFTypeRef?
-    guard AXUIElementCopyAttributeValue(
-      element,
-      kAXWindowAttribute as CFString,
-      &value
-    ) == .success,
-    let value else {
-      return nil
-    }
-
-    return (value as! AXUIElement)
+    Self.element(element, kAXWindowAttribute)
   }
 
   private func frame(of element: AXUIElement) -> CGRect? {

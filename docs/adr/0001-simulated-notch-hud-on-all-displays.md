@@ -5,5 +5,5 @@ The Direct Dictation HUD always descends from the top center of its display. Dis
 ## Consequences
 
 - One surface, one behavior. Only the notch measurement differs per display.
-- The proven implementation pattern lives in Tilebar's `NotchIsland` module (`/Users/tgomareli/Development/work/Tilebar-dev/Tilebar/Tilebar/Tilebar/Modules/NotchIsland/`): fixed-size host window whose origin moves but never resizes, measured-vs-simulated notch split in `NotchGeometry`, fillets only against a real housing, interactive-rects hit testing.
+- The proven implementation pattern comes from Tilebar's `NotchIsland` module, which is not public: fixed-size host window whose origin moves but never resizes, measured-vs-simulated notch split in `NotchGeometry`, fillets only against a real housing, interactive-rects hit testing. Talkify's own version of it is `CoreHUD/`, and `HUDNotchGeometry` is where the measured-vs-simulated split now lives.
 - No private APIs: the surface needs only `NSWindow.Level.mainMenu + 3`. A CGS/SkyLight call would rule out App Store distribution.
