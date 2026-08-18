@@ -320,6 +320,67 @@ struct StagedTranscriptTests {
     return directory
   }
 
+  /// A transcript is the user's speech in cleartext and Talkify is
+  /// unsandboxed, so nothing else running as the same user should be able to
+  /// open it while it waits on the card.
+  @Test func stagedFilesAreReadableOnlyByTheirOwner() throws {
+    let root = try scratch("permissions")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let staged = try StagedTranscript.stage(text: "private", source: source, root: root)
+
+    let file = try FileManager.default.attributesOfItem(atPath: staged.url.path)
+    #expect(file[.posixPermissions] as? Int == 0o600)
+    let directory = try FileManager.default.attributesOfItem(
+      atPath: staged.url.deletingLastPathComponent().path
+    )
+    #expect(directory[.posixPermissions] as? Int == 0o700)
+  }
+
+  /// The gap this closes: cleanup only ran on commit or discard, so a crash
+  /// with a card on screen left the transcript under $TMPDIR forever.
+  @Test func sweepingClearsWhatACrashWouldHaveLeftBehind() throws {
+    let root = try scratch("sweep")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let staged = try StagedTranscript.stage(text: "stranded", source: source, root: root)
+    #expect(FileManager.default.fileExists(atPath: staged.url.path))
+
+    StagedTranscript.sweep(root: root)
+
+    #expect(!FileManager.default.fileExists(atPath: staged.url.path))
+    #expect(!FileManager.default.fileExists(atPath: root.path))
+  }
+
+  /// Sweeping runs at launch on a root that usually is not there, and staging
+  /// has to work straight afterwards.
+  @Test func sweepingAnAbsentRootIsHarmlessAndStagingStillWorks() throws {
+    let root = try scratch("absent")
+    try FileManager.default.removeItem(at: root)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    StagedTranscript.sweep(root: root)
+    let staged = try StagedTranscript.stage(text: "after", source: source, root: root)
+
+    #expect(try String(contentsOf: staged.url, encoding: .utf8) == "after")
+  }
+
+  /// A root replaced by a symlink would put the transcript wherever that link
+  /// points, so staging replaces it with a real directory instead.
+  @Test func aSymlinkedRootIsReplacedRatherThanFollowed() throws {
+    let parent = try scratch("symlink")
+    defer { try? FileManager.default.removeItem(at: parent) }
+    let elsewhere = parent.appending(path: "elsewhere")
+    try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+    let root = parent.appending(path: "root")
+    try FileManager.default.createSymbolicLink(at: root, withDestinationURL: elsewhere)
+
+    let staged = try StagedTranscript.stage(text: "safe", source: source, root: root)
+
+    #expect(staged.url.path.hasPrefix(root.path))
+    #expect(try FileManager.default.contentsOfDirectory(atPath: elsewhere.path).isEmpty)
+  }
+
   /// Staged under the name it will keep, so what the user drags is already
   /// called what it will be called wherever they drop it.
   @Test func stagingKeepsTheNameTheTranscriptWillHave() throws {
