@@ -11,6 +11,18 @@ struct SoundsSettingsView: View {
   @State private var previewTask: Task<Void, Never>?
 
   var body: some View {
+    SettingsCard(title: "While dictating") {
+      SettingsRow(
+        title: "Lower other audio",
+        description: "Turn the volume down while a session listens, and put it "
+          + "back afterwards. Moves the system output, so it quiets everything"
+      ) {
+        Toggle("Lower other audio", isOn: $settings.duckOtherAudioWhileDictating)
+          .labelsHidden()
+          .toggleStyle(.switch)
+      }
+    }
+
     SettingsCard(title: "Sounds") {
       SettingsRow(
         title: "Play sounds",

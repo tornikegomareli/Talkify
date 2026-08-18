@@ -131,7 +131,12 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, and the transcription history choice
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, and whether the session lowers other audio
+- **Direct Dictation** can lower other audio while it listens and put it back when the session ends, cancels or fails; it is off by default because the control it moves is system-wide
+- macOS has no per-application ducking, so lowering other audio moves the default output device's own volume and quiets Talkify's session sounds along with everything else
+- A lowered volume is restored only while it is still the value Talkify set: a volume the user changed mid-session is theirs, the same rule the clipboard restore follows
+- The device that was lowered is the one restored, not whichever output is default when the session ends: the default can change mid-session, and the volume that needs putting back belongs to the device that was quieted
+- An output with no settable volume does not duck, and neither does one already at silence
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
 - Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
