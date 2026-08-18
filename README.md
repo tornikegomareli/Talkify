@@ -131,13 +131,24 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
 
-`CONTEXT.md` is the domain doc, decisions live in `docs/adr/`
+`CONTEXT.md` is the domain doc, decisions live in `docs/adr/`, and
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is the contract for changing any of it
 
 ## Roadmap
 
 - **Live Captions & Meeting Transcripts**. Ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
 - **Text cleanup**. Optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
 - **Snippets**. Saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
+
+## Contributing
+
+Read [**CONTRIBUTING.md**](CONTRIBUTING.md) first. It covers the issue-first
+flow, branch and pull request naming, code style, the AI policy, and what a bug
+report needs to contain to be actionable.
+
+Start from an issue. A pull request that arrives without one behind it may be
+closed, however good the code is, because design belongs in the issue where it is
+still cheap to change.
 
 ## License
 [MIT](LICENSE)

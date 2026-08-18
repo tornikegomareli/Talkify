@@ -37,8 +37,6 @@ The flow, with the labels the tracker actually uses:
 | `ready-for-human` | Specified, but needs human judgement or hardware | Yes |
 | `wontfix` | Decided against | No |
 
-`good first issue` and `help wanted` mark where to start if you are new.
-
 Search before you post. Add a reaction to an existing issue instead of a "+1"
 comment. Comment only when you have something to add, such as a reproduction, a
 diagnosis, or a case the issue does not cover.
