@@ -56,19 +56,16 @@ enum ShortcutAssignment {
     flags.remove(.maskSecondaryFn)
 
     let isModifierKey = KeyBinding.modifierKeyName(forKeyCode: keyCode) != nil
-    let binding = KeyBinding(
+    var binding = KeyBinding(
       keyCode: keyCode,
       modifierFlags: flags.rawValue,
       isModifierKey: isModifierKey,
       label: "",
       keyEquivalent: isModifierKey ? "" : (layout.legend(for: keyCode)?.lowercased() ?? "")
     )
-    return KeyBinding(
-      keyCode: binding.keyCode,
-      modifierFlags: binding.modifierFlags,
-      isModifierKey: binding.isModifierKey,
-      label: KeyboardMap.caps(for: binding, layout: layout).joined(separator: " "),
-      keyEquivalent: binding.keyEquivalent
-    )
+    // The label is the caps this same binding draws, so it needs the binding
+    // before it can be written.
+    binding.label = KeyboardMap.caps(for: binding, layout: layout).joined(separator: " ")
+    return binding
   }
 }

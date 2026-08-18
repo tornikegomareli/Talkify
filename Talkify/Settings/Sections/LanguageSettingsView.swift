@@ -6,7 +6,6 @@ import SwiftUI
 /// produces confident nonsense rather than an error (CONTEXT.md).
 struct LanguageSettingsView: View {
   @State private var isRecordingSecondKey = false
-  @State private var triggerConflictMessage: String?
   @Bindable var settings: AppSettings
   let runtimeState: SettingsRuntimeState
 
@@ -39,11 +38,10 @@ struct LanguageSettingsView: View {
         if settings.isSecondLanguageEnabled {
           SettingsRow(
             title: "Second language trigger",
-            description: triggerConflictMessage
-              ?? secondaryTriggerDescription
+            description: secondaryTriggerDescription
           ) {
             KeyRecorderView(
-              keyBinding: secondaryTriggerBinding,
+              keyBinding: $settings.secondaryTriggerBinding,
               isRecording: $isRecordingSecondKey,
               allowsBareModifier: true,
               allowsMouseButton: true,
@@ -89,12 +87,6 @@ struct LanguageSettingsView: View {
     .task {
       languages = await SpeechLanguageCatalog.available()
     }
-    .onChange(of: isRecordingSecondKey) { _, isRecording in
-      if isRecording { triggerConflictMessage = nil }
-    }
-    .onChange(of: settings.dictationTriggerBinding) { triggerConflictMessage = nil }
-    .onChange(of: settings.readAloudBinding) { triggerConflictMessage = nil }
-    .onChange(of: settings.secondaryTriggerBinding) { triggerConflictMessage = nil }
   }
 
   /// The first language is not offered as the second: picking it would show the
@@ -148,27 +140,15 @@ struct LanguageSettingsView: View {
   }
 
   private var secondaryTriggerDescription: String {
-    let base = "Hold it to dictate in \(secondaryName)"
-    guard settings.secondaryTriggerBinding.isMouseButton else { return base }
-    return base
-      + ". This button no longer performs its usual action while Talkify is ready."
-  }
-
-  private var secondaryTriggerBinding: Binding<KeyBinding> {
-    Binding(
-      get: { settings.secondaryTriggerBinding },
-      set: { candidate in
-        if settings.dictationTriggerBinding.hasSameInputAndModifiers(as: candidate) {
-          triggerConflictMessage = "Already used by Direct Dictation"
-          return
-        }
-        if settings.readAloudBinding.hasSameInputAndModifiers(as: candidate) {
-          triggerConflictMessage = "Already used by Read Aloud"
-          return
-        }
-        triggerConflictMessage = nil
-        settings.secondaryTriggerBinding = candidate
-      }
-    )
+    let binding = settings.secondaryTriggerBinding
+    var description = "Hold it to dictate in \(secondaryName)"
+    if binding.isMouseButton {
+      description += ". This button keeps its usual action unless that exact "
+        + "combination is pressed"
+    }
+    if let other = settings.roleUsing(binding, excluding: .secondLanguage) {
+      description += ". Also used by \(other.title)"
+    }
+    return description
   }
 }
