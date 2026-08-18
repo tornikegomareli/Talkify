@@ -21,7 +21,7 @@ final class DirectDictationController {
   private static let noSpeechTimeout = Duration.seconds(15)
 
   private let settings: AppSettings
-  private let speechService = SpeechRecognitionService()
+  private let speechService: any SpeechRecognizing
   private let hudController: DictationHUDController
   private let textInsertionService = TextInsertionService()
   private let usageTracker: UsageTracker
@@ -47,8 +47,10 @@ final class DirectDictationController {
   init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    speechService: any SpeechRecognizing = SpeechRecognitionService()
   ) {
+    self.speechService = speechService
     self.settings = settings
     self.hudController = hudController
     self.usageTracker = usageTracker
