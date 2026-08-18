@@ -122,7 +122,13 @@ final class DictationHUDController {
     // and the transcription keeps running with the status item carrying it.
     stage.claim(.dictation, on: screen, rendering: settings)
     startVoiceVisual()
-    content.text = placeholder
+    // A fresh round opens with the listening placeholder; a replacement
+    // round under a held draft keeps the draft — the band's text stays what
+    // the user was reading, and the live words splice into it as they
+    // stream (DraftReplacement).
+    if !content.isReviewing {
+      content.text = placeholder
+    }
     // A fresh round listens display-only, exactly like any dictation: the
     // review's key and mouse are re-armed only once the draft is held again
     // (showEditableDraft). `isReviewing` stays true through a replacement
@@ -134,7 +140,10 @@ final class DictationHUDController {
   func showLatched() {
     guard isListening else { return }
     sessionIsLatched = true
-    content.text = placeholder
+    // A latched replacement round keeps the draft on screen too.
+    if !content.isReviewing {
+      content.text = placeholder
+    }
   }
 
   /// Exposed so the placeholder rules can be asserted without a window.

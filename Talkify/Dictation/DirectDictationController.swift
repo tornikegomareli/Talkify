@@ -382,7 +382,15 @@ final class DirectDictationController {
       dependencies.showLatched()
     case .showLiveText:
       if let pendingLiveText {
-        dependencies.showLiveText(pendingLiveText)
+        // A replacement round keeps its held draft on screen with the
+        // streaming words spliced over the selection; a fresh round shows
+        // the words alone (DraftReplacement).
+        dependencies.showLiveText(
+          DraftReplacement.liveBandText(
+            replacement: pendingReplacement,
+            liveText: pendingLiveText
+          )
+        )
       }
     case .showFinalizing:
       dependencies.showFinalizing()
@@ -593,45 +601,44 @@ final class DirectDictationController {
   }
 
   /// The draft and the selection a replacement round began with, so the
-  /// round can put the draft back (when it delivers nothing) or splice its
-  /// words into exactly that range (when it does).
-  private struct PendingReplacement {
-    let draft: String
-    let range: NSRange
-  }
-
-  private var pendingReplacement: PendingReplacement?
+  /// round can preview its streaming words into that exact spot, put the
+  /// draft back when it delivers nothing, or splice the words over the
+  /// selection when it does.
+  private var pendingReplacement: DraftReplacement?
   /// The session's accumulated speech time across every round, recorded
   /// when the reviewed draft is pasted.
   private var sessionSpeakingDuration: TimeInterval = 0
 
-  /// Freezes the draft and the field's selection before the listening state
-  /// overwrites the band with the round's live text.
-  private func captureDraftSelection() -> PendingReplacement? {
+  /// Freezes the draft and the field's selection before the round starts,
+  /// so its live words can preview into the draft instead of replacing it.
+  private func captureDraftSelection() -> DraftReplacement? {
     guard let hudController else { return nil }
     let draft = hudController.draftText
     let range = hudController.draftSelectionRange
       ?? NSRange(location: draft.utf16.count, length: 0)
-    return PendingReplacement(draft: draft, range: range)
+    return DraftReplacement(draft: draft, range: range)
   }
 
   /// Commits a replacement round's recognized text into the held draft: it
   /// replaces exactly the selection the round began with, and the cursor
   /// lands after the inserted words. A round that delivered nothing leaves
   /// the draft untouched.
-  private func commitReplacement(_ text: String, into pending: PendingReplacement) {
+  private func commitReplacement(_ text: String, into pending: DraftReplacement) {
     pendingReplacement = nil
     guard let hudController else {
       send(.finishCompleted)
       return
     }
-    if text.isEmpty {
-      hudController.setDraft(pending.draft)
-    } else if let range = Range(pending.range, in: pending.draft) {
-      let draft = pending.draft.replacingCharacters(in: range, with: text)
-      let cursor = String.Index(utf16Offset: pending.range.upperBound, in: draft)
+    if pending.hasWords(text) {
+      let draft = pending.committed(with: text)
+      let cursor = String.Index(
+        utf16Offset: pending.insertionPointOffset(committing: text),
+        in: draft
+      )
       hudController.setDraft(draft, selection: TextSelection(insertionPoint: cursor))
     } else {
+      // No words delivered: the draft returns untouched, selection where
+      // it was, so the user can try again or edit.
       hudController.setDraft(pending.draft)
     }
     send(.finishCompleted)
