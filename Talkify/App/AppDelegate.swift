@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var usageTracker: UsageTracker?
   private let settingsRuntimeState = SettingsRuntimeState()
   private let updaterService = SparkleUpdaterService()
+  private let launchAtLoginService = LaunchAtLoginService()
 
   static func main() {
     let application = NSApplication.shared
@@ -213,7 +214,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sounds: HUDSounds(),
         runtimeState: settingsRuntimeState,
         usageTracker: usageTracker,
-        updater: updaterService
+        updater: updaterService,
+        launchAtLogin: launchAtLoginService
       )
     }
     settingsWindowController?.show()

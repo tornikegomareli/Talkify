@@ -13,6 +13,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
+  case general
   case appearance
   case sounds
   case dictation
@@ -28,6 +29,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
   var title: String {
     switch self {
+    case .general: "General"
     case .appearance: "Appearance"
     case .sounds: "Sounds"
     case .dictation: "Dictation"
@@ -42,6 +44,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
   var subtitle: String {
     switch self {
+    case .general: "Choose how Talkify starts"
     case .appearance: "Customize the Direct Dictation HUD"
     case .sounds: "Choose and preview the session sounds"
     case .dictation: "Choose where finished dictation text goes"
@@ -56,6 +59,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
   var icon: String {
     switch self {
+    case .general: "gearshape"
     case .appearance: "sparkles"
     case .sounds: "waveform"
     case .dictation: "text.cursor"
