@@ -26,6 +26,9 @@ final class DirectDictationController {
   private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
   private let ducking = AudioDuckingSession()
+  /// Held for the length of a session. Without it, a Talkify that has sat
+  /// idle for hours is napped, and the HUD's animation clock with it (#77).
+  private let activity = ActivityAssertion(reason: "Direct Dictation session")
   private var focusedTarget: TextInsertionService.Target?
   private var noSpeechTask: Task<Void, Never>?
   private var permissionTask: Task<Void, Never>?
@@ -378,6 +381,7 @@ final class DirectDictationController {
         if currentSessionSettings?.ducksOtherAudio == true { ducking.duck() }
       } else {
         ducking.restore()
+        activity.release()
         focusedTarget = nil
         sessionStartTask = nil
         currentSessionSettings = nil
@@ -393,8 +397,15 @@ final class DirectDictationController {
   private var pendingLiveText: String?
 
   private func checkAndBegin() {
+    // Held here rather than once recording starts: the first HUD frames are
+    // what a napped process draws badly, and by then they have been drawn.
+    // Every rejection below releases it, because .beginRejected produces no
+    // effects and nothing downstream would.
+    activity.hold()
+
     guard isPrepared else {
       dependencies.showMessage(preparationFailureMessage ?? "Preparing speech…", nil)
+      activity.release()
       send(.beginRejected)
       return
     }
@@ -403,6 +414,7 @@ final class DirectDictationController {
       // One dialog that explains it, not the system prompt again on every press.
       dependencies.showAccessibilitySetupAlert()
       startPermissionWatch()
+      activity.release()
       send(.beginRejected)
       return
     }
@@ -410,6 +422,7 @@ final class DirectDictationController {
     let target = dependencies.captureFocusedTarget()
     if target?.isSecure == true {
       dependencies.showMessage("Secure field", target?.displayID)
+      activity.release()
       send(.beginRejected)
       return
     }

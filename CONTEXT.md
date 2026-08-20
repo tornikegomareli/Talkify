@@ -127,6 +127,8 @@ _Avoid_: Transcript history, cloud analytics
 - The wait between the last word and the recognized text is silent — no label stands in for it, and the voice visual comes to rest rather than reading the silence as a dead microphone
 - Compact opens with no text at all, because it is built around the live draft and a placeholder would be words nobody spoke
 - The HUD's shaders and the particle cloud's compute kernels are compiled at launch, so the cost never lands on the first frames of a session
+- Talkify holds a user-initiated activity assertion while a **Direct Dictation** session or a **Drop Transcription** job runs, and holds none while idle: a menu-bar-only app with no window is what App Nap targets, and a napped process draws the HUD's animation clock too slowly to watch
+- The assertion is taken before the begin guards run, because the frames a napped process draws badly are the first ones; every guard that refuses a session releases it again
 - The HUD shows a live visual that reacts to microphone audio while listening
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
