@@ -141,7 +141,7 @@ struct LanguageSettingsView: View {
 
   private var secondaryTriggerDescription: String {
     let binding = settings.secondaryTriggerBinding
-    var description = "Hold it to dictate in \(secondaryName)"
+    var description = "Hold it to dictate in \(secondaryName), or tap it to start and tap again to finish"
     if binding.isMouseButton {
       description += ". This button keeps its usual action unless that exact "
         + "combination is pressed"
