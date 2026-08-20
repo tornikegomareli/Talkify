@@ -80,7 +80,7 @@ struct ShortcutsSettingsView: View {
         .dictation,
         allowsBareModifier: true,
         allowsMouseButton: true,
-        sentence: "Hold %@ to talk, or tap it to keep listening hands-free."
+        sentence: "Hold %@ to talk, or tap it to start and tap again to finish."
       )
 
       if settings.isSecondLanguageEnabled {
@@ -88,7 +88,7 @@ struct ShortcutsSettingsView: View {
           .secondLanguage,
           allowsBareModifier: true,
           allowsMouseButton: true,
-          sentence: "Hold %@ to dictate in your other language."
+          sentence: "Hold %@ to dictate in your other language, or tap it the same way."
         )
       }
 
