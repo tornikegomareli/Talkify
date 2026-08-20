@@ -17,6 +17,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -54,6 +55,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -90,6 +92,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -123,6 +126,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: { nil },
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -160,6 +164,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -188,6 +193,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -220,6 +226,7 @@ struct TextInsertionServiceTests {
         return TextInsertionService.snapshot(of: backgroundPasteboard)
       },
       snapshotTimeout: .milliseconds(150),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -261,6 +268,7 @@ struct TextInsertionServiceTests {
         return snapshot
       },
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -304,6 +312,7 @@ struct TextInsertionServiceTests {
         return snapshot
       },
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -335,6 +344,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -374,6 +384,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -404,6 +415,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -430,6 +442,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -460,6 +473,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { application },
       isProcessRunning: { processIdentifier in
@@ -755,6 +769,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -785,6 +800,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in false },
@@ -811,6 +827,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -840,6 +857,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -874,6 +892,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -906,6 +925,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -937,6 +957,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -971,6 +992,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -1001,6 +1023,7 @@ struct TextInsertionServiceTests {
       pasteboard: pasteboard,
       readClipboardItems: makeClipboardReader(for: pasteboard),
       snapshotTimeout: .milliseconds(100),
+      snapshotTimeoutSignal: Self.neverTimesOut,
       focusedElement: { nil },
       frontmostApplication: { nil },
       isProcessRunning: { _ in true },
@@ -1016,6 +1039,20 @@ struct TextInsertionServiceTests {
 
     #expect(outcome == .inserted)
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// A deadline that never arrives, so the read always wins the race.
+  ///
+  /// Most of these tests are about what the insertion path decides, not about
+  /// the deadline. Leaving a real 100ms timer in them meant asserting that a
+  /// pasteboard read finishes inside 100ms on whatever machine is running, and
+  /// CI is not that machine (#82). Tests that are genuinely about the deadline
+  /// pass their own signal.
+  /// Sixty seconds rather than forever: long enough that it never fires in a
+  /// passing run, short enough that a genuinely stuck read fails the test
+  /// instead of hanging the suite.
+  private static let neverTimesOut: @Sendable (Duration) async -> Void = { _ in
+    try? await Task.sleep(for: .seconds(60))
   }
 
   private func makePasteboard() -> NSPasteboard {

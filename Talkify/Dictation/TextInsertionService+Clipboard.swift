@@ -103,7 +103,10 @@ extension TextInsertionService {
         }
       }
 
-      let timeoutTask = Self.makeSnapshotTimeoutTask(after: timeout) {
+      let timeoutTask = Self.makeSnapshotTimeoutTask(
+        after: timeout,
+        waiting: dependencies.snapshotTimeoutSignal
+      ) {
         complete(.timedOut)
       }
       let executeRead: @Sendable () -> Void = {
@@ -167,14 +170,11 @@ extension TextInsertionService {
   /// - Returns: A task the actual reader must cancel when it completes.
   private nonisolated static func makeSnapshotTimeoutTask(
     after timeout: Duration,
+    waiting: @escaping @Sendable (Duration) async -> Void,
     onTimeout: @escaping @Sendable () -> Void
   ) -> Task<Void, Never> {
     Task {
-      do {
-        try await Task.sleep(for: timeout)
-      } catch {
-        return
-      }
+      await waiting(timeout)
       guard !Task.isCancelled else { return }
       onTimeout()
     }

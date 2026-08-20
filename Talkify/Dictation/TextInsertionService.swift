@@ -66,6 +66,17 @@ final class TextInsertionService {
     let readClipboardItems: @Sendable () -> [ClipboardItemSnapshot]?
     /// The total acquisition deadline shared by the first read and one reread.
     let snapshotTimeout: Duration
+    /// How the snapshot deadline is waited out.
+    ///
+    /// Injectable so a test can decide which of the two racers wins instead of
+    /// hoping the machine is fast enough: a signal that never returns lets the
+    /// read win, one that returns at once lets the deadline win. Production
+    /// sleeps. Before this, every insertion test was really asserting that a
+    /// real pasteboard read finished inside 100 milliseconds on whatever
+    /// machine happened to be running it (#82).
+    var snapshotTimeoutSignal: @Sendable (Duration) async -> Void = { timeout in
+      try? await Task.sleep(for: timeout)
+    }
     let focusedElement: @MainActor () -> AXUIElement?
     let frontmostApplication: @MainActor () -> NSRunningApplication?
     let isProcessRunning: @MainActor (pid_t) -> Bool
