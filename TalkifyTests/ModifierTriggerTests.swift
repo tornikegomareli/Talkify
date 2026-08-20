@@ -53,9 +53,9 @@ struct ModifierTriggerTests {
   }
 
   /// fn has no twin, so it keeps using its own flag and no device bits.
-  @Test func fnUsesItsSharedFlag() {
+  @Test func fnUsesItsSharedFlag() throws {
     let fn = KeyBinding.fnTrigger
-    #expect(KeyBinding.deviceMasks(forKeyCode: fn.keyCode) == nil)
+    #expect(KeyBinding.deviceMasks(forKeyCode: try #require(fn.keyCode)) == nil)
     #expect(GlobalKeyEventMonitor.isModifierKeyDown(
       fn, flags: CGEventFlags.maskSecondaryFn
     ))
@@ -170,5 +170,326 @@ struct ComboTriggerRegressionTests {
     #expect(KeyBinding.chordKey(existing: nil, pressed: 58) == 58)
     // Two combining modifiers: the newest wins, so ⇧ then ⌥ binds ⌥ + ⇧.
     #expect(KeyBinding.chordKey(existing: 56, pressed: 58) == 58)
+  }
+}
+
+@Suite("Mouse-button triggers")
+struct MouseButtonTriggerTests {
+  private final class EventLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [GlobalKeyEventMonitor.Event] = []
+
+    func append(_ event: GlobalKeyEventMonitor.Event) {
+      lock.lock()
+      stored.append(event)
+      lock.unlock()
+    }
+
+    var events: [GlobalKeyEventMonitor.Event] {
+      lock.lock()
+      defer { lock.unlock() }
+      return stored
+    }
+  }
+
+  private func mouseEvent(
+    _ type: CGEventType,
+    buttonNumber: Int64,
+    flags: CGEventFlags = []
+  ) throws -> CGEvent {
+    let button = try #require(CGMouseButton(rawValue: UInt32(buttonNumber)))
+    let event = try #require(CGEvent(
+      mouseEventSource: nil,
+      mouseType: type,
+      mouseCursorPosition: .zero,
+      mouseButton: button
+    ))
+    event.flags = flags
+    event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
+    return event
+  }
+
+  @Test func middleClickPressesAndReleasesThePrimaryTrigger() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    monitor.setBindings(trigger: middleClick, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    let up = try mouseEvent(.otherMouseUp, buttonNumber: 2)
+
+    #expect(monitor.process(type: .otherMouseDown, event: down) == nil)
+    #expect(monitor.process(type: .otherMouseUp, event: up) == nil)
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  /// The point of binding a combination: the bare button is left alone. A
+  /// trigger that ate every middle click would take away the button the user
+  /// was trying to keep.
+  @Test func aBareClickPassesThroughWhenTheTriggerNeedsAModifier() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let optionMiddle = try #require(KeyBinding.mouseButton(number: 2, modifiers: [.option]))
+    monitor.setBindings(trigger: optionMiddle, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let bareDown = try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    let bareDrag = try mouseEvent(.otherMouseDragged, buttonNumber: 2)
+    let bareUp = try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    #expect(monitor.process(type: .otherMouseDown, event: bareDown) != nil)
+    #expect(monitor.process(type: .otherMouseDragged, event: bareDrag) != nil)
+    #expect(monitor.process(type: .otherMouseUp, event: bareUp) != nil)
+    #expect(log.events.isEmpty)
+
+    let optionDown = try mouseEvent(
+      .otherMouseDown,
+      buttonNumber: 2,
+      flags: .maskAlternate
+    )
+    #expect(monitor.process(type: .otherMouseDown, event: optionDown) == nil)
+    #expect(log.events == [.triggerPressed(.primary)])
+  }
+
+  /// A modifier pressed after the button changes nothing: that click already
+  /// belongs to whatever is under the pointer.
+  @Test func aModifierAfterAnUnmatchedClickStartsNothing() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let optionMiddle = try #require(KeyBinding.mouseButton(number: 2, modifiers: [.option]))
+    monitor.setBindings(trigger: optionMiddle, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let middleDown = try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    #expect(monitor.process(type: .otherMouseDown, event: middleDown) != nil)
+
+    let optionDown = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 58,
+      keyDown: true
+    ))
+    optionDown.flags = .maskAlternate
+    #expect(monitor.process(type: .flagsChanged, event: optionDown) != nil)
+    #expect(log.events.isEmpty)
+  }
+
+  @Test func secondaryCanReuseThePrimaryMouseButtonWithDifferentModifiers() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    let optionMiddle = try #require(KeyBinding.mouseButton(number: 2, modifiers: [.option]))
+    monitor.setBindings(
+      trigger: middleClick,
+      secondaryTrigger: optionMiddle,
+      readAloud: .optionEscape
+    )
+
+    let optionDown = try mouseEvent(
+      .otherMouseDown,
+      buttonNumber: 2,
+      flags: .maskAlternate
+    )
+    #expect(monitor.process(type: .otherMouseDown, event: optionDown) == nil)
+    #expect(log.events == [.triggerPressed(.secondary)])
+  }
+
+  @Test func secondaryCanReuseThePrimaryKeyboardKeyWithDifferentModifiers() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let plainP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: 0,
+      isModifierKey: false,
+      label: "P",
+      keyEquivalent: "p"
+    )
+    let shiftP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: false,
+      label: "⇧ P",
+      keyEquivalent: "p"
+    )
+    monitor.setBindings(trigger: plainP, secondaryTrigger: shiftP, readAloud: .optionEscape)
+
+    let event = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 35,
+      keyDown: true
+    ))
+    event.flags = .maskShift
+    #expect(monitor.process(type: .keyDown, event: event) == nil)
+    #expect(log.events == [.triggerPressed(.secondary)])
+  }
+
+  @Test func anUnboundMouseButtonPassesThrough() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    monitor.setBindings(trigger: middleClick, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try mouseEvent(.otherMouseDown, buttonNumber: 3)
+    let up = try mouseEvent(.otherMouseUp, buttonNumber: 3)
+    #expect(monitor.process(type: .otherMouseDown, event: down) != nil)
+    #expect(monitor.process(type: .otherMouseUp, event: up) != nil)
+    #expect(log.events.isEmpty)
+  }
+
+  @Test func aSecondBoundMouseButtonIsReservedWhileAnotherIsCaptured() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    let mouseFour = try #require(KeyBinding.mouseButton(number: 3))
+    monitor.setBindings(
+      trigger: middleClick,
+      secondaryTrigger: mouseFour,
+      readAloud: .optionEscape
+    )
+
+    #expect(monitor.process(
+      type: .otherMouseDown,
+      event: try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    ) == nil)
+    #expect(monitor.process(
+      type: .otherMouseDown,
+      event: try mouseEvent(.otherMouseDown, buttonNumber: 3)
+    ) == nil)
+    #expect(monitor.process(
+      type: .otherMouseUp,
+      event: try mouseEvent(.otherMouseUp, buttonNumber: 3)
+    ) == nil)
+    #expect(log.events == [.triggerPressed(.primary)])
+
+    #expect(monitor.process(
+      type: .otherMouseUp,
+      event: try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    ) == nil)
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  /// One session at a time. The other language's button is swallowed while fn
+  /// holds the session — so its release can be swallowed too — but it starts
+  /// nothing, and it does not start late once fn is let go either.
+  @Test func aMousePressedDuringAnotherSessionStaysInert() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: middleClick,
+      readAloud: .optionEscape
+    )
+
+    let fnDown = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 63,
+      keyDown: true
+    ))
+    fnDown.flags = .maskSecondaryFn
+    #expect(monitor.process(type: .flagsChanged, event: fnDown) == nil)
+
+    #expect(monitor.process(
+      type: .otherMouseDown,
+      event: try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    ) == nil)
+    #expect(log.events == [.triggerPressed(.primary)])
+
+    let fnUp = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 63,
+      keyDown: false
+    ))
+    fnUp.flags = []
+    #expect(monitor.process(type: .flagsChanged, event: fnUp) == nil)
+
+    #expect(monitor.process(
+      type: .otherMouseUp,
+      event: try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    ) == nil)
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  @Test func aCapturedMouseDragIsSwallowed() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    monitor.setBindings(trigger: middleClick, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    #expect(monitor.process(
+      type: .otherMouseDown,
+      event: try mouseEvent(.otherMouseDown, buttonNumber: 2)
+    ) == nil)
+    #expect(monitor.process(
+      type: .otherMouseDragged,
+      event: try mouseEvent(.otherMouseDragged, buttonNumber: 2)
+    ) == nil)
+    #expect(monitor.process(
+      type: .otherMouseUp,
+      event: try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    ) == nil)
+  }
+
+  @Test func sharedKeyboardKeyReleasesTheSlotThatActuallyStarted() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let plainP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: 0,
+      isModifierKey: false,
+      label: "P",
+      keyEquivalent: "p"
+    )
+    let shiftP = KeyBinding(
+      keyCode: 35,
+      modifierFlags: CGEventFlags.maskShift.rawValue,
+      isModifierKey: false,
+      label: "⇧ P",
+      keyEquivalent: "p"
+    )
+    monitor.setBindings(trigger: plainP, secondaryTrigger: shiftP, readAloud: .optionEscape)
+
+    let down = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 35,
+      keyDown: true
+    ))
+    down.flags = .maskShift
+    #expect(monitor.process(type: .keyDown, event: down) == nil)
+
+    let up = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 35,
+      keyDown: false
+    ))
+    up.flags = []
+    #expect(monitor.process(type: .keyUp, event: up) == nil)
+    #expect(log.events == [.triggerPressed(.secondary), .triggerReleased(.secondary)])
+  }
+
+  @Test func releasingAModifierEndsButStillCapturesTheMouseUp() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let optionMiddle = try #require(KeyBinding.mouseButton(number: 2, modifiers: [.option]))
+    monitor.setBindings(trigger: optionMiddle, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try mouseEvent(.otherMouseDown, buttonNumber: 2, flags: .maskAlternate)
+    #expect(monitor.process(type: .otherMouseDown, event: down) == nil)
+
+    let modifierRelease = try #require(CGEvent(
+      keyboardEventSource: nil,
+      virtualKey: 58,
+      keyDown: false
+    ))
+    modifierRelease.flags = []
+    #expect(monitor.process(type: .flagsChanged, event: modifierRelease) != nil)
+
+    let up = try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    #expect(monitor.process(type: .otherMouseUp, event: up) == nil)
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  @Test func leftRightAndButtonsAboveTheSystemLimitAreNotBindable() {
+    #expect(KeyBinding.mouseButton(number: 0) == nil)
+    #expect(KeyBinding.mouseButton(number: 1) == nil)
+    #expect(KeyBinding.mouseButton(number: 32) == nil)
+    #expect(KeyBinding.mouseButton(number: 2)?.label == "Middle Click")
+    #expect(KeyBinding.mouseButton(number: 31)?.label == "Mouse 32")
   }
 }

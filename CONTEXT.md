@@ -24,7 +24,7 @@ A session that converts the user's microphone speech into text for the previousl
 _Avoid_: Voice typing, transcription mode
 
 **Dictation Trigger**:
-The configured keyboard input that controls **Direct Dictation** through press, release, and tap gestures.
+The configured keyboard or mouse-button input that controls **Direct Dictation** through press, release, and tap gestures.
 _Avoid_: Hotkey, shortcut
 
 **Dictation Language**:
@@ -181,10 +181,10 @@ _Avoid_: Transcript history, cloud analytics
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
 - Version 1 inserts raw finalized text without filler-word or AI cleanup
 - Text cleanup is a later feature and must not affect the first implementation
-- A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger key, never automatic detection
+- A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger, never automatic detection
 - Talkify never detects the spoken language: Apple Speech transcribes one language per session, and a wrong guess returns confident nonsense instead of an error
 - Every bound **Dictation Language** stays prewarmed and reserved, so either trigger answers as fast as the other
-- A session runs in the language of the key that started it, and the other trigger is inert until that session ends
+- A session runs in the language of the trigger that started it, and the other trigger is inert until that session ends
 - The HUD shows a language tag only while a second **Dictation Language** is configured
 - Speech models use Apple's `lingering` retention policy
 - Talkify prepares the selected speech model shortly after launch
@@ -235,13 +235,14 @@ _Avoid_: Transcript history, cloud analytics
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
 - Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
 - Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
-- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key becomes the binding, and plain Escape cancels recording
-- A **Dictation Trigger** is one key plus any modifiers held with it; only the trigger may bind a bare modifier such as fn, because a hold gesture needs a key that can be held
+- The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key or supported mouse button becomes the binding, and plain Escape cancels recording
+- A **Dictation Trigger** is one keyboard key or supported mouse button plus any keyboard modifiers held with it; only the trigger may bind a bare modifier such as fn or a mouse button, because a hold gesture needs an input that can be held
+- Mouse triggers support Middle Click and the auxiliary mouse buttons reported by macOS; left and right click are never bindable because taking either away globally would break ordinary interaction
 - A modifier chord commits on the first release rather than on each press, so reaching fn + ⌥ is not cut short by ⌥ landing first
 - The bound key of a chord is the one that cannot be a required modifier: fn pressed before or after ⌥ still binds fn, because only command, option, control and shift can be required
 - A **Dictation Trigger** fires on exactly the modifiers it was recorded with and no others: fn alone no longer starts a session once the trigger is fn + ⌥, which is the point of binding a combination on a keyboard where every single key is already spoken for
 - A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first, and starts the moment it completes, whichever key completed it
-- Only the trigger's own key is swallowed; a modifier that merely completes or breaks the combination passes through, so other applications still see it go down and up
+- Only the trigger's own key or button is swallowed, and only while its exact binding is pressed: a modifier that merely completes or breaks the combination passes through, and binding ⌥ + Middle Click leaves plain middle click doing what it always did
 - The Shortcuts section draws the user's own keyboard above the recorders, with each binding's keys lit in its own color, because which keys are still free is a question about a physical object that a list of labels cannot answer
 - The drawn keyboard takes its shape from the attached keyboard and its legends from the selected input source, so it matches the board in front of the user rather than a US one: an ISO board puts § left of 1, moves the backtick beside left ⇧ and runs Return down two rows, and an AZERTY or Georgian source relabels the same keys
 - The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label
@@ -253,7 +254,9 @@ _Avoid_: Transcript history, cloud analytics
 - Each binding is a row whose keys are drawn as one cap per physical key on the leading edge, modifiers first in the order macOS writes them, and whose description names those keys in the sentence that says what they do
 - The whole row is the recorder: clicking anywhere in it arms, and while armed the caps collapse to one placeholder and the description says what to press
 - A non-modifier Dictation Trigger key is swallowed while bound: press starts the hold gesture, release ends it, and autorepeat is ignored
-- While a key recorder is armed, global trigger handling pauses so the rebind keystroke cannot start a session
+- A mouse-button **Dictation Trigger** behaves as its key equivalent does: the matching press starts the hold gesture, the release ends it, and releasing a required modifier ends it early
+- A swallowed mouse button stays swallowed through its drag and its release, because letting the release through after eating the press leaves the application under the pointer believing the button is still down
+- While a shortcut recorder is armed, global trigger handling pauses so the rebind input cannot start a session
 - The status menu shows the current bindings (a badge for the trigger, a key equivalent for Read Aloud where representable) and updates immediately when Settings changes them
 - Talkify swallows the configured Read Aloud shortcut so the system speak-selection never double-fires; plain Escape remains the dictation cancel, captured only mid-session
 - The Read Aloud shortcut is ignored while Direct Dictation is active — speech playback would feed the recognizer its own audio

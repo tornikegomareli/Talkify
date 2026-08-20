@@ -2,8 +2,9 @@ import SwiftUI
 
 /// The Shortcuts section: the user's own keyboard with the bound keys lit,
 /// above one row per binding. The whole row is the recorder — clicking it arms,
-/// and the next keystroke becomes the binding — so the keycaps on the leading
-/// edge are the binding rather than a control sitting beside it.
+/// and the next keystroke or supported mouse-button press becomes the binding —
+/// so the caps on the leading edge are the binding rather than a control
+/// sitting beside it.
 struct ShortcutsSettingsView: View {
   @Bindable var settings: AppSettings
 
@@ -11,10 +12,10 @@ struct ShortcutsSettingsView: View {
   /// every redraw: translating the whole board is cheap but not free, and the
   /// answer only moves when the user switches language or swaps keyboards.
   @State private var layout = KeyboardLayout.ansiFallback
-  @State private var hovered: Role?
+  @State private var hovered: BindingRole?
   /// Which row is armed, and the keys clicked on the keyboard so far. Only one
   /// row can be armed, so the section owns this rather than each recorder.
-  @State private var armed: Role?
+  @State private var armed: BindingRole?
   @State private var picked: [Int64] = []
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -23,21 +24,6 @@ struct ShortcutsSettingsView: View {
   /// on every update.
   private static let inputSourceChanges = DistributedNotificationCenter.default()
     .publisher(for: KeyboardLayout.inputSourceChanged)
-
-  /// Which binding a row belongs to. The colors are the lit keys' colors.
-  private enum Role: Hashable {
-    case dictation
-    case secondLanguage
-    case readAloud
-
-    var color: Color {
-      switch self {
-      case .dictation: SettingsTheme.accent
-      case .secondLanguage: Color(red: 0.45, green: 0.82, blue: 0.6)
-      case .readAloud: Color(red: 0.95, green: 0.7, blue: 0.35)
-      }
-    }
-  }
 
   var body: some View {
     VStack(spacing: 16) {
@@ -89,47 +75,44 @@ struct ShortcutsSettingsView: View {
   private var isArmed: Bool { armed != nil }
 
   private var keysCard: some View {
-    SettingsCard(title: "Keys") {
+    SettingsCard(title: "Bindings") {
       row(
         .dictation,
-        title: "Direct Dictation",
-        binding: $settings.dictationTriggerBinding,
         allowsBareModifier: true,
-        description: "Hold %@ to talk, or tap it to keep listening hands-free."
+        allowsMouseButton: true,
+        sentence: "Hold %@ to talk, or tap it to keep listening hands-free."
       )
 
       if settings.isSecondLanguageEnabled {
         row(
           .secondLanguage,
-          title: "Second Language",
-          binding: $settings.secondaryTriggerBinding,
           allowsBareModifier: true,
-          description: "Hold %@ to dictate in your other language."
+          allowsMouseButton: true,
+          sentence: "Hold %@ to dictate in your other language."
         )
       }
 
       row(
         .readAloud,
-        title: "Read Aloud",
-        binding: $settings.readAloudBinding,
         allowsBareModifier: false,
-        description: "Press %@ to read the selection, again to stop."
+        allowsMouseButton: false,
+        sentence: "Press %@ to read the selection, again to stop."
       )
     }
   }
 
   private func row(
-    _ role: Role,
-    title: String,
-    binding: Binding<KeyBinding>,
+    _ role: BindingRole,
     allowsBareModifier: Bool,
+    allowsMouseButton: Bool,
     /// A sentence with %@ where the bound keys go, so it renames itself with
     /// the binding.
-    description: String
+    sentence: String
   ) -> some View {
     KeyRecorderView(
-      keyBinding: binding,
+      keyBinding: binding(for: role),
       allowsBareModifier: allowsBareModifier,
+      allowsMouseButton: allowsMouseButton,
       isRecording: Binding(
         get: { armed == role },
         set: { isArmed in
@@ -142,15 +125,36 @@ struct ShortcutsSettingsView: View {
       let caps = KeyboardMap.caps(for: keyBinding, layout: layout)
       ShortcutRow(
         caps: caps,
-        title: title,
-        description: String(format: description, caps.joined(separator: " ")),
+        title: role.title,
+        description: description(sentence, for: keyBinding, in: role, caps: caps),
         isRecording: isRecording,
         accent: role.color,
+        acceptsMouseButton: allowsMouseButton,
+        isMouseBinding: keyBinding.isMouseButton,
         pickedCaps: isRecording ? pickedCaps : [],
         onConfirm: isRecording && !picked.isEmpty ? { commit(picked) } : nil
       )
     }
     .onHover { hovered = $0 ? role : nil }
+  }
+
+  /// What the row says under its title: what the binding does, what it costs
+  /// when it is a mouse button, and whether another row already has it.
+  private func description(
+    _ sentence: String,
+    for binding: KeyBinding,
+    in role: BindingRole,
+    caps: [String]
+  ) -> String {
+    let named = binding.isMouseButton ? binding.label : caps.joined(separator: " ")
+    var description = String(format: sentence, named)
+    if binding.isMouseButton {
+      description += " This button keeps its usual action unless that exact combination is pressed."
+    }
+    if let other = settings.roleUsing(binding, excluding: role) {
+      description += " Also used by \(other.title)."
+    }
+    return description
   }
 
   private func pick(_ keyCode: Int64) {
@@ -169,12 +173,11 @@ struct ShortcutsSettingsView: View {
     picked = []
   }
 
-  private func binding(for role: Role) -> Binding<KeyBinding> {
-    switch role {
-    case .dictation: $settings.dictationTriggerBinding
-    case .secondLanguage: $settings.secondaryTriggerBinding
-    case .readAloud: $settings.readAloudBinding
-    }
+  private func binding(for role: BindingRole) -> Binding<KeyBinding> {
+    Binding(
+      get: { settings.binding(for: role) },
+      set: { settings.setBinding($0, for: role) }
+    )
   }
 
   private var pickedCaps: [String] {
@@ -194,11 +197,26 @@ struct ShortcutsSettingsView: View {
     return result
   }
 
-  private func highlight(_ role: Role, _ keyBinding: KeyBinding) -> KeyboardMapView.Highlight {
+  private func highlight(
+    _ role: BindingRole,
+    _ keyBinding: KeyBinding
+  ) -> KeyboardMapView.Highlight {
     KeyboardMapView.Highlight(
       keyCodes: KeyboardMap.highlighted(for: keyBinding),
       color: role.color,
       isEmphasized: hovered == role || hovered == nil
     )
+  }
+}
+
+/// The color that identifies a binding, both where its keys light on the drawn
+/// keyboard and on its own row.
+private extension BindingRole {
+  var color: Color {
+    switch self {
+    case .dictation: SettingsTheme.accent
+    case .secondLanguage: Color(red: 0.45, green: 0.82, blue: 0.6)
+    case .readAloud: Color(red: 0.95, green: 0.7, blue: 0.35)
+    }
   }
 }

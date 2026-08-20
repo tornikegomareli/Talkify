@@ -82,7 +82,11 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Everything else | Menu bar ghost → Settings |
 
-The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**
+The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**.
+Direct Dictation can use a keyboard key, Middle Click by pressing the scroll
+wheel, or another auxiliary mouse button. A bound button keeps its usual action
+unless the exact combination you bound is pressed, so binding ⌥ + Middle Click
+leaves plain middle click alone.
 
 ## Drop a file on the notch
 
@@ -104,11 +108,12 @@ With a second dictation language configured, the target splits in two and the
 half you drop on picks the language. **Transcribe File…** in the menu does the
 same with a picker.
 
-## Two languages, two keys
+## Two languages, two triggers
 
-Pick a second language in **Settings → Language** and it gets its own key. Hold
+Pick a second language in **Settings → Language** and it gets its own trigger. Hold
 **fn** for English, hold **right ⌥** for German, with no setting to change in
-between. Both keys are rebindable, and either can be the one you use most.
+between. Both triggers are rebindable, and either can use a keyboard key or a
+supported mouse button.
 
 Apple Speech transcribes one language per session and offers no way to detect
 which language you are speaking, so Talkify does not guess. Guessing would mean

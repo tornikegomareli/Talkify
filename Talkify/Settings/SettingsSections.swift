@@ -50,8 +50,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .dictation: "Choose where finished dictation text goes"
     case .dropTranscription: "Transcribe audio and video files"
     case .readAloud: "Choose the voice that reads selected text"
-    case .language: "Pick your dictation languages and their keys"
-    case .shortcuts: "Rebind the Direct Dictation and Read Aloud keys"
+    case .language: "Pick your dictation languages and their triggers"
+    case .shortcuts: "Rebind Direct Dictation triggers and Read Aloud"
     case .updates: "Keep Talkify current"
     case .insights: "Review your local Direct Dictation activity"
     }

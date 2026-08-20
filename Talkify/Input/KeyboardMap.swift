@@ -95,9 +95,9 @@ enum KeyboardMap {
     98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
   ]
 
-  /// The keycaps a binding shows: its modifiers in the order macOS writes them,
-  /// then the key itself. One cap per physical key, rather than one label with
-  /// everything crammed into it.
+  /// The caps a binding shows: its modifiers in the order macOS writes them,
+  /// then the key or mouse button itself. One cap per physical input, rather
+  /// than one label with everything crammed into it.
   static func caps(for binding: KeyBinding, layout: KeyboardLayout) -> [String] {
     var caps: [String] = []
     let modifiers = binding.modifiers
@@ -105,7 +105,11 @@ enum KeyboardMap {
     if modifiers.contains(.maskAlternate) { caps.append("⌥") }
     if modifiers.contains(.maskShift) { caps.append("⇧") }
     if modifiers.contains(.maskCommand) { caps.append("⌘") }
-    caps.append(cap(for: binding.keyCode, layout: layout))
+    if let buttonNumber = binding.mouseButtonNumber {
+      caps.append(KeyBinding.mouseButtonCap(number: buttonNumber))
+    } else if let keyCode = binding.keyCode {
+      caps.append(cap(for: keyCode, layout: layout))
+    }
     return caps
   }
 
@@ -121,7 +125,7 @@ enum KeyboardMap {
   /// requires. A modifier appears on both sides of the board, so both light —
   /// the binding does not care which one is pressed unless it named a side.
   static func highlighted(for binding: KeyBinding) -> Set<Int64> {
-    var keyCodes: Set<Int64> = [binding.keyCode]
+    var keyCodes = Set(binding.keyCode.map { [$0] } ?? [])
     let modifiers = binding.modifiers
     if modifiers.contains(.maskCommand) { keyCodes.formUnion([55, 54]) }
     if modifiers.contains(.maskAlternate) { keyCodes.formUnion([58, 61]) }

@@ -4,12 +4,12 @@ import Foundation
 final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// Which dictation trigger fired. Each slot carries its own language, so
   /// the controller needs to know which key started the session.
-  enum TriggerSlot: Sendable {
+  enum TriggerSlot: Sendable, Equatable {
     case primary
     case secondary
   }
 
-  enum Event: Sendable {
+  enum Event: Sendable, Equatable {
     case triggerPressed(TriggerSlot)
     case triggerReleased(TriggerSlot)
     case cancelPressed
@@ -24,9 +24,13 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   private var eventTap: CFMachPort?
   private var runLoopSource: CFRunLoopSource?
   /// Which slot's key is currently held, nil when none. One at a time: the
-  /// other language's key is inert until this one is released, so a session
+  /// other language's trigger is inert until this one is released, so a session
   /// can never be half German and half English.
   private var heldSlot: TriggerSlot?
+  /// Mouse buttons whose press this tap swallowed. They stay swallowed
+  /// through drag and up: letting the release through after eating the press
+  /// leaves the app under the pointer believing the button is still down.
+  private var capturedMouseButtons: Set<Int64> = []
   private var captureEscape = false
   /// True while a Settings key recorder is armed: every event passes
   /// through untouched so the rebind keystroke cannot start a session.
@@ -50,6 +54,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       .flagsChanged,
       .keyDown,
       .keyUp,
+      .otherMouseDown,
+      .otherMouseDragged,
+      .otherMouseUp,
       .tapDisabledByTimeout,
       .tapDisabledByUserInput,
     ])
@@ -102,6 +109,7 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
     stateLock.withLock {
       heldSlot = nil
+      capturedMouseButtons.removeAll()
       captureEscape = false
     }
   }
@@ -112,8 +120,8 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     }
   }
 
-  /// Applies the recorded Settings bindings. Safe while the tap runs; a
-  /// key held through a rebind simply never delivers its release.
+  /// Applies the recorded Settings bindings. Safe while the tap runs; an
+  /// input held through a rebind simply never delivers its release.
   /// `secondaryTrigger` is nil when no second language is chosen.
   func setBindings(
     trigger: KeyBinding,
@@ -124,14 +132,13 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       triggerBinding = trigger
       // A second trigger identical to the first would make the slot
       // ambiguous, so the primary always wins and the second is dropped. Only
-      // the keys matter here: the same binding recorded and clicked carries a
-      // different label, and comparing whole values would miss the clash.
-      let isDuplicate = secondaryTrigger.map {
-        $0.keyCode == trigger.keyCode && $0.modifierFlags == trigger.modifierFlags
-      } ?? false
+      // the inputs matter here: the same binding recorded and clicked carries
+      // a different label, and comparing whole values would miss the clash.
+      let isDuplicate = secondaryTrigger?.hasSameInputAndModifiers(as: trigger) ?? false
       secondaryTriggerBinding = isDuplicate ? nil : secondaryTrigger
       readAloudBinding = readAloud
       heldSlot = nil
+      capturedMouseButtons.removeAll()
     }
   }
 
@@ -140,10 +147,14 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     stateLock.withLock {
       suspended = isSuspended
       heldSlot = nil
+      capturedMouseButtons.removeAll()
     }
   }
 
-  private func process(
+  /// The tap callback's body. Internal rather than private so the gesture
+  /// rules can be driven with synthetic events instead of a live tap; nothing
+  /// outside the tests calls it.
+  func process(
     type: CGEventType,
     event: CGEvent
   ) -> Unmanaged<CGEvent>? {
@@ -159,6 +170,55 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       return Unmanaged.passUnretained(event)
     }
 
+    // A bound button is swallowed only while its exact combination is
+    // pressed, exactly as a bound key is: someone who binds ⌥ + Middle did so
+    // to keep plain middle click, and taking that away globally would be the
+    // opposite of what they asked for.
+    if type == .otherMouseDown {
+      let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+      var output: Event?
+      var wasCaptured = false
+      stateLock.withLock {
+        guard let (slot, _) = satisfiedMouseTrigger(
+          forButtonNumber: buttonNumber,
+          flags: event.flags
+        ) else { return }
+        wasCaptured = true
+        guard capturedMouseButtons.insert(buttonNumber).inserted else { return }
+        // Another trigger owns the session: the press is still swallowed, so
+        // its release can be too, but it starts nothing.
+        guard heldSlot == nil else { return }
+        heldSlot = slot
+        output = .triggerPressed(slot)
+      }
+      if let output { handler(output) }
+      return wasCaptured ? nil : Unmanaged.passUnretained(event)
+    }
+
+    if type == .otherMouseDragged {
+      let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+      let wasCaptured = stateLock.withLock {
+        capturedMouseButtons.contains(buttonNumber)
+      }
+      return wasCaptured ? nil : Unmanaged.passUnretained(event)
+    }
+
+    if type == .otherMouseUp {
+      let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+      var output: Event?
+      let wasCaptured = stateLock.withLock {
+        guard capturedMouseButtons.remove(buttonNumber) != nil else { return false }
+        if let held = heldSlot,
+           binding(for: held)?.mouseButtonNumber == buttonNumber {
+          heldSlot = nil
+          output = .triggerReleased(held)
+        }
+        return true
+      }
+      if let output { handler(output) }
+      return wasCaptured ? nil : Unmanaged.passUnretained(event)
+    }
+
     if type == .flagsChanged {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
       var output: Event?
@@ -167,6 +227,18 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       var matchedKeyCode: Int64?
 
       stateLock.withLock {
+        // A mouse trigger with required modifiers ends as soon as one of them
+        // is released, the same way a key combination does. The button's own
+        // release stays captured, so nothing leaks when it finally comes up.
+        if let held = heldSlot,
+           let binding = binding(for: held),
+           binding.isMouseButton {
+          guard !Self.flagsMatch(event.flags, mask: binding.modifiers) else { return }
+          heldSlot = nil
+          output = .triggerReleased(held)
+          return
+        }
+
         // A held modifier trigger ends the moment its combination breaks,
         // whoever broke it: with fn + ⌥ the released key is often ⌥, whose
         // keycode is not the one the trigger is bound to.
@@ -201,13 +273,16 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     if type == .keyDown {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
       let (readAloud, shouldCapture, plainTrigger) = stateLock.withLock {
-        (readAloudBinding, captureEscape, plainKeyTrigger(forKeyCode: keyCode))
+        (
+          readAloudBinding,
+          captureEscape,
+          plainKeyTrigger(forKeyCode: keyCode, flags: event.flags)
+        )
       }
 
       // A non-modifier trigger key: press starts the hold gesture.
       // Autorepeat is the key being held, not pressed again.
-      if let (slot, binding) = plainTrigger,
-         Self.flagsMatch(event.flags, mask: binding.modifiers) {
+      if let (slot, _) = plainTrigger {
         guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else {
           return nil
         }
@@ -242,10 +317,13 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
       var output: Event?
       stateLock.withLock {
-        guard let (slot, _) = plainKeyTrigger(forKeyCode: keyCode),
-           heldSlot == slot else { return }
+        guard let held = heldSlot,
+           let binding = binding(for: held),
+           !binding.isModifierKey,
+           binding.keyCode == keyCode
+        else { return }
         heldSlot = nil
-        output = .triggerReleased(slot)
+        output = .triggerReleased(held)
       }
       if let output {
         handler(output)
@@ -255,19 +333,6 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     }
 
     return Unmanaged.passUnretained(event)
-  }
-
-  /// Resolves a keycode to a trigger slot. Both helpers must be called with
-  /// `stateLock` held; the primary is checked first so it wins any overlap.
-  private func modifierTrigger(forKeyCode keyCode: Int64) -> (TriggerSlot, KeyBinding)? {
-    if triggerBinding.isModifierKey, keyCode == triggerBinding.keyCode {
-      return (.primary, triggerBinding)
-    }
-    if let secondary = secondaryTriggerBinding,
-     secondary.isModifierKey, keyCode == secondary.keyCode {
-      return (.secondary, secondary)
-    }
-    return nil
   }
 
   /// The modifier trigger these flags currently satisfy, primary first so it
@@ -286,17 +351,44 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// The binding behind a currently held slot, when it is a modifier trigger.
   /// A plain key has its own keyUp to end on, so it is not re-evaluated here.
   private func heldModifierBinding(_ slot: TriggerSlot) -> KeyBinding? {
-    let binding = slot == .primary ? triggerBinding : secondaryTriggerBinding
+    let binding = binding(for: slot)
     guard let binding, binding.isModifierKey else { return nil }
     return binding
   }
 
-  private func plainKeyTrigger(forKeyCode keyCode: Int64) -> (TriggerSlot, KeyBinding)? {
-    if !triggerBinding.isModifierKey, keyCode == triggerBinding.keyCode {
+  private func binding(for slot: TriggerSlot) -> KeyBinding? {
+    slot == .primary ? triggerBinding : secondaryTriggerBinding
+  }
+
+  private func plainKeyTrigger(
+    forKeyCode keyCode: Int64,
+    flags: CGEventFlags
+  ) -> (TriggerSlot, KeyBinding)? {
+    if !triggerBinding.isModifierKey,
+     keyCode == triggerBinding.keyCode,
+     Self.flagsMatch(flags, mask: triggerBinding.modifiers) {
       return (.primary, triggerBinding)
     }
     if let secondary = secondaryTriggerBinding,
-     !secondary.isModifierKey, keyCode == secondary.keyCode {
+     !secondary.isModifierKey,
+     keyCode == secondary.keyCode,
+     Self.flagsMatch(flags, mask: secondary.modifiers) {
+      return (.secondary, secondary)
+    }
+    return nil
+  }
+
+  private func satisfiedMouseTrigger(
+    forButtonNumber buttonNumber: Int64,
+    flags: CGEventFlags
+  ) -> (TriggerSlot, KeyBinding)? {
+    if triggerBinding.mouseButtonNumber == buttonNumber,
+     Self.flagsMatch(flags, mask: triggerBinding.modifiers) {
+      return (.primary, triggerBinding)
+    }
+    if let secondary = secondaryTriggerBinding,
+     secondary.mouseButtonNumber == buttonNumber,
+     Self.flagsMatch(flags, mask: secondary.modifiers) {
       return (.secondary, secondary)
     }
     return nil
@@ -310,8 +402,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// shared flag says down while both device bits are clear, nothing is
   /// reporting them and the shared flag is all there is.
   static func isModifierKeyDown(_ binding: KeyBinding, flags: CGEventFlags) -> Bool {
+    guard let keyCode = binding.keyCode else { return false }
     let sharedDown = flags.contains(binding.modifierKeyMask)
-    guard let masks = KeyBinding.deviceMasks(forKeyCode: binding.keyCode) else {
+    guard let masks = KeyBinding.deviceMasks(forKeyCode: keyCode) else {
       return sharedDown
     }
     if sharedDown, flags.rawValue & masks.pair == 0 {

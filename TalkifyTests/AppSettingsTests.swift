@@ -96,6 +96,79 @@ struct AppSettingsTests {
     #expect(defaults.data(forKey: "readAloudBinding") != nil)
   }
 
+  @Test func mouseTriggerRoundTripsUnderTheHistoricalBindingKey() throws {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+
+    settings.dictationTriggerBinding = middleClick
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.dictationTriggerBinding == middleClick)
+    #expect(defaults.data(forKey: "dictationTriggerBinding") != nil)
+  }
+
+  @Test func historicalKeyboardBindingDecodesWithoutAMouseField() throws {
+    let json = """
+      {
+        "keyCode": 63,
+        "modifierFlags": 0,
+        "isModifierKey": true,
+        "label": "fn",
+        "keyEquivalent": ""
+      }
+      """
+
+    let binding = try JSONDecoder().decode(KeyBinding.self, from: Data(json.utf8))
+    #expect(binding == .fnTrigger)
+    #expect(!binding.isMouseButton)
+  }
+
+  @Test func readAloudRejectsAStoredMouseBinding() throws {
+    let defaults = freshDefaults()
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    defaults.set(
+      try JSONEncoder().encode(middleClick),
+      forKey: "readAloudBinding"
+    )
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.readAloudBinding == .optionEscape)
+  }
+
+  /// The label is captured at record time, so the same binding recorded and
+  /// clicked are not equal values. A clash is about the input, not the label.
+  @Test func aClashIsFoundByInputRatherThanByLabel() throws {
+    let settings = AppSettings(defaults: freshDefaults())
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    var relabelled = middleClick
+    relabelled.label = "Wheel"
+    settings.dictationTriggerBinding = middleClick
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+
+    #expect(settings.roleUsing(relabelled, excluding: .secondLanguage) == .dictation)
+    #expect(settings.roleUsing(middleClick, excluding: .dictation) == nil)
+  }
+
+  /// A second language that is off holds no binding, so nothing clashes with
+  /// it — and turning it back on says so on the row rather than rewriting the
+  /// trigger the user picked.
+  @Test func anOffSecondLanguageClashesWithNothingAndKeepsItsTrigger() throws {
+    let settings = AppSettings(defaults: freshDefaults())
+    let middleClick = try #require(KeyBinding.mouseButton(number: 2))
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+    settings.secondaryTriggerBinding = middleClick
+    settings.secondaryRecognitionLocaleIdentifier = ""
+
+    #expect(settings.roleUsing(middleClick, excluding: .dictation) == nil)
+
+    settings.dictationTriggerBinding = middleClick
+    settings.secondaryRecognitionLocaleIdentifier = "de_DE"
+
+    #expect(settings.secondaryTriggerBinding == middleClick)
+    #expect(settings.roleUsing(middleClick, excluding: .secondLanguage) == .dictation)
+  }
+
   @Test func languagesDefaultToOneFollowingTheMac() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.recognitionLocaleIdentifier == "")
@@ -121,14 +194,21 @@ struct AppSettingsTests {
   @Test func languagePicksSurviveARelaunch() {
     let defaults = freshDefaults()
     let first = AppSettings(defaults: defaults)
+    let customTrigger = KeyBinding(
+      keyCode: 96,
+      modifierFlags: 0,
+      isModifierKey: false,
+      label: "F5",
+      keyEquivalent: ""
+    )
     first.recognitionLocaleIdentifier = "fr_FR"
     first.secondaryRecognitionLocaleIdentifier = "it_IT"
-    first.secondaryTriggerBinding = .fnTrigger
+    first.secondaryTriggerBinding = customTrigger
 
     let second = AppSettings(defaults: defaults)
     #expect(second.recognitionLocaleIdentifier == "fr_FR")
     #expect(second.secondaryRecognitionLocaleIdentifier == "it_IT")
-    #expect(second.secondaryTriggerBinding == .fnTrigger)
+    #expect(second.secondaryTriggerBinding == customTrigger)
   }
 
   @Test func downloadsAppearWhileRunningAndClearWhenDone() {

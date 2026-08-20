@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The Language section: the dictation language, an optional second language,
-/// and the key that dictates in it. Two keys rather than automatic detection —
-/// Apple Speech transcribes one language per session, and a wrong guess
+/// and the trigger that dictates in it. Two triggers rather than automatic
+/// detection — Apple Speech transcribes one language per session, and a wrong guess
 /// produces confident nonsense rather than an error (CONTEXT.md).
 struct LanguageSettingsView: View {
   @State private var isRecordingSecondKey = false
@@ -17,7 +17,7 @@ struct LanguageSettingsView: View {
       SettingsCard(title: "Languages") {
         SettingsPickerRow(
           title: "Dictation language",
-          description: "The language the trigger key transcribes",
+          description: "The language the primary trigger transcribes",
           options: [""] + languages.map(\.id),
           optionLabel: label(for:),
           selection: $settings.recognitionLocaleIdentifier,
@@ -27,7 +27,7 @@ struct LanguageSettingsView: View {
         SettingsPickerRow(
           title: "Second language",
           description: settings.isSecondLanguageEnabled
-            ? "Its own key, so you never switch a setting to switch language"
+            ? "Its own trigger, so you never switch a setting to switch language"
             : "Off. Choose one to dictate in two languages",
           options: [""] + secondaryOptions,
           optionLabel: secondaryLabel(for:),
@@ -37,13 +37,14 @@ struct LanguageSettingsView: View {
 
         if settings.isSecondLanguageEnabled {
           SettingsRow(
-            title: "Second language key",
-            description: "Hold it to dictate in \(secondaryName)"
+            title: "Second language trigger",
+            description: secondaryTriggerDescription
           ) {
             KeyRecorderView(
               keyBinding: $settings.secondaryTriggerBinding,
               isRecording: $isRecordingSecondKey,
               allowsBareModifier: true,
+              allowsMouseButton: true,
               onRecordingChanged: { settings.isRecordingKeybind = $0 }
             )
           }
@@ -136,5 +137,18 @@ struct LanguageSettingsView: View {
     languages
       .first { $0.id == settings.secondaryRecognitionLocaleIdentifier }?
       .name ?? "the second language"
+  }
+
+  private var secondaryTriggerDescription: String {
+    let binding = settings.secondaryTriggerBinding
+    var description = "Hold it to dictate in \(secondaryName)"
+    if binding.isMouseButton {
+      description += ". This button keeps its usual action unless that exact "
+        + "combination is pressed"
+    }
+    if let other = settings.roleUsing(binding, excluding: .secondLanguage) {
+      description += ". Also used by \(other.title)"
+    }
+    return description
   }
 }
