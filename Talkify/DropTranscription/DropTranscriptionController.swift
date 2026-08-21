@@ -34,6 +34,9 @@ final class DropTranscriptionController {
   private let offer: TranscriptOffer
   /// Reported while a job runs, for the status item.
   var onProgressChange: ((Double?) -> Void)?
+  /// Held while a file job runs. A transcription takes minutes with no window
+  /// on screen, which is exactly when App Nap throttles the process (#77).
+  private let activity = ActivityAssertion(reason: "Drop Transcription job")
 
   var isRunning: Bool { job != nil }
 
@@ -188,10 +191,12 @@ final class DropTranscriptionController {
     // Nothing in the shape while a job runs. The drop target retracts and the
     // menu bar ghost carries progress from there.
     onProgressChange?(0)
+    activity.hold()
 
     job = Task { [weak self] in
       defer {
         self?.job = nil
+        self?.activity.release()
         self?.onProgressChange?(nil)
       }
       do {
