@@ -105,7 +105,8 @@ public final class MyVoiceStorage: @unchecked Sendable {
     }
 
     /// Validate the staged sample at stagedDir.
-    /// Checks: record.json exists and decodes, schema_version matches root, status allowed, audio sha matches if audio file exists, audio path present.
+    /// Checks: record.json exists and decodes, schema_version matches root, status allowed,
+    /// audio sha matches if audio file exists, audio path present.
     public func validateStaged(at stagedDir: URL, expectedId: String? = nil) throws {
         let recordURL = stagedDir.appendingPathComponent("record.json")
         guard fileManager.fileExists(atPath: recordURL.path) else {
@@ -116,7 +117,9 @@ public final class MyVoiceStorage: @unchecked Sendable {
 
         if let expectedId, record.id != expectedId {
             // Not a validation failure per se, but treat as mismatch
-            throw MyVoiceValidationError.invalidStatus("id mismatch expected \(expectedId) found \(record.id)")
+            throw MyVoiceValidationError.invalidStatus(
+                "id mismatch expected \(expectedId) found \(record.id)"
+            )
         }
 
         // schema_version must match root
@@ -182,7 +185,8 @@ public final class MyVoiceStorage: @unchecked Sendable {
         if fileManager.fileExists(atPath: correctedURL.path) {
             let correctedContent = try String(contentsOf: correctedURL, encoding: .utf8)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let recCorrected = (record.transcript.correctedText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let recCorrected = (record.transcript.correctedText ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             if correctedContent != recCorrected {
                 throw MyVoiceValidationError.shaMismatch(expected: recCorrected, actual: correctedContent)
             }
@@ -197,7 +201,13 @@ public final class MyVoiceStorage: @unchecked Sendable {
     }
 
     /// Commit with custom event type (e.g., "imported" for OpenScribe). Exists for importer idempotency.
-    public func commitStagedDirectory(_ stagedDir: URL, id: String, record: MyVoiceRecord, eventType: String, extraEvent: [String: String]? = nil) throws {
+    public func commitStagedDirectory(
+        _ stagedDir: URL,
+        id: String,
+        record: MyVoiceRecord,
+        eventType: String,
+        extraEvent: [String: String]? = nil
+    ) throws {
         // Pre-check test injection
         let shouldFailInjected = failNextCommitBox.shouldFail
         if shouldFailInjected {
@@ -208,7 +218,11 @@ public final class MyVoiceStorage: @unchecked Sendable {
             try validateStaged(at: stagedDir, expectedId: id)
 
             if shouldFailInjected {
-                throw NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC), userInfo: [NSLocalizedDescriptionKey: "Injected disk-full for test (ENOSPC)"])
+                throw NSError(
+                    domain: NSPOSIXErrorDomain,
+                    code: Int(ENOSPC),
+                    userInfo: [NSLocalizedDescriptionKey: "Injected disk-full for test (ENOSPC)"]
+                )
             }
 
             let destination = samplesURL.appendingPathComponent(id, isDirectory: true)
@@ -218,13 +232,23 @@ public final class MyVoiceStorage: @unchecked Sendable {
 
             // If destination already exists (duplicate import), treat as error - caller decides.
             if fileManager.fileExists(atPath: destination.path) {
-                throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteFileExistsError, userInfo: [NSLocalizedDescriptionKey: "Sample \(id) already exists"])
+                throw NSError(
+                    domain: NSCocoaErrorDomain,
+                    code: NSFileWriteFileExistsError,
+                    userInfo: [NSLocalizedDescriptionKey: "Sample \(id) already exists"]
+                )
             }
 
             try fileManager.moveItem(at: stagedDir, to: destination)
 
             // Append event after successful rename
-            try appendEvent(type: eventType, sampleId: id, status: record.status.rawValue, source: record.source.rawValue, extra: extraEvent)
+            try appendEvent(
+                type: eventType,
+                sampleId: id,
+                status: record.status.rawValue,
+                source: record.source.rawValue,
+                extra: extraEvent
+            )
 
         } catch {
             // On failure, remove stagedDir to clean tmp (test expects this)
@@ -238,7 +262,13 @@ public final class MyVoiceStorage: @unchecked Sendable {
     }
 
 
-    public func appendEvent(type: String, sampleId: String, status: String? = nil, source: String? = nil, extra: [String: String]? = nil) throws {
+    public func appendEvent(
+        type: String,
+        sampleId: String,
+        status: String? = nil,
+        source: String? = nil,
+        extra: [String: String]? = nil
+    ) throws {
         var event: [String: String] = [
             "at": ISO8601DateFormatter().string(from: Date()),
             "type": type,
@@ -313,10 +343,14 @@ public final class MyVoiceStorage: @unchecked Sendable {
     public func computeStats() throws -> StoreStats {
         var stats = StoreStats()
         guard fileManager.fileExists(atPath: samplesURL.path) else { return stats }
-        let entries = try fileManager.contentsOfDirectory(at: samplesURL, includingPropertiesForKeys: [.isDirectoryKey])
+        let entries = try fileManager.contentsOfDirectory(
+            at: samplesURL,
+            includingPropertiesForKeys: [.isDirectoryKey]
+        )
         for entry in entries {
             var isDir: ObjCBool = false
-            guard fileManager.fileExists(atPath: entry.path, isDirectory: &isDir), isDir.boolValue else { continue }
+            guard fileManager.fileExists(atPath: entry.path, isDirectory: &isDir),
+                  isDir.boolValue else { continue }
             let recordURL = entry.appendingPathComponent("record.json")
             guard fileManager.fileExists(atPath: recordURL.path),
                   let data = try? Data(contentsOf: recordURL),
@@ -327,7 +361,10 @@ public final class MyVoiceStorage: @unchecked Sendable {
         }
         // Last export: most recent directory in exports/
         if fileManager.fileExists(atPath: exportsURL.path),
-           let exports = try? fileManager.contentsOfDirectory(at: exportsURL, includingPropertiesForKeys: [.creationDateKey]) {
+           let exports = try? fileManager.contentsOfDirectory(
+               at: exportsURL,
+               includingPropertiesForKeys: [.creationDateKey]
+           ) {
             let sorted = exports.sorted { (a,b) -> Bool in
                 let ad = (try? a.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
                 let bd = (try? b.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast

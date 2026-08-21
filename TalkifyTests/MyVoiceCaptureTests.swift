@@ -64,11 +64,25 @@ struct MyVoiceCaptureTests {
     #expect(record.provenance.sttProvider == "apple_speech")
     #expect(record.audio.sha256 == MyVoiceAudioHelper.emptySHA256)
     let sampleID = record.id
-    #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("samples/\(sampleID)/record.json").path))
-    #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("samples/\(sampleID)/transcript/asr.txt").path))
-    let asr = try String(contentsOf: root.appendingPathComponent("samples/\(sampleID)/transcript/asr.txt"), encoding: .utf8)
+    #expect(
+      FileManager.default.fileExists(
+        atPath: root.appendingPathComponent("samples/\(sampleID)/record.json").path
+      )
+    )
+    #expect(
+      FileManager.default.fileExists(
+        atPath: root.appendingPathComponent("samples/\(sampleID)/transcript/asr.txt").path
+      )
+    )
+    let asr = try String(
+      contentsOf: root.appendingPathComponent("samples/\(sampleID)/transcript/asr.txt"),
+      encoding: .utf8
+    )
     #expect(asr == "hello world")
-    let corrected = try String(contentsOf: root.appendingPathComponent("samples/\(sampleID)/transcript/corrected.txt"), encoding: .utf8)
+    let corrected = try String(
+      contentsOf: root.appendingPathComponent("samples/\(sampleID)/transcript/corrected.txt"),
+      encoding: .utf8
+    )
     #expect(corrected == "Hello, world.")
     let events = try storage.readEvents()
     #expect(events.contains(where: { $0["type"] == "created" && $0["sample_id"] == sampleID }))
@@ -89,8 +103,14 @@ struct MyVoiceCaptureTests {
     #expect(record.transcript.asrText == "we can sort the array in increasing order")
     #expect(record.transcript.correctedText == "We can sort the array in increasing order.")
     #expect(record.transcript.asrText != record.transcript.correctedText)
-    let asr = try String(contentsOf: root.appendingPathComponent("samples/\(record.id)/transcript/asr.txt"), encoding: .utf8)
-    let corrected = try String(contentsOf: root.appendingPathComponent("samples/\(record.id)/transcript/corrected.txt"), encoding: .utf8)
+    let asr = try String(
+      contentsOf: root.appendingPathComponent("samples/\(record.id)/transcript/asr.txt"),
+      encoding: .utf8
+    )
+    let corrected = try String(
+      contentsOf: root.appendingPathComponent("samples/\(record.id)/transcript/corrected.txt"),
+      encoding: .utf8
+    )
     #expect(asr == "we can sort the array in increasing order")
     #expect(corrected == "We can sort the array in increasing order.")
   }

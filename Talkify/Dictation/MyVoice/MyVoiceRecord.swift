@@ -239,7 +239,10 @@ extension MyVoiceRecord {
             if let d = iso8601Formatter.date(from: s) { return d }
             if let d = iso8601NoFraction.date(from: s) { return d }
             // Try without colon?
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date: \(s)")
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO8601 date: \(s)"
+            )
         }
         return decoder
     }
@@ -265,9 +268,11 @@ public enum MyVoiceValidationError: LocalizedError, Equatable {
         switch self {
         case .missingASRText: return "asr_text is required (empty considered corrupt)"
         case .invalidStatus(let s): return "Invalid status: \(s)"
-        case .schemaMismatch(let expected, let found): return "schema_version mismatch expected \(expected) found \(found)"
+        case .schemaMismatch(let expected, let found):
+            return "schema_version mismatch expected \(expected) found \(found)"
         case .audioMissing(let path): return "Audio file missing at \(path)"
-        case .shaMismatch(let expected, let actual): return "SHA mismatch expected \(expected) actual \(actual)"
+        case .shaMismatch(let expected, let actual):
+            return "SHA mismatch expected \(expected) actual \(actual)"
         }
     }
 }

@@ -36,7 +36,10 @@ public enum MyVoiceAudioHelper {
 
     /// Attempt to read sampleRate/channels/durationMs via AVFoundation.
     /// Falls back to defaults (16000, 1) and durationMs from file size estimate if unavailable.
-    public static func metadata(at url: URL, fallbackDurationMs: Int) -> (sampleRate: Int, channels: Int, durationMs: Int) {
+    public static func metadata(
+        at url: URL,
+        fallbackDurationMs: Int
+    ) -> (sampleRate: Int, channels: Int, durationMs: Int) {
 #if canImport(AVFoundation)
         // Try AVAudioFile for CAF/WAV — synchronous, no async required.
         if let file = try? AVAudioFile(forReading: url) {
@@ -58,7 +61,10 @@ public enum MyVoiceAudioHelper {
     /// Write a minimal silent CAF/WAV helper for tests (if needed).
     /// Creates a file with given data or empty.
     public static func writeDummyAudio(to url: URL, data: Data = Data("dummy-pcm".utf8)) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try data.write(to: url, options: .atomic)
     }
 }

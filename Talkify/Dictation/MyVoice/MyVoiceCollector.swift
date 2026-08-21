@@ -45,12 +45,15 @@ public final class MyVoiceCollector: Sendable {
     }()
 
 
-    /// Creates a `candidate` sample with `asr_text` immutable, `corrected_text` from HUD, `polished_text = nil`,
-    /// `audio.sha256`, `duration_ms`, `status = candidate`, `human_verified = false`.
+    /// Creates a `candidate` sample with `asr_text` immutable, `corrected_text` from HUD,
+    /// `polished_text = nil`, `audio.sha256`, `duration_ms`, `status = candidate`,
+    /// `human_verified = false`.
     ///
     /// - Parameters:
-    ///   - rawTranscript: Exactly what SpeechTranscriber finished with (`speechService.finish()`). Immutable `asr_text`.
-    ///   - correctedText: The text that will be inserted — HUD-corrected if in editable draft, otherwise equal to rawTranscript.
+    ///   - rawTranscript: Exactly what SpeechTranscriber finished with
+    ///     (`speechService.finish()`). Immutable `asr_text`.
+    ///   - correctedText: The text that will be inserted — HUD-corrected if in editable draft,
+    ///     otherwise equal to rawTranscript.
     ///   - audioURL: PCM CAF/WAV at analyzer feed format. Nil if capture failed or flag Off.
     ///   - startedAt: When the analyzer started (session start)
     ///   - stoppedAt: When finish() returned (session end)
@@ -100,7 +103,8 @@ public final class MyVoiceCollector: Sendable {
             stagedAudioSourceURL = audioURL
         } else {
             // No audio (tee failed or flag off) — still create candidate with empty hash.
-            // This path is used when audio capture fails; sample is still candidate, insertion still succeeds.
+            // This path is used when audio capture fails; sample is still candidate,
+            // insertion still succeeds.
             audioFormat = .caf
             audioSHA = MyVoiceAudioHelper.emptySHA256
             sampleRate = 16000
@@ -122,7 +126,8 @@ public final class MyVoiceCollector: Sendable {
             sttModel: "on-device",
             polishProvider: nil,
             polishModel: nil,
-            appVersion: appVersion ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+            appVersion: appVersion
+                ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             locale: locale
         )
 
@@ -177,7 +182,8 @@ public final class MyVoiceCollector: Sendable {
                 let filename = URL(fileURLWithPath: audioPath).lastPathComponent // source.caf etc
                 let dest = audioDir.appendingPathComponent(filename)
                 // Use copy; if fails, treat as nil-audio path? But we want to surface error for atomic test
-                // For robustness, if copy fails we fall back to empty audio handling: log and set sha to empty?
+                // For robustness, if copy fails we fall back to empty audio handling:
+                // log and set sha to empty?
                 // However spec says if tee fails, audioURL nil and sample still created.
                 // If copy fails here (disk-full), we should throw and insertion still pastes (caller logs)
                 try fm.copyItem(at: src, to: dest)
@@ -253,7 +259,9 @@ public final class MyVoiceCollector: Sendable {
                 )
             } catch {
 #if canImport(os)
-                logger.error("MyVoice save failed (detached): \(error.localizedDescription, privacy: .public)")
+                logger.error(
+                    "MyVoice save failed (detached): \(error.localizedDescription, privacy: .public)"
+                )
 #else
                 fputs("MyVoice save failed (detached): \(error.localizedDescription)\n", stderr)
 #endif
@@ -271,10 +279,18 @@ public final class MyVoiceCollector: Sendable {
         stoppedAt: Date
     ) async {
         do {
-            _ = try collect(rawTranscript: rawTranscript, correctedText: correctedText, audioURL: audioURL, startedAt: startedAt, stoppedAt: stoppedAt)
+            _ = try collect(
+                rawTranscript: rawTranscript,
+                correctedText: correctedText,
+                audioURL: audioURL,
+                startedAt: startedAt,
+                stoppedAt: stoppedAt
+            )
         } catch {
 #if canImport(os)
-            logger.error("MyVoice save failed (async detached): \(error.localizedDescription, privacy: .public)")
+            logger.error(
+                "MyVoice save failed (async detached): \(error.localizedDescription, privacy: .public)"
+            )
 #else
             fputs("MyVoice save failed (async detached): \(error.localizedDescription)\n", stderr)
 #endif
