@@ -93,12 +93,34 @@ struct ShortcutsSettingsView: View {
       }
 
       row(
+        .translate,
+        allowsBareModifier: true,
+        allowsMouseButton: true,
+        sentence: translateSentence
+      )
+
+      row(
         .readAloud,
         allowsBareModifier: false,
         allowsMouseButton: false,
         sentence: "Press %@ to read the selection, again to stop."
       )
     }
+  }
+
+  /// Names the language when there is one, because the row's job is to say
+  /// what lands in the document. Without a target the binding does nothing,
+  /// so the sentence says where to fix that.
+  private var translateSentence: String {
+    guard settings.isTranslationEnabled else {
+      return "Hold %@ to speak and have it translated, or tap it to start and "
+        + "tap again to finish. Choose the language in Language first."
+    }
+    let name = SpeechLanguageCatalog.shortName(
+      for: Locale(identifier: settings.translationTargetIdentifier)
+    )
+    return "Hold %@ to speak and insert it in \(name), or tap it to start and "
+      + "tap again to finish."
   }
 
   private func row(
@@ -216,6 +238,7 @@ private extension BindingRole {
     switch self {
     case .dictation: SettingsTheme.accent
     case .secondLanguage: Color(red: 0.45, green: 0.82, blue: 0.6)
+    case .translate: Color(red: 0.66, green: 0.55, blue: 0.95)
     case .readAloud: Color(red: 0.95, green: 0.7, blue: 0.35)
     }
   }

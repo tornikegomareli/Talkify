@@ -147,10 +147,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       _ = settings.dictationTriggerBinding
       _ = settings.secondaryTriggerBinding
       _ = settings.readAloudBinding
+      _ = settings.translateTriggerBinding
       _ = settings.isRecordingKeybind
       // The second trigger is only installed once a second language exists,
       // so the pick that enables it belongs in this loop too.
       _ = settings.secondaryRecognitionLocaleIdentifier
+      // The target is what installs the translate trigger, the same reason the
+      // second language's pick belongs in this loop.
+      _ = settings.translationTargetIdentifier
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.applyKeyBindings()

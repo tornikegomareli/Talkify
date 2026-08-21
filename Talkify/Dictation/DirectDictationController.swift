@@ -113,7 +113,12 @@ final class DirectDictationController {
       secondaryTrigger: settings.isSecondLanguageEnabled
         ? settings.secondaryTriggerBinding
         : nil,
-      readAloud: settings.readAloudBinding
+      readAloud: settings.readAloudBinding,
+      // Not installed until a target is chosen, so an unconfigured key
+      // swallows nothing and behaves as if the feature were not there.
+      translateTrigger: settings.isTranslationEnabled
+        ? settings.translateTriggerBinding
+        : nil
     )
     keyEventMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
   }
@@ -169,6 +174,10 @@ final class DirectDictationController {
     switch slot {
     case .primary: primaryLocale
     case .secondary: secondaryLocale ?? primaryLocale
+    // The source of a translation is always the primary language. The second
+    // language exists so a different language can be dictated; translating
+    // from it would put two settings behind one key.
+    case .translate: primaryLocale
     }
   }
 

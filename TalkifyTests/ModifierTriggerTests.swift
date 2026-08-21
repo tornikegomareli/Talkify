@@ -485,6 +485,89 @@ struct MouseButtonTriggerTests {
     #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
   }
 
+  /// The translate slot is a trigger like any other: it holds, it releases,
+  /// and it is arbitrated by the same heldSlot that makes a session exclusive.
+  @Test func rightCommandPressesTheTranslateSlotWhileFnPressesThePrimary() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    // right command down: device bit 0x10 plus the shared command flag.
+    let commandDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: true
+    ))
+    commandDown.flags = CGEventFlags(
+      rawValue: CGEventFlags.maskCommand.rawValue | 0x0000_0010
+    )
+    #expect(monitor.process(type: .flagsChanged, event: commandDown) == nil)
+    #expect(log.events == [.triggerPressed(.translate)])
+
+    let commandUp = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: false
+    ))
+    commandUp.flags = []
+    #expect(monitor.process(type: .flagsChanged, event: commandUp) == nil)
+    #expect(log.events == [.triggerPressed(.translate), .triggerReleased(.translate)])
+  }
+
+  /// One session at a time, whichever slot started it. The translate key is
+  /// inert while fn holds the shape, exactly as the second language's key is.
+  @Test func theTranslateSlotIsInertWhileAnotherSlotHoldsTheSession() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let fnDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 63, keyDown: true
+    ))
+    fnDown.flags = .maskSecondaryFn
+    #expect(monitor.process(type: .flagsChanged, event: fnDown) == nil)
+
+    let commandDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: true
+    ))
+    commandDown.flags = CGEventFlags(
+      rawValue: CGEventFlags.maskSecondaryFn.rawValue
+        | CGEventFlags.maskCommand.rawValue | 0x0000_0010
+    )
+    _ = monitor.process(type: .flagsChanged, event: commandDown)
+
+    // Whatever the combination did to the held fn session, it did not start a
+    // second one on top of it.
+    #expect(!log.events.contains(.triggerPressed(.translate)))
+  }
+
+  /// An earlier slot wins an identical input, so a translate binding equal to
+  /// the primary is dropped rather than making the slot ambiguous.
+  @Test func aTranslateBindingIdenticalToThePrimaryIsDropped() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .fnTrigger
+    )
+
+    let fnDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 63, keyDown: true
+    ))
+    fnDown.flags = .maskSecondaryFn
+    #expect(monitor.process(type: .flagsChanged, event: fnDown) == nil)
+
+    #expect(log.events == [.triggerPressed(.primary)])
+  }
+
   @Test func leftRightAndButtonsAboveTheSystemLimitAreNotBindable() {
     #expect(KeyBinding.mouseButton(number: 0) == nil)
     #expect(KeyBinding.mouseButton(number: 1) == nil)

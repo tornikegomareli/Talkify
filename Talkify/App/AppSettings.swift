@@ -30,6 +30,8 @@ final class AppSettings {
     static let recognitionLocale = "recognitionLocale"
     static let secondaryRecognitionLocale = "recognitionLocaleSecondary"
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
+    static let translateTriggerBinding = "dictationTriggerBindingTranslate"
+    static let translationTarget = "translationTargetLanguage"
     static let transcriptDestination = "transcriptDestination"
     static let transcriptFolder = "transcriptFolder"
     static let insertionDestination = "dictationInsertionDestination"
@@ -175,6 +177,39 @@ final class AppSettings {
     didSet { Self.store(secondaryTriggerBinding, in: defaults, key: Keys.secondaryTriggerBinding) }
   }
 
+  /// The trigger that dictates in the primary language and inserts a
+  /// translation. Defaults to right command, which shares no key with fn:
+  /// any fn combination would end a held plain session the moment its
+  /// modifier arrived, because fn alone is already a trigger.
+  var translateTriggerBinding: KeyBinding {
+    didSet { Self.store(translateTriggerBinding, in: defaults, key: Keys.translateTriggerBinding) }
+  }
+
+  /// The language Dictate and Translate translates into, as a language code.
+  /// Empty means off, which is the default: the trigger is not installed at
+  /// all until a target is chosen, so an unconfigured key swallows nothing.
+  var translationTargetIdentifier: String {
+    didSet { defaults.set(translationTargetIdentifier, forKey: Keys.translationTarget) }
+  }
+
+  var isTranslationEnabled: Bool {
+    !translationTargetIdentifier.isEmpty
+  }
+
+  /// The pair a session would translate, or nil when translation is off or
+  /// would translate a language into itself.
+  func translationPair(from source: Locale) -> TranslationPair? {
+    guard isTranslationEnabled else { return nil }
+    let target = Locale.Language(identifier: translationTargetIdentifier)
+    guard let sourceCode = source.language.languageCode?.identifier,
+       let targetCode = target.languageCode?.identifier,
+       sourceCode != targetCode
+    else {
+      return nil
+    }
+    return TranslationPair(source: source.language, target: target)
+  }
+
   /// True once a second language is chosen. The second trigger is ignored
   /// while this is false, so an unused binding cannot start a session.
   /// The labels a split Drop Target shows, or empty when one language is
@@ -247,6 +282,12 @@ final class AppSettings {
       key: Keys.secondaryTriggerBinding,
       allowsMouseButton: true
     ) ?? .rightOptionTrigger
+    translateTriggerBinding = Self.storedBinding(
+      in: defaults,
+      key: Keys.translateTriggerBinding,
+      allowsMouseButton: true
+    ) ?? .rightCommandTrigger
+    translationTargetIdentifier = defaults.string(forKey: Keys.translationTarget) ?? ""
   }
 
   private static func stored<Value: RawRepresentable<String>>(
@@ -281,6 +322,7 @@ final class AppSettings {
     switch role {
     case .dictation: dictationTriggerBinding
     case .secondLanguage: secondaryTriggerBinding
+    case .translate: translateTriggerBinding
     case .readAloud: readAloudBinding
     }
   }
@@ -289,6 +331,7 @@ final class AppSettings {
     switch role {
     case .dictation: dictationTriggerBinding = binding
     case .secondLanguage: secondaryTriggerBinding = binding
+    case .translate: translateTriggerBinding = binding
     case .readAloud: readAloudBinding = binding
     }
   }
@@ -304,6 +347,9 @@ final class AppSettings {
     BindingRole.allCases.first { other in
       guard other != role else { return false }
       guard other != .secondLanguage || isSecondLanguageEnabled else { return false }
+      // A translate trigger that has no target holds no binding, so an
+      // unconfigured one must not report a clash with a real binding.
+      guard other != .translate || isTranslationEnabled else { return false }
       return binding(for: other).hasSameInputAndModifiers(as: candidate)
     }
   }
@@ -315,12 +361,14 @@ final class AppSettings {
 enum BindingRole: Hashable, CaseIterable {
   case dictation
   case secondLanguage
+  case translate
   case readAloud
 
   var title: String {
     switch self {
     case .dictation: "Direct Dictation"
     case .secondLanguage: "Second Language"
+    case .translate: "Translate"
     case .readAloud: "Read Aloud"
     }
   }

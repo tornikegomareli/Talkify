@@ -169,6 +169,54 @@ struct AppSettingsTests {
     #expect(settings.roleUsing(middleClick, excluding: .secondLanguage) == .dictation)
   }
 
+  @Test func theTranslateBindingDefaultsToRightCommandAndRoundTrips() throws {
+    let defaults = freshDefaults()
+    #expect(AppSettings(defaults: defaults).translateTriggerBinding == .rightCommandTrigger)
+
+    let settings = AppSettings(defaults: defaults)
+    settings.translateTriggerBinding = .optionEscape
+    #expect(AppSettings(defaults: defaults).translateTriggerBinding == .optionEscape)
+  }
+
+  /// Off by default, and the trigger is not installed until a target exists,
+  /// so an unconfigured key behaves as if the feature were not there.
+  @Test func translationIsOffUntilATargetIsChosen() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.translationTargetIdentifier == "")
+    #expect(!settings.isTranslationEnabled)
+
+    settings.translationTargetIdentifier = "es"
+    #expect(settings.isTranslationEnabled)
+  }
+
+  /// An unconfigured translate binding holds nothing, so it must not report a
+  /// clash with a binding somebody is actually using.
+  @Test func anUnconfiguredTranslateBindingClashesWithNothing() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translateTriggerBinding = .fnTrigger
+
+    #expect(settings.roleUsing(.fnTrigger, excluding: .dictation) == nil)
+
+    settings.translationTargetIdentifier = "es"
+    #expect(settings.roleUsing(.fnTrigger, excluding: .dictation) == .translate)
+  }
+
+  /// Translating a language into itself is not a translation, so the pair is
+  /// dropped rather than sending text through a translator to be unchanged.
+  @Test func aTargetEqualToTheSourceIsNotAPair() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "en"
+
+    #expect(settings.translationPair(from: Locale(identifier: "en_US")) == nil)
+    #expect(settings.translationPair(from: Locale(identifier: "de_DE")) != nil)
+    #expect(settings.translationPair(from: Locale(identifier: "de_DE"))?.tag == "DE → EN")
+  }
+
+  @Test func noTargetMeansNoPair() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.translationPair(from: Locale(identifier: "en_US")) == nil)
+  }
+
   @Test func languagesDefaultToOneFollowingTheMac() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.recognitionLocaleIdentifier == "")
