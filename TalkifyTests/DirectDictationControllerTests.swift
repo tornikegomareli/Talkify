@@ -751,6 +751,43 @@ struct DirectDictationControllerTests {
     controller.stop()
   }
 
+  /// The regression: a target chosen after launch has to reach the pair.
+  /// Preparation resolves it, so anything that changes the target must re-run
+  /// preparation, or the trigger is installed with nothing to translate into
+  /// and refuses every press with "No translation language".
+  @Test func aTargetChosenAfterLaunchResolvesOnceLanguagesAreReapplied() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" }
+      )
+    )
+    // Prepared with translation off, exactly as a launch with no target.
+    await prepare(controller, prewarmed: prewarmed)
+    controller.handle(.triggerPressed(.translate))
+    #expect(recorder.messages.contains("No translation language"))
+
+    // Now a target is chosen and the languages are reapplied.
+    settings.translationTargetIdentifier = "es"
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["translated: spoken words"])
+    controller.stop()
+  }
+
   /// A day file that says only what you said is harder to use later than one
   /// that says where you were saying it, so the entry names the application
   /// that held focus when the session started.
