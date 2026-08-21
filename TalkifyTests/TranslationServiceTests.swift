@@ -160,6 +160,42 @@ struct TranslationServiceTests {
 
   /// A language needing a download says so in the picker, rather than looking
   /// identical to one that works and then not working.
+  /// The regression: Apple offers regional variants separately, so listing
+  /// every candidate gave three Spanishes and three Chineses that all stored
+  /// the same value. One row per language.
+  @Test func regionalVariantsCollapseToOneRowPerLanguage() async {
+    let spy = Spy()
+    spy.candidates = ["es-ES", "es-MX", "es-419", "zh-Hans-CN", "zh-Hant-TW", "de-DE"]
+      .map { Locale.Language(identifier: $0) }
+    spy.availability = .installed
+    let service = TranslationService(client: spy.client())
+
+    let targets = await service.targets(from: Locale(identifier: "en_US"))
+
+    #expect(targets.map(\.id) == ["zh", "de", "es"].sorted { a, b in
+      let names = ["zh": "Chinese", "de": "German", "es": "Spanish"]
+      return names[a]! < names[b]!
+    })
+    #expect(targets.count == 3)
+  }
+
+  /// A language Apple offers both ways is offered as ready, not as a download.
+  @Test func installedBeatsDownloadableForTheSameLanguage() async {
+    let spy = Spy()
+    spy.candidates = ["pt-BR", "pt-PT"].map { Locale.Language(identifier: $0) }
+    spy.perLanguage = ["pt": .downloadable]
+    let service = TranslationService(client: spy.client())
+
+    var targets = await service.targets(from: Locale(identifier: "en_US"))
+    #expect(targets.map(\.availability) == [.downloadable])
+
+    // Now one of the two variants is installed.
+    spy.perLanguage = [:]
+    spy.availability = .installed
+    targets = await service.targets(from: Locale(identifier: "en_US"))
+    #expect(targets.map(\.availability) == [.installed])
+  }
+
   @Test func aDownloadableTargetSaysSoInItsLabel() {
     let installed = TranslationTarget(id: "es", name: "Spanish", availability: .installed)
     let downloadable = TranslationTarget(id: "uk", name: "Ukrainian", availability: .downloadable)

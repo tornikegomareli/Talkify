@@ -66,18 +66,28 @@ struct TranslationService: Sendable {
   /// listed and refused, and the source is never offered as its own target.
   func targets(from source: Locale) async -> [TranslationTarget] {
     guard let sourceCode = source.language.languageCode?.identifier else { return [] }
-    var targets: [TranslationTarget] = []
+
+    // One row per language, not per regional variant. Apple offers the
+    // variants separately (zh-Hans-CN, zh-Hant-TW, es-ES, es-MX, es-419,
+    // pt-BR, pt-PT), and listing them all gave three Spanishes and three
+    // Chineses with nothing to tell them apart, because the preference stores
+    // a language code and drops the region anyway. Installed wins over
+    // downloadable, so a language available either way is offered as ready.
+    var best: [String: TranslationAvailability] = [:]
     for language in await client.candidateTargets() {
       guard let code = language.languageCode?.identifier, code != sourceCode else { continue }
       let pair = TranslationPair(source: source.language, target: language)
       let availability = await client.availability(pair)
       guard availability != .unsupported else { continue }
-      targets.append(
-        TranslationTarget(
-          id: code,
-          name: SpeechLanguageCatalog.shortName(for: Locale(identifier: code)),
-          availability: availability
-        )
+      if best[code] == .installed { continue }
+      best[code] = availability
+    }
+
+    let targets = best.map { code, availability in
+      TranslationTarget(
+        id: code,
+        name: SpeechLanguageCatalog.shortName(for: Locale(identifier: code)),
+        availability: availability
       )
     }
     // Installed first, because those work now, then alphabetically inside
