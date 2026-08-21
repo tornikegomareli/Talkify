@@ -25,6 +25,41 @@ struct DirectDictationControllerTests {
     }
   }
 
+  /// Records capture calls so the wiring tests can pin what the controller
+  /// hands to the MyVoice seam. Lock-guarded because the protocol
+  /// conformance is nonisolated.
+  private final class RecordingMyVoice: MyVoiceCaptureServicing, @unchecked Sendable {
+    struct Call {
+      let raw: String
+      let corrected: String
+      let startedAt: Date
+      let stoppedAt: Date
+      let locale: String
+    }
+
+    private let storage = OSAllocatedUnfairLock<[Call]>(initialState: [])
+
+    var calls: [Call] { storage.withLock { $0 } }
+
+    func capture(
+      rawTranscript: String,
+      correctedText: String,
+      audioURL: URL?,
+      startedAt: Date,
+      stoppedAt: Date,
+      localeIdentifier: String
+    ) {
+      storage.withLock {
+        $0.append(
+          Call(
+            raw: rawTranscript, corrected: correctedText, startedAt: startedAt,
+            stoppedAt: stoppedAt, locale: localeIdentifier
+          )
+        )
+      }
+    }
+  }
+
   private struct FinishError: LocalizedError {
     var errorDescription: String? { "finish failed" }
   }
@@ -124,11 +159,13 @@ struct DirectDictationControllerTests {
 
   private func makeController(
     settings: AppSettings? = nil,
-    dependencies: DirectDictationController.Dependencies
+    dependencies: DirectDictationController.Dependencies,
+    myVoiceService: MyVoiceCaptureServicing? = nil
   ) -> DirectDictationController {
     DirectDictationController(
       settings: settings ?? AppSettings(defaults: freshDefaults()),
-      dependencies: dependencies
+      dependencies: dependencies,
+      myVoiceService: myVoiceService
     )
   }
 
@@ -634,6 +671,165 @@ struct DirectDictationControllerTests {
     await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
     #expect(historyEntries.withLock { $0 }.map(\.source) == ["Clipboard"])
+    controller.stop()
+  }
+
+  /// The release path hands the finished session's words to the MyVoice
+  /// seam when the flag is on, with the session-snapshot locale.
+  @Test func myVoiceCaptureFiresOnInsertedFinishWhenEnabled() async throws {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let myVoice = RecordingMyVoice()
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.myvoiceCaptureEnabled = true
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "hello world" }
+      ),
+      myVoiceService: myVoice
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Usage was never recorded") {
+      recorder.recordedSessions.count == 1
+    }
+
+    let call = try #require(myVoice.calls.first)
+    #expect(myVoice.calls.count == 1)
+    #expect(call.raw == "hello world")
+    #expect(call.corrected == "hello world")
+    #expect(call.locale == "en_US")
+    #expect(call.startedAt <= call.stoppedAt)
+    controller.stop()
+  }
+
+  /// The flag is captured into the session snapshot at start, so a session
+  /// that began while it was off never sends a candidate.
+  @Test func myVoiceCaptureStaysQuietWhileTheFlagIsOff() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let myVoice = RecordingMyVoice()
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "hello world" }
+      ),
+      myVoiceService: myVoice
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Usage was never recorded") {
+      recorder.recordedSessions.count == 1
+    }
+
+    #expect(myVoice.calls.isEmpty)
+    controller.stop()
+  }
+
+  /// The sample is the words, not their delivery: an insertion that could
+  /// not land still saves the transcript once the flag is on.
+  @Test func myVoiceCaptureStillSavesWhenInsertionIsUnavailable() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let myVoice = RecordingMyVoice()
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.myvoiceCaptureEnabled = true
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" },
+        insertOutcome: .unavailable
+      ),
+      myVoiceService: myVoice
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Insertion failure message never shown") {
+      recorder.messages.contains("Couldn't insert text")
+    }
+
+    #expect(myVoice.calls.count == 1)
+    #expect(myVoice.calls.first?.raw == "spoken words")
+    controller.stop()
+  }
+
+  /// Return on a reviewed editable draft: the candidate carries the first
+  /// round's raw ASR next to the corrected draft, and Insights records the
+  /// accumulated speech duration across the review's rounds instead of a
+  /// zeroed session.
+  @Test func editableDraftReturnCapturesRawAndRecordsTheAccumulatedDuration() async throws {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let myVoice = RecordingMyVoice()
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.draftStyle = .editableDraft
+    settings.myvoiceCaptureEnabled = true
+    let hud = DictationHUDController(stage: HUDStage(settings: settings), settings: settings)
+    let roundNumber = OSAllocatedUnfairLock<Int>(initialState: 0)
+    let controller = DirectDictationController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: {
+          let round = roundNumber.withLock { $0 += 1; return $0 }
+          return round == 1 ? "first words" : "second words"
+        }
+      ),
+      hudController: hud,
+      myVoiceService: myVoice
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Draft never reached review") {
+      controller.sessionStateForTesting == .reviewing
+    }
+
+    controller.handle(.triggerPressed(.primary))
+    await waitUntil("Replacement round never began") {
+      recorder.count(of: "showListening") == 2
+    }
+    try? await Task.sleep(for: .milliseconds(300))
+    controller.handle(.triggerReleased(.primary))
+    await waitUntil("Replacement words never committed") {
+      hud.draftText == "first wordssecond words"
+    }
+    controller.handle(.returnPressed)
+    await waitUntil("Usage was never recorded") {
+      recorder.recordedSessions.count == 1
+    }
+
+    let call = try #require(myVoice.calls.first)
+    #expect(myVoice.calls.count == 1)
+    #expect(call.raw == "first words")
+    #expect(call.corrected == "first wordssecond words")
+    #expect((recorder.recordedSessions.first?.speakingDuration ?? 0) > 0)
     controller.stop()
   }
 }

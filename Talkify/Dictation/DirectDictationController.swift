@@ -613,8 +613,7 @@ final class DirectDictationController {
             send(.sessionEnded)
             dependencies.showMessage("Couldn't insert text", nil)
           }
-          if let session = currentSessionSettings,
-             session.myvoiceCaptureEnabled,
+          if session.myvoiceCaptureEnabled,
              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let localeID = locale(for: activeSlot)?.identifier ?? Locale.current.identifier
             myVoiceService.capture(
@@ -707,6 +706,7 @@ final class DirectDictationController {
       // Delivery follows the session snapshot, so a Settings change
       // mid-session applies to the next session (ADR-0004).
       let session = currentSessionSettings ?? settings.sessionSettings
+      let speechDuration = sessionSpeakingDuration
       let outcome = await dependencies.insertText(
         text, focusedTarget, session.insertionDestination
       )
@@ -715,13 +715,12 @@ final class DirectDictationController {
         dependencies.playPasteSound()
         send(.sessionEnded)
         let wordCount = UsageMetrics.wordCount(in: text)
-        await dependencies.recordSession(wordCount, sessionSpeakingDuration)
+        await dependencies.recordSession(wordCount, speechDuration)
       case .unavailable:
         send(.sessionEnded)
         dependencies.showMessage("Couldn't insert text", nil)
       }
-      if let session = currentSessionSettings,
-         session.myvoiceCaptureEnabled,
+      if session.myvoiceCaptureEnabled,
          !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         let localeID = locale(for: activeSlot)?.identifier ?? Locale.current.identifier
         myVoiceService.capture(
