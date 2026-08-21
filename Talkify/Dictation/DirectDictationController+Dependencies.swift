@@ -29,6 +29,7 @@ extension DirectDictationController {
     // that will not load must never refuse a plain dictation session.
     let translationAvailability: @Sendable (TranslationPair) async -> TranslationAvailability
     let prewarmTranslation: @Sendable (TranslationPair) async -> Bool
+    let translationTargets: @Sendable (Locale) async -> [TranslationTarget]
     let retainTranslation: @Sendable (TranslationPair?) async -> Void
     let translateText: @Sendable (String, TranslationPair) async throws -> String
     let shutDownTranslation: @Sendable () async -> Void
@@ -107,6 +108,7 @@ extension DirectDictationController {
         shutDownRecognition: { await speechService.shutDown() },
         translationAvailability: { await translationService.availability(of: $0) },
         prewarmTranslation: { await translationService.prewarm($0) },
+        translationTargets: { await translationService.targets(from: $0) },
         retainTranslation: { await translationService.retain($0) },
         translateText: { try await translationService.translate($0, with: $1) },
         shutDownTranslation: { await translationService.shutDown() },

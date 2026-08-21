@@ -14,6 +14,9 @@ struct TranslationService: Sendable {
     var prepare: @Sendable (TranslationPair) async throws -> Void
     var translate: @Sendable (TranslationPair, String) async throws -> String
     /// Drops every held session except this pair, cancelling what it drops.
+    /// Every language this Mac can translate into, before availability is
+    /// known for any particular pair.
+    var candidateTargets: @Sendable () async -> [Locale.Language]
     var retain: @Sendable (TranslationPair?) async -> Void
     var shutDown: @Sendable () async -> Void
   }
@@ -56,6 +59,35 @@ struct TranslationService: Sendable {
       throw TranslationFailure.unsupported
     }
     return try await withTimeout(text, pair)
+  }
+
+  /// Every target worth offering for this source, named and sorted, with what
+  /// this Mac can do about each. Unsupported pairs are dropped rather than
+  /// listed and refused, and the source is never offered as its own target.
+  func targets(from source: Locale) async -> [TranslationTarget] {
+    guard let sourceCode = source.language.languageCode?.identifier else { return [] }
+    var targets: [TranslationTarget] = []
+    for language in await client.candidateTargets() {
+      guard let code = language.languageCode?.identifier, code != sourceCode else { continue }
+      let pair = TranslationPair(source: source.language, target: language)
+      let availability = await client.availability(pair)
+      guard availability != .unsupported else { continue }
+      targets.append(
+        TranslationTarget(
+          id: code,
+          name: SpeechLanguageCatalog.shortName(for: Locale(identifier: code)),
+          availability: availability
+        )
+      )
+    }
+    // Installed first, because those work now, then alphabetically inside
+    // each group so a list of sixteen is scannable.
+    return targets.sorted {
+      if ($0.availability == .installed) != ($1.availability == .installed) {
+        return $0.availability == .installed
+      }
+      return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+    }
   }
 
   func retain(_ pair: TranslationPair?) async {

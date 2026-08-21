@@ -101,6 +101,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       statusItemController?.setRecording(isRecording, accent: accent)
       settingsRuntimeState?.isDictating = isRecording
     }
+    settingsRuntimeState.prepareTranslationModel = { [weak dictationController] in
+      dictationController?.prepareTranslationModel()
+    }
+    dictationController.onTranslationTargetsChange = { [weak settingsRuntimeState] targets in
+      settingsRuntimeState?.translationTargets = targets
+    }
+    dictationController.onTranslationStateChange = { [weak settingsRuntimeState] state in
+      settingsRuntimeState?.translationModelState = state
+    }
     dictationController.onLanguageDownloadChange = {
       [weak settingsRuntimeState] identifier, fraction in
       settingsRuntimeState?.setDownload(identifier: identifier, fraction: fraction)

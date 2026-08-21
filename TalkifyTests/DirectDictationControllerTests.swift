@@ -86,6 +86,7 @@ struct DirectDictationControllerTests {
       shutDownRecognition: shutDownRecognition,
       translationAvailability: { _ in translationAvailability },
       prewarmTranslation: { _ in translationReady },
+      translationTargets: { _ in [] },
       retainTranslation: { pair in retainedPairs.withLock { $0.append(pair) } },
       translateText: { text, _ in
         if let translateBody { return try await translateBody(text) }

@@ -50,6 +50,26 @@ struct LanguageSettingsView: View {
           }
         }
 
+        SettingsPickerRow(
+          title: "Translate into",
+          description: translationDescription,
+          options: [""] + runtimeState.translationTargets.map(\.id),
+          optionLabel: translationLabel(for:),
+          selection: $settings.translationTargetIdentifier,
+          controlWidth: 260
+        )
+
+        if let action = translationModelAction {
+          SettingsRow(title: action.title, description: action.description) {
+            if runtimeState.translationModelState == .downloading {
+              ProgressView().controlSize(.small)
+            } else {
+              Button(action.button) { downloadTranslationModel() }
+                .buttonStyle(SettingsButtonStyle())
+            }
+          }
+        }
+
         // A model download can take minutes. Naming the language and its
         // progress is what separates "working" from "stuck".
         ForEach(downloads, id: \.name) { download in
@@ -137,6 +157,64 @@ struct LanguageSettingsView: View {
     languages
       .first { $0.id == settings.secondaryRecognitionLocaleIdentifier }?
       .name ?? "the second language"
+  }
+
+  private var translationDescription: String {
+    guard settings.isTranslationEnabled else {
+      return "Off. Choose a language and the Translate shortcut speaks in "
+        + "yours and inserts it in that one"
+    }
+    return "The Translate shortcut speaks in your dictation language and "
+      + "inserts it in this one"
+  }
+
+  private func translationLabel(for identifier: String) -> String {
+    guard !identifier.isEmpty else { return "Off" }
+    guard let target = runtimeState.translationTargets.first(where: { $0.id == identifier })
+    else {
+      // A stored pick this source cannot reach. Kept visible rather than
+      // silently dropped: it is still the user's choice.
+      return SpeechLanguageCatalog.shortName(for: Locale(identifier: identifier))
+        + " — not available from your dictation language"
+    }
+    return target.label
+  }
+
+  /// The row under the picker, when the chosen model needs saying something
+  /// about. Nothing to say when it is ready.
+  private var translationModelAction: (title: String, description: String, button: String)? {
+    guard settings.isTranslationEnabled else { return nil }
+    let name = SpeechLanguageCatalog.shortName(
+      for: Locale(identifier: settings.translationTargetIdentifier)
+    )
+    switch runtimeState.translationModelState {
+    case .ready, .none:
+      return nil
+    case .needsDownload:
+      return (
+        "Download the \(name) model",
+        "Talkify fetches it the first time you use Translate. You can start "
+          + "it now instead.",
+        "Download"
+      )
+    case .downloading:
+      return (
+        "Downloading the \(name) model",
+        "Apple does not report how far along it is, so this stays until it "
+          + "finishes. Dictation keeps working while it runs.",
+        ""
+      )
+    case .failed:
+      return (
+        "\(name) could not be prepared",
+        "Translate will keep trying. Dictation is unaffected.",
+        "Try Again"
+      )
+    }
+  }
+
+  private func downloadTranslationModel() {
+    runtimeState.prepareTranslationModel()
   }
 
   private var secondaryTriggerDescription: String {

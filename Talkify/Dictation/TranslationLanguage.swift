@@ -42,3 +42,31 @@ extension Locale.Language {
     return code.uppercased()
   }
 }
+
+/// One language the user could translate into, with what this Mac can do
+/// about it right now.
+struct TranslationTarget: Identifiable, Hashable, Sendable {
+  /// The language code, which is what the preference stores.
+  let id: String
+  let name: String
+  let availability: TranslationAvailability
+
+  /// What the picker shows. A language needing a download says so, rather
+  /// than looking identical to one that works and then not working.
+  var label: String {
+    switch availability {
+    case .installed: name
+    case .downloadable: "\(name) — downloads on first use"
+    case .unsupported: "\(name) — not available"
+    }
+  }
+}
+
+/// What a chosen target can do, for the row under the picker.
+enum TranslationModelState: Equatable, Sendable {
+  case none
+  case ready
+  case needsDownload
+  case downloading
+  case failed
+}

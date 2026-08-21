@@ -23,6 +23,9 @@ struct TranslationServiceTests {
     var answer = "traducido"
     /// Set to hang the translator, so the timeout is the only way out.
     var neverAnswers = false
+    var candidates: [Locale.Language] = []
+    /// Availability per language code, for the catalog tests.
+    var perLanguage: [String: TranslationAvailability] = [:]
 
     var translateCount: Int { lock.withLock { translateCalls } }
     var prepareCount: Int { lock.withLock { prepareCalls } }
@@ -30,7 +33,9 @@ struct TranslationServiceTests {
 
     func client() -> TranslationService.Client {
       TranslationService.Client(
-        availability: { [self] _ in availability },
+        availability: { [self] pair in
+          perLanguage[pair.target.languageCode?.identifier ?? ""] ?? availability
+        },
         prepare: { [self] _ in
           lock.withLock { prepareCalls += 1 }
           if let prepareError { throw prepareError }
@@ -40,6 +45,7 @@ struct TranslationServiceTests {
           if neverAnswers { try await Task.sleep(for: .seconds(3600)) }
           return answer
         },
+        candidateTargets: { [self] in candidates },
         retain: { [self] pair in lock.withLock { retained.append(pair) } },
         shutDown: {}
       )
@@ -120,6 +126,46 @@ struct TranslationServiceTests {
 
     #expect(await service.prewarm(pair) == true)
     #expect(spy.prepareCount == 1)
+  }
+
+  /// The picker's list: installed first because those work now, then
+  /// alphabetically so sixteen entries stay scannable.
+  @Test func targetsListInstalledFirstThenByName() async {
+    let spy = Spy()
+    spy.candidates = ["de", "es", "uk", "pl"].map { Locale.Language(identifier: $0) }
+    spy.perLanguage = [
+      "de": .installed, "es": .installed, "uk": .downloadable, "pl": .downloadable,
+    ]
+    let service = TranslationService(client: spy.client())
+
+    let targets = await service.targets(from: Locale(identifier: "en_US"))
+
+    #expect(targets.map(\.id) == ["de", "es", "pl", "uk"])
+    #expect(targets.first?.availability == .installed)
+    #expect(targets.last?.availability == .downloadable)
+  }
+
+  /// Never offer the source as its own target, and never offer a pair this Mac
+  /// cannot do: a listed language that is then refused is worse than absence.
+  @Test func theSourceAndUnsupportedPairsAreNotOffered() async {
+    let spy = Spy()
+    spy.candidates = ["en", "de", "xx"].map { Locale.Language(identifier: $0) }
+    spy.perLanguage = ["de": .installed, "xx": .unsupported]
+    let service = TranslationService(client: spy.client())
+
+    let targets = await service.targets(from: Locale(identifier: "en_US"))
+
+    #expect(targets.map(\.id) == ["de"])
+  }
+
+  /// A language needing a download says so in the picker, rather than looking
+  /// identical to one that works and then not working.
+  @Test func aDownloadableTargetSaysSoInItsLabel() {
+    let installed = TranslationTarget(id: "es", name: "Spanish", availability: .installed)
+    let downloadable = TranslationTarget(id: "uk", name: "Ukrainian", availability: .downloadable)
+
+    #expect(installed.label == "Spanish")
+    #expect(downloadable.label == "Ukrainian — downloads on first use")
   }
 
   /// Changing the target has to drop the old pair, or the previous language's

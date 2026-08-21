@@ -11,10 +11,20 @@ extension TranslationService.Client {
       availability: { await translator.availability(of: $0) },
       prepare: { try await translator.prepare($0) },
       translate: { try await translator.translate($1, with: $0) },
+      candidateTargets: { await supportedTargetLanguages() },
       retain: { await translator.retain($0) },
       shutDown: { await translator.shutDown() }
     )
   }
+}
+
+/// Read outside any actor on purpose. `supportedLanguages` is a nonisolated
+/// async property on a non-Sendable class, so reading it from inside an actor
+/// is a Swift 6 error: the class would have to leave that actor's isolation.
+/// The same shape blocks `TranslationSession.isReady`, which is why nothing
+/// here uses it.
+private func supportedTargetLanguages() async -> [Locale.Language] {
+  await LanguageAvailability().supportedLanguages
 }
 
 /// Holds the prewarmed sessions.

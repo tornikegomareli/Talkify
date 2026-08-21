@@ -14,6 +14,11 @@ final class DirectDictationController {
   /// active — speaking through the speaker path mid-dictation would feed
   /// the recognizer its own audio.
   var onReadAloudTriggered: (() -> Void)?
+  /// The translation targets this source can reach, and what the chosen one
+  /// can do. Settings reflects both; it does not own the translator.
+  var onTranslationTargetsChange: (([TranslationTarget]) -> Void)?
+  var onTranslationStateChange: ((TranslationModelState) -> Void)?
+
   /// A language model downloading, as a locale identifier and progress (0…1),
   /// or nil progress once it finishes. Settings shows it on the language row.
   var onLanguageDownloadChange: ((String, Double?) -> Void)?
@@ -181,10 +186,33 @@ final class DirectDictationController {
     let pair = settings.translationPair(from: primary)
     translationPair = pair
     await dependencies.retainTranslation(pair)
-    if let pair {
-      isTranslationReady = await dependencies.prewarmTranslation(pair)
-    } else {
+    onTranslationTargetsChange?(await dependencies.translationTargets(primary))
+
+    guard let pair else {
       isTranslationReady = false
+      onTranslationStateChange?(.none)
+      return
+    }
+    // Say what the model is doing before waiting on it: preparing an
+    // uninstalled one can take minutes, and a silent Settings row reads as
+    // broken rather than busy.
+    let availability = await dependencies.translationAvailability(pair)
+    onTranslationStateChange?(availability == .installed ? .ready : .downloading)
+    isTranslationReady = await dependencies.prewarmTranslation(pair)
+    onTranslationStateChange?(
+      isTranslationReady ? .ready : (availability == .installed ? .failed : .needsDownload)
+    )
+  }
+
+  /// Prepares the chosen model now, for the Download button in Settings.
+  func prepareTranslationModel() {
+    guard let pair = translationPair, !isTranslationReady else { return }
+    onTranslationStateChange?(.downloading)
+    Task { [weak self] in
+      let ready = await self?.dependencies.prewarmTranslation(pair) ?? false
+      guard let self, translationPair == pair else { return }
+      isTranslationReady = ready
+      onTranslationStateChange?(ready ? .ready : .needsDownload)
     }
   }
 
