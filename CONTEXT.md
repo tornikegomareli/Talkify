@@ -147,7 +147,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, and whether the session lowers other audio
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, draft style, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, the MyVoice capture choice, and whether the session lowers other audio
 - **Direct Dictation** can lower other audio while it listens and put it back when the session ends, cancels or fails; it is off by default because the control it moves is system-wide
 - macOS has no per-application ducking, so lowering other audio moves the default output device's own volume and quiets Talkify's session sounds along with everything else
 - A lowered volume is restored only while it is still the value Talkify set: a volume the user changed mid-session is theirs, the same rule the clipboard restore follows
@@ -237,13 +237,18 @@ _Avoid_: Transcript history, cloud analytics
 - After a successful paste, Talkify restores the accepted snapshot after a short delay only if the pasteboard change count still matches Talkify's write
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
-- An off-by-default **Save transcription history** setting exists; turning it on is the one explicit exception to the no-persistence line above
+- An off-by-default **Save transcription history** setting exists; turning it on is one explicit exception to the no-persistence line above
 - While history is on, each completed **Direct Dictation** session appends a timestamped entry to a daily plain-text file in a user-visible folder defaulting to `~/Documents/Talkify/`
 - A history entry names the application the text was aimed at, meaning the one that held focus when the session started, because a record of what was said is easier to use later when it says where it was being said
 - History is written before insertion, so an entry names where the words were headed rather than where they landed; a clipboard-only session names the clipboard, since it aimed at no application at all
 - An entry whose application cannot be named keeps the bare timestamp rather than reading "Unknown"
 - The history folder is the user's pick, and Clear History removes only the day files Talkify wrote there
 - The history choice is captured in the Dictation session settings snapshot at session start
+- An off-by-default **Save dictation samples** setting is the other explicit exception: it saves each completed **Direct Dictation**'s raw ASR transcript and corrected draft as a local sample under `~/Library/Application Support/Talkify/MyVoice/`, and samples never leave the Mac
+- This slice is transcript-only: samples carry no audio, so nothing the microphone heard is persisted
+- A sample is the words, not their delivery — an insertion that could not land still saves once the flag is on, while a cancelled or failed session saves nothing
+- Empty or whitespace-only transcripts never create a sample
+- The MyVoice choice is captured in the Dictation session settings snapshot at session start
 - A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened
 - Talkify persists application settings and aggregate **Direct Dictation** usage; macOS manages permission state
 - **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count
@@ -390,7 +395,7 @@ _Avoid_: Transcript history, cloud analytics
 - The Appearance preview simulates a small bounded microphone-level loop and holds a quiet frame under Reduce Motion
 - The Appearance preview always uses fixed notched MacBook reference geometry; the active HUD still adapts to its display
 - The Appearance preview shows the picked **HUD size** directly on its notched reference, so a size below what that reference can show stops changing the preview, which is what the same size does on a real notched display
-- The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the shape reads as a notch at the top of a display
+- The Appearance preview draws a simulated menu bar strip (Apple menu, clock, and the Talkify ghost status icon) so the dark stage reads as a display whose bottom edge the HUD's housing cap meets
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.

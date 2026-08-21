@@ -52,8 +52,8 @@ struct HUDMetrics: Equatable {
   /// Width of the HUD shape; the housing sits centered inside it.
   var contentWidth: CGFloat { 540 * scale }
 
-  /// Height of the strip below the housing where the draft text lives, kept
-  /// out of the housing band so text never collides with the camera.
+  /// Height of the strip above the housing where the draft text lives, kept
+  /// out of the housing band so text never collides with the cap.
   var textBandHeight: CGFloat { 36 * scale }
 
   /// The tallest the text band ever gets: the downward-growing long-draft

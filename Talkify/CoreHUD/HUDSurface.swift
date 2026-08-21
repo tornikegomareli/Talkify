@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The HUD's black shape and its reveal, shared by every surface that descends
-/// from the notch: the dictation shell, the Drop Transcription target, and the
-/// finished transcript card.
+/// The HUD's black shape and its reveal, shared by every surface that floats
+/// on the bottom edge of the display: the dictation shell, the Drop
+/// Transcription target, and the finished transcript card.
 ///
 /// This exists so the rules that break on real hardware live in one file.
 /// Bounce is expressed only in bottom-anchored scale, never in position,
@@ -140,7 +140,7 @@ struct HUDSurface<Content: View, Overlays: View>: View {
     }
     // Growing from the housing never fades: the shape is always there, it is
     // just the size of the housing when closed, which is what makes it read as
-    // the notch itself.
+    // the housing itself.
     if growsFromHousing { return 1 }
     switch revealStyle {
     case .slide, .unfurl: return 1

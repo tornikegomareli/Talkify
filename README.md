@@ -26,7 +26,7 @@
 
 ## Privacy
 
-Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
+Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests and stores no audio. It keeps nothing else automatically but the aggregate usage metrics you can see in Insights; two opt-in settings can store local text records — **Save transcription history** appends a line per session to a folder you choose (default `~/Documents/Talkify/`), and **Save dictation samples** keeps completed dictations' raw transcript and corrected draft under `~/Library/Application Support/Talkify/MyVoice/`. Both are off until you turn them on, and samples never leave this Mac.
 
 One thing worth knowing: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
 

@@ -11,7 +11,7 @@ private let logger = Logger(subsystem: "com.talkify.myvoice", category: "collect
 /// Implements `tmp → validate → rename → event` and is designed to be called
 /// from a detached Task so the insertion path never blocks.
 ///
-/// Usage from Talkify (see docs/talkify-integration.md):
+/// Usage from Talkify (see docs/MyVoiceIntegration.md):
 /// ```
 /// if settings.myvoiceCaptureEnabled {
 ///     Task.detached {

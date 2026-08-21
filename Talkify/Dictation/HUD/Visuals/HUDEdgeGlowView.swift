@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// The Edge Glow beam, built the way the article's gist builds it: the open
-/// silhouette (down the left flank, across the bottom, up the right flank —
-/// never the hidden top edge) is stroked with an angular palette gradient
+/// silhouette (up the left flank, across the top, down the right flank —
+/// never the hidden bottom edge) is stroked with an angular palette gradient
 /// three times — a crisp line and two blurred copies — and the shader
 /// (EdgeGlow.metal) masks that picture by distance from the origin.
 ///
 /// The article moves the origin with the user's finger; the HUD has no
-/// finger, so the origin sweeps the silhouette instead — corner to notch and
-/// back, eased at the turnarounds — starting from under the housing at each
-/// session start. The mask blooms in on session start, breathes with the
+/// finger, so the origin sweeps the silhouette instead — flank tip to flank
+/// tip across the top run, eased at the turnarounds — starting at top-center
+/// at each session start. The mask blooms in on session start, breathes with the
 /// microphone level, and drains back when the session ends. A dead microphone
 /// swaps the palette for a motionless amber (CONTEXT.md: dead ≠ silent).
 ///
@@ -39,8 +39,8 @@ struct HUDEdgeGlowView: View {
   /// 28pt spill read as a much heavier beam once the shape is smaller.
   private var spill: CGFloat { Self.spill * metrics.scale }
 
-  /// Reset on every session start so the sweep begins at bottom-center,
-  /// directly under the housing.
+  /// Reset on every session start so the sweep begins at top-center,
+  /// opposite the housing cap.
   @State private var sweepStart = Date()
 
   /// Mirrors `content.showsVoiceVisual` for the ramp's keyframe trigger.
@@ -123,8 +123,8 @@ struct HUDEdgeGlowView: View {
   }
 
   /// The eased ping-pong position along the silhouette at time `t` (left
-  /// tip → bottom → right tip → back), phase-shifted so t = 0 lands at
-  /// bottom-center. Shared with the particle cloud so the motes chase the
+  /// tip → top → right tip → back), phase-shifted so t = 0 lands at
+  /// top-center. Shared with the particle cloud so the motes chase the
   /// same point the beam highlights.
   nonisolated static func sweepFraction(at t: TimeInterval) -> Double {
     let phase = ((t / sweepDuration) + 0.5)

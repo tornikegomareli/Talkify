@@ -12,7 +12,7 @@ struct DictationBandLayout: Equatable {
   /// Whether the bands stay as a listening session laid them out. Held
   /// through the retract so the shape never resizes while it slides away.
   let keepsVisualLayout: Bool
-  /// Height of the voice visual's band below the housing, 0 when the
+  /// Height of the voice visual's band above the housing, 0 when the
   /// current state shows no visual band.
   let visualBandHeight: CGFloat
   /// Whether the draft text band is present at all.

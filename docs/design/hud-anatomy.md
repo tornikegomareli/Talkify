@@ -3,25 +3,26 @@
 Source: `Talkify/CoreHUD/HUDMetrics.swift`, `Talkify/CoreHUD/HUDNotchGeometry.swift`,
 `Talkify/Dictation/HUD/DictationHUDShellView.swift`.
 
-The HUD is a black shape that descends from the top center of a display and
-appears to grow out of the MacBook's notch. It is the app's primary surface.
-Every dictation status and error message appears here and nowhere else.
+The HUD is a black shape that floats near the bottom center of a display,
+its housing cap meeting the display's bottom edge. It is the app's primary
+surface. Every dictation status and error message appears here and nowhere
+else.
 
 ## The shape
 
-Square against the top of the screen, rounded at the bottom two corners,
-flared into the bezel on a real notched display. Filled pure black. It reads
-as the notch itself stretching downward.
+Square against the bottom of the screen, rounded at its bottom two corners,
+flared into the bezel along the bottom edge on a real notched display. Filled
+pure black. It reads as the display's housing cap.
 
 ```
-        screen top edge
- ───────┬─────────────────┬───────
-        │▓▓▓ housing  ▓▓▓ │          ← camera lives here, always empty
- ╭──────┴─────────────────┴──────╮
- │                               │   ← visual band (voice visual)
- │                               │
+ ╭───────────────────────────────╮
  │        draft text band        │   ← text band, only for some visuals
- ╰───────────────────────────────╯
+ │                               │
+ │                               │   ← visual band (voice visual)
+ ╰──────┬─────────────────┬──────╯
+        │▓▓▓ housing  ▓▓▓ │          ← housing cap, always empty
+ ───────┴─────────────────┴───────
+        screen bottom edge
 ```
 
 The fillets are the small concave corners where the shape meets the bezel.
@@ -54,7 +55,8 @@ bezel curve.
 ## The bands
 
 **Housing band.** Always present, always empty. Its height is the notch's
-height. Nothing is ever drawn here — content would sit behind the camera.
+height, or the fixed stand-in cap elsewhere. Nothing is ever drawn here —
+the cap stays empty so the shape reads as the housing.
 
 **Visual band.** Holds the voice visual. Its height depends on which visual
 is selected: `64 * scale` for Waveform, `64 * scale` (empty, used as a stage
@@ -68,8 +70,8 @@ Motion. Draft text is 15pt medium white, centered, with three long-draft
 behaviors the user picks between: single line with head truncation, wrap and
 grow downward capped at four lines, or single line that shrinks to fit.
 
-**Language tag.** A small capsule pinned to the top leading corner below the
-housing, shown only when a second dictation language is configured. It hangs
+**Language tag.** A small capsule pinned to the top leading corner of the
+shape, shown only when a second dictation language is configured. It hangs
 off the shell as an overlay rather than sitting in the layout, so it never
 changes the window's size.
 
@@ -82,15 +84,15 @@ hardware, not a style disagreement.
 layout at 100% scale, and only its origin moves. A smaller shape centers
 itself inside the same fixed window.
 
-**Bounce lives only in top-anchored scale, never in position.** A position
-overshoot lifts the shape off the screen edge and opens a visible gap above
-it. Scale anchored at `.top` cannot.
+**Bounce lives only in bottom-anchored scale, never in position.** A position
+overshoot lifts the shape off the screen edge and opens a visible gap. Scale
+anchored at `.bottom` cannot.
 
 **Nothing is drawn in the housing band.**
 
 **Fillets require a real notch.** Zero otherwise.
 
-**The HUD descends from the top center and is never placed at the bottom.**
+**The HUD anchors to the bottom center and is never placed at the top.**
 
 **Window level is `.mainMenu + 3`** so it clears full-screen apps, and it
 appears on every Space. No private APIs anywhere.
@@ -101,10 +103,11 @@ Historically none: the HUD ignored all mouse events and never took focus, so
 clicks passed straight through to whatever was behind it
 (`HUDPanel.swift`).
 
-This is changing for Drop Transcription. The HUD now accepts the mouse in
-exactly two states — while it is a drop target, and while it holds a finished
-transcript — and still never takes focus. In every other state it remains
-click-through. See `FEATURE.md`.
+The HUD accepts the mouse in three states — while it is a drop target,
+while it holds a finished transcript, and while an editable draft is under
+review — and still never activates Talkify. Only the draft review takes
+keyboard focus, inside the non-activating panel. In every other state it
+remains click-through. See `FEATURE.md`.
 
 ## Display behavior
 

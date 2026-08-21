@@ -233,16 +233,17 @@ drag, and for anyone who cannot perform one.
 The island's host window is fixed size and only its origin moves. The shape
 can change size within it; the window cannot.
 
-Bounce only in scale anchored at the top edge. Never in position — an
+Bounce only in scale anchored at the bottom edge. Never in position — an
 overshoot opens a visible gap against the screen edge.
 
-Nothing is drawn in the housing band at the top of the shape. That space sits
-behind the camera.
+Nothing is drawn in the housing cap at the bottom of the shape. It stays
+empty so the shape reads as the housing.
 
 The shape is pure black and the fillets exist only on a real notched display.
 
-The island still never takes keyboard focus, even now that it accepts the
-mouse in these two states.
+The island never activates Talkify, even now that it accepts the mouse in
+these states. Only the editable-draft review takes keyboard focus, inside
+the non-activating panel.
 
 Reduce Motion needs an answer for every piece of motion proposed. A fade is
 an acceptable answer.

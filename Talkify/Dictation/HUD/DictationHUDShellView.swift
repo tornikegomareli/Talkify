@@ -18,7 +18,7 @@ struct DictationHUDShellView: View {
   /// can resize is read from here; the housing band and fillets are not.
   ///
   /// Held to two floors at once: this display's, so the shape never ends up
-  /// narrower than the housing it descends from, and the selected visual's, so
+  /// narrower than the housing cap it sits on, and the selected visual's, so
   /// a layout built around live text never shrinks past reading it.
   static func metrics(
     picked: HUDMetrics,
@@ -102,9 +102,8 @@ struct DictationHUDShellView: View {
         bands
           // The tag hangs off the shell, not the text band: Waveform and Edge
           // Glow hide the band for the whole listening phase, which is exactly
-          // when the live language needs naming. Padded below the housing so it
-          // clears the camera, and an overlay so it never changes the fixed
-          // window's size.
+          // when the live language needs naming. Padded off the floating top
+          // edge, and an overlay so it never changes the fixed window's size.
           .overlay(alignment: .topLeading) { languageTag }
           .animation(
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
@@ -147,7 +146,7 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// Draft text lives in the band below the housing. The editable-draft
+  /// Draft text lives in the band above the housing cap. The editable-draft
   /// review swaps the whole band for the editable field while the draft is
   /// settled; while a replacement round listens under that review the band
   /// keeps the text with the compact indicator beside it and the selection

@@ -27,7 +27,7 @@ struct DropHUDView: View {
     HUDNotchGeometry.closedSize(for: screen).height
   }
 
-  /// The strip below the housing. Explicit rather than expanding: the host
+  /// The strip above the housing. Explicit rather than expanding: the host
   /// window is sized for the tallest layout, so anything greedy about height
   /// fills the window instead of the shape.
   private var bodyHeight: CGFloat {

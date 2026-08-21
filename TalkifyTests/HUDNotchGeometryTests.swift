@@ -130,8 +130,8 @@ struct HUDNotchGeometryTests {
     #expect(size.height == 32 + small.waveBandHeight)
   }
 
-  /// The shape has to stay wider than the housing it descends from, or it
-  /// stops covering the notch it is supposed to hug.
+  /// The shape has to stay wider than the housing cap it sits on, or it
+  /// stops reading as the cap the HUD grows from.
   ///
   /// Enforced per display rather than globally: the slider's own minimum is
   /// meant for displays with no housing to cover, where the band is only menu

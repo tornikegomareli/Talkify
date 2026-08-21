@@ -2,8 +2,8 @@ import AppKit
 
 /// The window that hosts the HUD.
 ///
-/// Sits at `mainMenu + 3` — enough to own the notch strip above the menu bar
-/// and full-screen apps without private-API window code (ADR-0001).
+/// Sits at `mainMenu + 3` — enough to float above full-screen apps
+/// without private-API window code (ADR-0001).
 final class HUDPanel: NSPanel {
   init(contentRect: NSRect, contentView: NSView) {
     super.init(

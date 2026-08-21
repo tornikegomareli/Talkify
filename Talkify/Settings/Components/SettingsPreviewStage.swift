@@ -61,10 +61,10 @@ struct SettingsPreviewStage<HUD: View>: View {
     }
   }
 
-  /// A simulated menu bar strip so the shape reads as a notch at the top
-  /// of a display: matches the housing strip's scaled height, with the
-  /// Talkify ghost among the status items. The shell's black housing
-  /// draws over its center.
+  /// A simulated menu bar strip so the stage reads as a display: it marks
+  /// the top of the screen while the HUD's housing cap meets the bottom
+  /// edge. Matches the housing strip's scaled height, with the Talkify
+  /// ghost among the status items.
   private var simulatedMenuBar: some View {
     HStack(spacing: 0) {
       HStack(spacing: 7) {

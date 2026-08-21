@@ -113,11 +113,19 @@ real audio; adding the tee later keeps that path and fills a real file.
 
 ## Tests
 
-- `TalkifyTests/MyVoiceCaptureTests.swift` — controller seam + storage seam:
+- `TalkifyTests/MyVoiceCaptureTests.swift` — storage seam + direct collector:
   Off-is-default, UserDefaults round-trip, Off-no-sample-with-insert,
   On-creates-candidate-with-raw-and-corrected, empty/whitespace skipped,
   cancellation/failure no sample, collector failure not blocking insertion,
-  session-snapshot isolation, direct `MyVoiceCollector` candidate with
+  direct `MyVoiceCollector` candidate with
   `asr.txt`/`corrected.txt`/`events.jsonl`, editable-draft `asr != corrected`
   via direct collector, disk-full cleans `tmp`.
+- `TalkifyTests/DirectDictationControllerTests.swift` — the controller's
+  wiring through the seam: the release path hands the finished session's
+  words to `myVoiceService.capture` with the session-snapshot locale when
+  the flag is on; a session that began while the flag was off never sends a
+  candidate; an insertion that could not land still captures; Return on a
+  reviewed editable draft sends the first round's raw ASR next to the
+  corrected draft and records the accumulated speech duration across the
+  review's rounds.
 - Run: `xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO`

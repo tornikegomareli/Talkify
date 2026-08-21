@@ -87,8 +87,8 @@ Two shadows exist in the entire app.
 
 The island casts `black` at `0.35` opacity, radius `11 * scale`, offset
 `y: 4 * scale`. Its host window reserves `44` points of slack on the left,
-right and bottom purely so that shadow is not clipped — nothing at the top,
-because the shape is flush against the screen edge.
+right and top purely so that shadow is not clipped — nothing at the bottom,
+because the shape is flush against the screen's bottom edge.
 
 The Settings modal carries a soft shadow and a 1px low-opacity border. There
 is no scrim behind it: the modal establishes focus with its own contrast, and

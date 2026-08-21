@@ -15,9 +15,9 @@ enum HUDNotchGeometry {
   /// measures zero, which would collapse the housing to nothing.
   static let fallbackClosedSize = CGSize(width: 185, height: 32)
 
-  /// Slack on the left, right, and bottom so the shell's drawn shadow is not
-  /// clipped by the fixed window frame. Nothing is added at the top: that
-  /// edge is the top of the screen and the shape is flush against it.
+  /// Slack on the left, right, and top so the shell's drawn shadow is not
+  /// clipped by the fixed window frame. Nothing is added at the bottom: that
+  /// edge is the bottom of the screen and the shape is flush against it.
   static let shadowPadding: CGFloat = 44
 
   /// The notch this display actually reports, or nil when there is nothing
@@ -44,7 +44,7 @@ enum HUDNotchGeometry {
 
   /// The housing footprint, falling back to the simulated stand-in. Never
   /// scaled by the HUD size: this height is hardware on a notched display,
-  /// and the menu bar's clearance on every other one.
+  /// and the fixed cap on every other one.
   static func closedSize(for screen: HUDScreenSnapshot) -> CGSize {
     measuredClosedSize(for: screen) ?? fallbackClosedSize
   }
@@ -71,17 +71,17 @@ enum HUDNotchGeometry {
     )
   }
 
-  /// Breathing room each side of the housing, so the shape reads as wider than
-  /// what it descends from rather than exactly as wide as it.
+  /// Breathing room each side of the housing, so the shape reads as wider
+  /// than the cap it sits on rather than exactly as wide as it.
   private static let housingShoulder: CGFloat = 4
 
   /// The smallest scale this display can show.
   ///
-  /// A shape narrower than the housing stops reading as the notch growing and
-  /// becomes a tab floating under it, and its fillets land inside the cutout
-  /// where there is no bezel to flare into. So a measured notch sets its own
-  /// floor from its real width, and a display without one keeps the global
-  /// minimum because it has nothing to cover.
+  /// A shape narrower than the housing stops reading as the cap the shape
+  /// sits on and becomes a tab floating in front of it, and its fillets land
+  /// inside the cap where there is no bezel to flare into. So a measured
+  /// notch sets its own floor from its real width, and a display without one
+  /// keeps the global minimum because it has nothing to cover.
   ///
   /// This cannot be a constant. The notch is a fixed physical width, but its
   /// width *in points* moves with the scaled display mode: the same 14" MacBook
@@ -100,7 +100,7 @@ enum HUDNotchGeometry {
 
   /// Size of the concave corner that flares the shape into the bezel, and
   /// zero on a display with no housing to flare into — there the curve reads
-  /// as two detached tabs (ADR-0001: the simulated notch omits fillets).
+  /// as two detached tabs (ADR-0001: the simulated cap omits fillets).
   /// Unscaled: the flare has to match a physical bezel curve.
   static func filletSize(for screen: HUDScreenSnapshot) -> CGFloat {
     hasMeasuredNotch(for: screen) ? 11 : 0

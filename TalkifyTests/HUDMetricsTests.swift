@@ -42,8 +42,8 @@ struct HUDMetricsTests {
 }
 
 /// The smallest HUD each display can show. The picked size applies everywhere
-/// except where it would leave the shape narrower than the housing it descends
-/// from, which reads as a tab floating under the notch.
+/// except where it would leave the shape narrower than the housing cap it sits
+/// on, which reads as a tab floating in front of the cap.
 @Suite("Per-display HUD floor")
 struct HUDMinimumScaleTests {
   private func screen(notchWidth: CGFloat?) -> HUDScreenSnapshot {
