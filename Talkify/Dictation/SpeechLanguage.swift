@@ -18,13 +18,16 @@ struct SpeechLanguage: Identifiable, Equatable, Sendable {
 /// `SpeechTranscriber.supportedLocales`, so the list is whatever this Mac's
 /// macOS actually supports rather than a hardcoded table that can drift.
 enum SpeechLanguageCatalog {
-  /// Two-letter tag for the HUD ("EN", "DE"), so a session shows which
+  /// The tag for the HUD ("EN", "DE", "YUE"), so a session shows which
   /// language is listening. Recognition fails confidently in the wrong
   /// language, which makes this worth the space.
+  ///
+  /// One definition, shared with the translation pair's tag, so the two can
+  /// never disagree about what a language is called.
   static func tag(for locale: Locale) -> String {
-    (locale.language.languageCode?.identifier ?? locale.identifier)
-      .prefix(2)
-      .uppercased()
+    let tag = locale.language.shortTag
+    guard tag.isEmpty else { return tag }
+    return locale.identifier.prefix(2).uppercased()
   }
 
   /// The language's own name without its region ("German"), for prose where

@@ -248,10 +248,15 @@ struct AppSettingsTests {
     #expect(settings.secondaryRecognitionLocaleIdentifier == "")
   }
 
-  @Test func languageTagsAreTwoLetterUppercase() {
+  /// The tag is the language code, uppercased, however long the code is.
+  ///
+  /// This used to truncate to two characters, which gave Cantonese the tag
+  /// "YU" sitting beside Chinese as "ZH". Truncation was never the rule worth
+  /// keeping; the rule is that the tag names the language.
+  @Test func languageTagsAreTheUppercasedLanguageCode() {
     #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "de_DE")) == "DE")
     #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "en_US")) == "EN")
-    #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "yue_CN")) == "YU")
+    #expect(SpeechLanguageCatalog.tag(for: Locale(identifier: "yue_CN")) == "YUE")
   }
 
   @Test func unknownStoredValueFallsBackToDefault() {
