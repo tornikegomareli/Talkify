@@ -27,6 +27,10 @@ final class DirectDictationController {
   /// text, selection, and the review field); nil on the dependency-seam
   /// init, which no production path uses for a draft session.
   private let hudController: DictationHUDController?
+  /// The MyVoice transcript capture boundary. Its saves are detached and
+  /// never block or fail dictation; off by default behind
+  /// `myvoiceCaptureEnabled`.
+  private let myVoiceService: MyVoiceCaptureServicing
 
   private var keyEventMonitor: GlobalKeyEventMonitor?
   private var machine = DictationSessionMachine()
@@ -56,23 +60,27 @@ final class DirectDictationController {
   convenience init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    myVoiceService: MyVoiceCaptureServicing? = nil
   ) {
     self.init(
       settings: settings,
+      dependencies: .live(hudController: hudController, usageTracker: usageTracker),
       hudController: hudController,
-      dependencies: .live(hudController: hudController, usageTracker: usageTracker)
+      myVoiceService: myVoiceService
     )
   }
 
   init(
     settings: AppSettings,
     dependencies: Dependencies,
-    hudController: DictationHUDController? = nil
+    hudController: DictationHUDController? = nil,
+    myVoiceService: MyVoiceCaptureServicing? = nil
   ) {
     self.settings = settings
     self.dependencies = dependencies
     self.hudController = hudController
+    self.myVoiceService = myVoiceService ?? MyVoiceCaptureService(enabled: { true })
     keyEventMonitor = GlobalKeyEventMonitor { [weak self] event in
       Task { @MainActor [weak self] in
         self?.handle(event)
@@ -415,6 +423,8 @@ final class DirectDictationController {
         currentSessionSettings = nil
         sessionSpeakingDuration = 0
         pendingReplacement = nil
+        pendingRawTranscript = nil
+        myVoiceSessionStartedAt = nil
       }
       onRecordingStateChange?(isRecording, currentSessionSettings)
     case .triggerReadAloud:
@@ -482,6 +492,8 @@ final class DirectDictationController {
       fail(message: "Preparing speech…", wasCancelled: false)
       return
     }
+
+    myVoiceSessionStartedAt = Date()
 
     sessionStartTask = Task { [weak self] in
       guard let self else { return }
@@ -556,19 +568,21 @@ final class DirectDictationController {
     finishTask = Task { [weak self] in
       guard let self else { return }
       defer { finishTask = nil }
+      let startedAt = myVoiceSessionStartedAt ?? Date()
       do {
         let text = try await dependencies.finishRecognition()
+        let stoppedAt = Date()
         sessionSpeakingDuration += speakingDuration
         if let pending = pendingReplacement {
           commitReplacement(text, into: pending)
         } else if currentSessionSettings?.draftStyle == .editableDraft {
-          // The main round of an editable-draft session: hold the draft
-          // for review instead of inserting. An empty draft has nothing
-          // to review, so the session simply ends as today.
           if text.isEmpty {
             dependencies.hideHUD()
             send(.sessionEnded)
+            myVoiceSessionStartedAt = nil
+            pendingRawTranscript = nil
           } else {
+            if pendingRawTranscript == nil { pendingRawTranscript = text }
             hudController?.setDraft(text)
             send(.finishCompleted)
           }
@@ -599,6 +613,17 @@ final class DirectDictationController {
             send(.sessionEnded)
             dependencies.showMessage("Couldn't insert text", nil)
           }
+          if let session = currentSessionSettings,
+             session.myvoiceCaptureEnabled,
+             !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let localeID = locale(for: activeSlot)?.identifier ?? Locale.current.identifier
+            myVoiceService.capture(
+              rawTranscript: text, correctedText: text, audioURL: nil,
+              startedAt: startedAt, stoppedAt: stoppedAt, localeIdentifier: localeID
+            )
+          }
+          myVoiceSessionStartedAt = nil
+          pendingRawTranscript = nil
         }
       } catch {
         fail(message: error.localizedDescription, wasCancelled: false)
@@ -615,6 +640,8 @@ final class DirectDictationController {
   /// The session's accumulated speech time across every round, recorded
   /// when the reviewed draft is pasted.
   private var sessionSpeakingDuration: TimeInterval = 0
+  private var pendingRawTranscript: String?
+  private var myVoiceSessionStartedAt: Date?
 
   /// Freezes the draft and the field's selection before the round starts,
   /// so its live words can preview into the draft instead of replacing it.
@@ -670,6 +697,11 @@ final class DirectDictationController {
   private func pasteDraft() {
     Task { [weak self] in
       guard let self, let hudController else { return }
+      // The raw ASR stays the round's first words even when the user edits
+      // the draft before Return; the corrected text is what actually lands.
+      let startedAt = myVoiceSessionStartedAt ?? Date()
+      let stoppedAt = Date()
+      let raw = pendingRawTranscript ?? hudController.draftText
       let text = hudController.draftText
       dependencies.hideHUD()
       // Delivery follows the session snapshot, so a Settings change
@@ -688,6 +720,17 @@ final class DirectDictationController {
         send(.sessionEnded)
         dependencies.showMessage("Couldn't insert text", nil)
       }
+      if let session = currentSessionSettings,
+         session.myvoiceCaptureEnabled,
+         !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let localeID = locale(for: activeSlot)?.identifier ?? Locale.current.identifier
+        myVoiceService.capture(
+          rawTranscript: raw, correctedText: text, audioURL: nil,
+          startedAt: startedAt, stoppedAt: stoppedAt, localeIdentifier: localeID
+        )
+      }
+      pendingRawTranscript = nil
+      myVoiceSessionStartedAt = nil
     }
   }
 

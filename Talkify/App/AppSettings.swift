@@ -36,6 +36,7 @@ final class AppSettings {
     static let insertionDestination = "dictationInsertionDestination"
     static let historyEnabled = "dictationHistoryEnabled"
     static let historyFolder = "dictationHistoryFolder"
+    static let myvoiceCaptureEnabled = "myvoiceCaptureEnabled"
   }
 
   @ObservationIgnored
@@ -99,6 +100,14 @@ final class AppSettings {
   /// The folder history writes to right now: the user's pick, or the default.
   var resolvedHistoryFolder: URL {
     dictationHistoryFolder ?? DictationHistoryStore.defaultFolderURL
+  }
+
+  /// Whether finished dictation's raw transcript and corrected draft are
+  /// captured to the local MyVoice store. Off by default: persisting no
+  /// recognized text is the standing privacy stance, and only the user
+  /// turns this on.
+  var myvoiceCaptureEnabled: Bool {
+    didSet { defaults.set(myvoiceCaptureEnabled, forKey: Keys.myvoiceCaptureEnabled) }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -225,6 +234,7 @@ final class AppSettings {
     insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
     dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
+    myvoiceCaptureEnabled = defaults.object(forKey: Keys.myvoiceCaptureEnabled) as? Bool ?? false
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     // A missing pick must keep today's flow: the editable draft is opt-in.
     draftStyle = Self.stored(in: defaults, key: Keys.draftStyle) ?? .pasteOnRelease
@@ -347,6 +357,7 @@ struct DictationSessionSettings: Equatable {
   let ducksOtherAudio: Bool
   let voiceVisual: HUDVoiceVisualStyle
   let draftStyle: HUDDraftStyle
+  let myvoiceCaptureEnabled: Bool
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
   let longDraftStyle: HUDLongDraftStyle
@@ -375,6 +386,7 @@ struct DictationSessionSettings: Equatable {
     ducksOtherAudio = settings.duckOtherAudioWhileDictating
     voiceVisual = settings.voiceVisual
     draftStyle = settings.draftStyle
+    myvoiceCaptureEnabled = settings.myvoiceCaptureEnabled
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle
     longDraftStyle = settings.longDraftStyle

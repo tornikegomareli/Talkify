@@ -95,6 +95,21 @@ struct AppearanceSettingsView: View {
           selection: $settings.draftStyle
         )
       }
+
+      SettingsCard(title: "MyVoice") {
+        SettingsRow(
+          title: "Save dictation samples",
+          description: "Save completed dictations as local samples with raw "
+            + "ASR transcription and corrected text in "
+            + "~/Library/Application Support/Talkify/MyVoice/. Off by "
+            + "default — nothing is kept until you turn this on, and "
+            + "samples never leave this Mac."
+        ) {
+          Toggle("Save dictation samples", isOn: $settings.myvoiceCaptureEnabled)
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+      }
     }
   }
 }
