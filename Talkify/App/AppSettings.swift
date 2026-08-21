@@ -379,6 +379,10 @@ enum BindingRole: Hashable, CaseIterable {
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
   let insertionDestination: InsertionDestination
+  /// The translation this session performs, or nil when it inserts the words
+  /// as spoken. Captured with everything else: changing the target
+  /// mid-session must not redirect the session already under way (ADR-0004).
+  let translation: TranslationPair?
   let historyEnabled: Bool
   let historyFolder: URL
   /// Captured with everything else: a session that started while ducking was
@@ -401,7 +405,8 @@ struct DictationSessionSettings: Equatable {
   }
 
   @MainActor
-  init(settings: AppSettings) {
+  init(settings: AppSettings, translation: TranslationPair? = nil) {
+    self.translation = translation
     sounds = DictationSoundSettings(
       set: settings.soundSet,
       isEnabled: settings.dictationSoundsEnabled,

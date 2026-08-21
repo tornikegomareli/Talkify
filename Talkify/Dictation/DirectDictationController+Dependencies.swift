@@ -25,6 +25,14 @@ extension DirectDictationController {
     let cancelRecognition: @Sendable () async -> Void
     let shutDownRecognition: @Sendable () async -> Void
 
+    // Translation. Separate from recognition on purpose: a translation model
+    // that will not load must never refuse a plain dictation session.
+    let translationAvailability: @Sendable (TranslationPair) async -> TranslationAvailability
+    let prewarmTranslation: @Sendable (TranslationPair) async -> Bool
+    let retainTranslation: @Sendable (TranslationPair?) async -> Void
+    let translateText: @Sendable (String, TranslationPair) async throws -> String
+    let shutDownTranslation: @Sendable () async -> Void
+
     // Text insertion.
     let captureFocusedTarget: @MainActor () -> TextInsertionService.Target?
     let insertText: @MainActor (
@@ -78,6 +86,7 @@ extension DirectDictationController {
       let speechService = SpeechRecognitionService()
       let textInsertionService = TextInsertionService()
       let historyStore = DictationHistoryStore()
+      let translationService = TranslationService(client: .live)
 
       return Self(
         setDownloadHandler: { await speechService.setDownloadHandler($0) },
@@ -96,6 +105,11 @@ extension DirectDictationController {
         finishRecognition: { try await speechService.finish() },
         cancelRecognition: { await speechService.cancel() },
         shutDownRecognition: { await speechService.shutDown() },
+        translationAvailability: { await translationService.availability(of: $0) },
+        prewarmTranslation: { await translationService.prewarm($0) },
+        retainTranslation: { await translationService.retain($0) },
+        translateText: { try await translationService.translate($0, with: $1) },
+        shutDownTranslation: { await translationService.shutDown() },
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
         insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
         requestMicrophoneAccess: { await PermissionService.requestMicrophoneAccess() },

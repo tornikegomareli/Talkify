@@ -65,6 +65,10 @@ struct DirectDictationControllerTests {
     shutDownRecognition: @escaping @Sendable () async -> Void = {},
     historyEntries: OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>
       = .init(initialState: []),
+    translationAvailability: TranslationAvailability = .installed,
+    translationReady: Bool = true,
+    translateBody: (@Sendable (String) async throws -> String)? = nil,
+    retainedPairs: OSAllocatedUnfairLock<[TranslationPair?]> = .init(initialState: []),
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -80,6 +84,14 @@ struct DirectDictationControllerTests {
       finishRecognition: finishRecognition,
       cancelRecognition: { cancelCount.withLock { $0 += 1 } },
       shutDownRecognition: shutDownRecognition,
+      translationAvailability: { _ in translationAvailability },
+      prewarmTranslation: { _ in translationReady },
+      retainTranslation: { pair in retainedPairs.withLock { $0.append(pair) } },
+      translateText: { text, _ in
+        if let translateBody { return try await translateBody(text) }
+        return "translated: \(text)"
+      },
+      shutDownTranslation: {},
       captureFocusedTarget: captureFocusedTarget,
       insertText: { text, _, destination in
         recorder.events.append("insertText")
@@ -155,7 +167,21 @@ struct DirectDictationControllerTests {
     await waitUntil("Preparation never reached prewarm") {
       prewarmed.withLock { $0 }
     }
-    try? await Task.sleep(for: .milliseconds(20))
+    // Wait for the state, not for a duration: preparation resolves and warms
+    // a translation pair after the speech prewarm, and a fixed sleep that is
+    // long enough on an idle machine is not long enough on a loaded one.
+    await waitUntil("Preparation never finished") { controller.isPreparedForTesting }
+  }
+
+  /// Prepares, and waits for the translation pair to be ready too.
+  private func prepareWithTranslation(
+    _ controller: DirectDictationController,
+    prewarmed: OSAllocatedUnfairLock<Bool>
+  ) async {
+    await prepare(controller, prewarmed: prewarmed)
+    await waitUntil("Translation never became ready") {
+      controller.isTranslationReadyForTesting
+    }
   }
 
   @Test func triggerBeforePreparationShowsPreparingAndStaysIdle() {
@@ -565,6 +591,162 @@ struct DirectDictationControllerTests {
     let entries = historyEntries.withLock { $0 }
     #expect(entries.map(\.text) == ["spoken words"])
     #expect(entries.map(\.folder) == [folder])
+    controller.stop()
+  }
+
+  /// The feature: a translate session inserts the translation, not the words.
+  @Test func aTranslateSessionInsertsTheTranslationRatherThanWhatWasSpoken() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    // Press and release with no wait is a quick tap, which latches; the next
+    // press is what finishes. Latching rather than sleeping past the 250ms
+    // hold threshold keeps this test off the clock.
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["translated: spoken words"])
+    controller.stop()
+  }
+
+  /// A failed translation delivers nothing and rescues the words to the
+  /// clipboard: the wrong language in someone else's document is worse than a
+  /// paste the user has to make themselves.
+  @Test func aFailedTranslationInsertsNothingAndCopiesWhatWasSpoken() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" },
+        translateBody: { _ in throw TranslationFailure.timedOut }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Rescue never happened") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["spoken words"])
+    #expect(recorder.insertedDestinations == [.clipboardOnly])
+    #expect(recorder.messages.contains("Couldn't translate"))
+    // A rescue is not a delivery.
+    #expect(recorder.count(of: "playPasteSound") == 0)
+    #expect(recorder.recordedSessions.isEmpty)
+    controller.stop()
+  }
+
+  /// The trap: routing the failure through fail() would drive the machine to
+  /// cancelling and cancel a session that has already finished.
+  @Test func aFailedTranslationEndsTheSessionRatherThanCancellingIt() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let cancelCount = OSAllocatedUnfairLock(initialState: 0)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        cancelCount: cancelCount,
+        finishRecognition: { "spoken words" },
+        translateBody: { _ in throw TranslationFailure.timedOut }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Session never ended") { controller.sessionStateForTesting == .idle }
+
+    #expect(cancelCount.withLock { $0 } == 0)
+    controller.stop()
+  }
+
+  /// A plain trigger in the same app still inserts what was said.
+  @Test func aPlainSessionIsUntouchedWhileTranslationIsConfigured() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["spoken words"])
+    controller.stop()
+  }
+
+  /// The rule that protects plain dictation: a translation model that will not
+  /// load leaves dictation prepared and only the translate key refused.
+  @Test func aTranslationPrewarmFailureStillLeavesDictationWorking() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "spoken words" },
+        translationReady: false
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    #expect(controller.sessionStateForTesting == .idle)
+    #expect(recorder.messages.contains("Translation not ready"))
+
+    // And plain dictation still works.
+    controller.toggleFromMenu()
+    await waitUntil("Plain session never started") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
     controller.stop()
   }
 
