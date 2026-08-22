@@ -118,27 +118,12 @@ Translation runs on your Mac through Apple's Translation framework, and the notc
 shows the pair before you speak. If it fails, nothing is pasted and your words go
 to the clipboard.
 
-English translates to eleven languages with nothing to fetch. Five more need a
-model downloaded once, from Settings.
-
 ## Two languages, two triggers
 
 Pick a second language in **Settings → Language** and it gets its own trigger. Hold
 **fn** for English, hold **right ⌥** for German, with no setting to change in
 between. Both triggers are rebindable, and either can use a keyboard key or a
 supported mouse button.
-
-Apple Speech transcribes one language per session and offers no way to detect
-which language you are speaking, so Talkify does not guess. Guessing would mean
-transcribing first and inferring the language from the result, and in the wrong
-language that result is fluent nonsense rather than an error. A key per language
-is instant and never wrong.
-
-Both languages stay loaded, so the second answers as fast as the first, and the
-notch shows a small tag naming the one that is listening. macOS ships 30
-locales across German, English, Spanish, French, Italian, Japanese, Korean,
-Portuguese, Cantonese and Chinese; a language you have not used before downloads
-its model once, with progress shown in Settings and in the notch.
 
 ## Architecture
 
