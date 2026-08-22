@@ -108,6 +108,22 @@ With a second dictation language configured, the target splits in two and the
 half you drop on picks the language. **Transcribe File…** in the menu does the
 same with a picker.
 
+## Speak one language, insert another
+
+Pick a target in **Settings → Language** and the Translate key dictates in your
+own language and inserts that one. Hold **right ⌘**, say it in English, and
+Spanish lands in the document. The key never changes when the language does, so
+there is one shortcut to remember rather than one per language.
+
+Translation runs on device through Apple's Translation framework, and the notch
+shows the pair before you speak, so a wrong target is caught while it still
+costs nothing. If the translation fails, nothing is pasted and your words go to
+the clipboard instead.
+
+Every language Apple can transcribe translates to English already. English
+translates to eleven more with nothing to fetch, and five others need a model
+downloaded once from Settings.
+
 ## Two languages, two triggers
 
 Pick a second language in **Settings → Language** and it gets its own trigger. Hold
@@ -134,6 +150,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `App/`: composition root, settings store, status item
 - `Input/`: the global key event tap and recorded bindings
 - `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
+- `Translation/`: the coordinator both callers talk to, the rules, and the one place Apple's Translation framework is imported
 - `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
