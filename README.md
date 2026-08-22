@@ -123,6 +123,11 @@ Translation runs on your Mac through Apple's Translation framework, and the notc
 shows the pair before you speak. If it fails, nothing is pasted and your words go
 to the clipboard.
 
+It works the other way too. Turn on **Translate before speaking** in
+**Settings → Read Aloud**, select text in a language you do not read, and the
+Read Aloud key speaks it in your voice's language. The voice is the target, so
+there is nothing else to set.
+
 ## Two languages, two triggers
 
 Pick a second language in **Settings → Language** and it gets its own trigger. Hold
