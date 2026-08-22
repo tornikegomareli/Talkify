@@ -101,13 +101,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       statusItemController?.setRecording(isRecording, accent: accent)
       settingsRuntimeState?.isDictating = isRecording
     }
-    settingsRuntimeState.prepareTranslationModel = { [weak dictationController] in
-      dictationController?.prepareTranslationModel()
+    // Settings drives translation directly. Routing it through the dictation
+    // controller would only make that controller forward three things it has
+    // no opinion about.
+    let translation = dictationController.translation
+    settingsRuntimeState.installTranslationModel = { [weak translation] pair in
+      await translation?.install(pair) ?? .unavailable
     }
-    dictationController.onTranslationTargetsChange = { [weak settingsRuntimeState] targets in
+    settingsRuntimeState.stopInstallingTranslationModel = { [weak translation] in
+      translation?.stopInstalling()
+    }
+    translation.onTargetsChange = { [weak settingsRuntimeState] targets, source in
       settingsRuntimeState?.translationTargets = targets
+      settingsRuntimeState?.translationSource = source
     }
-    dictationController.onTranslationStateChange = { [weak settingsRuntimeState] state in
+    translation.onStateChange = { [weak settingsRuntimeState] state in
       settingsRuntimeState?.translationModelState = state
     }
     dictationController.onLanguageDownloadChange = {
@@ -211,7 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return .terminateNow
     }
     Task { @MainActor in
-      await dictationController.waitForFinish(timeout: .seconds(2))
+      await dictationController.waitForFinish()
       sender.reply(toApplicationShouldTerminate: true)
     }
     return .terminateLater

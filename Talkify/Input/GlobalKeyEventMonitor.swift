@@ -13,6 +13,16 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     /// exclusive, a held combination end when it breaks, and a swallowed
     /// mouse button stay swallowed.
     case translate
+
+    /// The preference this slot's key comes from, so a session can capture the
+    /// key it started with.
+    var bindingRole: BindingRole {
+      switch self {
+      case .primary: .dictation
+      case .secondary: .secondLanguage
+      case .translate: .translate
+      }
+    }
   }
 
   enum Event: Sendable, Equatable {
@@ -156,10 +166,30 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
         guard !clashes else { continue }
         accepted.append((candidate.0, binding))
       }
+      // A rebind lands mid-gesture whenever something rebinds itself: choosing
+      // a translation target reapplies the bindings, and a finished model
+      // install writes that setting on its own. Dropping the held slot there
+      // means the release never arrives, so the session records until Escape
+      // and the words are lost. A slot whose binding did not change stays held.
+      let heldBinding = slotBindings.first { $0.slot == heldSlot }?.binding
+      let isStillHeld = heldBinding.map { binding in
+        accepted.contains {
+          $0.slot == heldSlot && $0.binding.hasSameInputAndModifiers(as: binding)
+        }
+      } ?? false
+
       slotBindings = accepted
       readAloudBinding = readAloud
-      heldSlot = nil
-      capturedMouseButtons.removeAll()
+      if !isStillHeld {
+        heldSlot = nil
+      }
+      // capturedMouseButtons is deliberately left alone. Its whole job is to
+      // remember a press this tap ate so the matching release is eaten too,
+      // and letting that release through leaves the application under the
+      // pointer believing the button is still down (CONTEXT.md). Only
+      // otherMouseUp may drain it. Ending a session reapplies the bindings,
+      // and a mouse gesture that ended by releasing its modifier first is
+      // still holding its button at exactly that moment.
     }
   }
 

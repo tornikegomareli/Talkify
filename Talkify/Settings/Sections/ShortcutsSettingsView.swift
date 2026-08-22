@@ -113,8 +113,8 @@ struct ShortcutsSettingsView: View {
   /// so the sentence says where to fix that.
   private var translateSentence: String {
     guard settings.isTranslationEnabled else {
-      return "Hold %@ to speak and have it translated, or tap it to start and "
-        + "tap again to finish. Choose the language in Language first."
+      return "Hold %@ to speak and insert a translation. Choose the language "
+        + "in Language first."
     }
     let name = SpeechLanguageCatalog.shortName(
       for: Locale(identifier: settings.translationTargetIdentifier)
@@ -211,6 +211,11 @@ struct ShortcutsSettingsView: View {
   private var highlights: [KeyboardMapView.Highlight] {
     var result: [KeyboardMapView.Highlight] = [
       highlight(.dictation, settings.dictationTriggerBinding),
+      // Ungated, like its row: the row shows the binding whether or not a
+      // target is chosen, so the board has to agree with it. A cap cannot
+      // spell a modifier's side, so the lit key is the only thing that says
+      // the trigger is the right command and not the left.
+      highlight(.translate, settings.translateTriggerBinding),
       highlight(.readAloud, settings.readAloudBinding),
     ]
     if settings.isSecondLanguageEnabled {

@@ -25,14 +25,9 @@ extension DirectDictationController {
     let cancelRecognition: @Sendable () async -> Void
     let shutDownRecognition: @Sendable () async -> Void
 
-    // Translation. Separate from recognition on purpose: a translation model
-    // that will not load must never refuse a plain dictation session.
-    let translationAvailability: @Sendable (TranslationPair) async -> TranslationAvailability
-    let prewarmTranslation: @Sendable (TranslationPair) async -> Bool
-    let translationTargets: @Sendable (Locale) async -> [TranslationTarget]
-    let retainTranslation: @Sendable (TranslationPair?) async -> Void
-    let translateText: @Sendable (String, TranslationPair) async throws -> String
-    let shutDownTranslation: @Sendable () async -> Void
+    /// Translation, whole. A collaborator rather than a seam: it has its own
+    /// seam one layer down, and Settings talks to it directly.
+    let translation: TranslationCoordinator
 
     // Text insertion.
     let captureFocusedTarget: @MainActor () -> TextInsertionService.Target?
@@ -73,6 +68,7 @@ extension DirectDictationController {
     // Transcription history, written only while its setting is on.
     let recordHistory: @Sendable (
       _ text: String,
+      _ translation: DictationHistoryStore.Translation?,
       _ source: String?,
       _ folder: URL
     ) async -> Void
@@ -87,7 +83,6 @@ extension DirectDictationController {
       let speechService = SpeechRecognitionService()
       let textInsertionService = TextInsertionService()
       let historyStore = DictationHistoryStore()
-      let translationService = TranslationService(client: .live)
 
       return Self(
         setDownloadHandler: { await speechService.setDownloadHandler($0) },
@@ -106,12 +101,9 @@ extension DirectDictationController {
         finishRecognition: { try await speechService.finish() },
         cancelRecognition: { await speechService.cancel() },
         shutDownRecognition: { await speechService.shutDown() },
-        translationAvailability: { await translationService.availability(of: $0) },
-        prewarmTranslation: { await translationService.prewarm($0) },
-        translationTargets: { await translationService.targets(from: $0) },
-        retainTranslation: { await translationService.retain($0) },
-        translateText: { try await translationService.translate($0, with: $1) },
-        shutDownTranslation: { await translationService.shutDown() },
+        translation: TranslationCoordinator(
+          service: TranslationService(client: .live)
+        ),
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
         insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
         requestMicrophoneAccess: { await PermissionService.requestMicrophoneAccess() },
@@ -140,10 +132,15 @@ extension DirectDictationController {
         recordSession: {
           await usageTracker.recordSession(wordCount: $0, speakingDuration: $1)
         },
-        recordHistory: { text, source, folder in
+        recordHistory: { text, translation, source, folder in
           // A history write must never cost the session its insertion; a
           // full disk or revoked folder loses the entry, not the words.
-          try? await historyStore.record(text, from: source, in: folder)
+          try? await historyStore.record(
+            text,
+            translation: translation,
+            from: source,
+            in: folder
+          )
         }
       )
     }

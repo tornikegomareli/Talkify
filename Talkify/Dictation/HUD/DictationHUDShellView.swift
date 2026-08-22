@@ -181,9 +181,19 @@ struct DictationHUDShellView: View {
     .foregroundStyle(.white)
     // The tag sits in the inset rather than in the flow, and the inset grows
     // on both sides, so centered drafts stay centered and nothing overlaps.
-    .padding(.horizontal, (content.languageTag == nil ? 24 : 46) * metrics.scale)
+    .padding(.horizontal, tagInset * metrics.scale)
     .padding(.vertical, 9 * metrics.scale)
     .frame(minHeight: metrics.textBandHeight)
+  }
+
+  /// The room the tag needs on each side.
+  ///
+  /// 46 was measured for a two-letter tag. A translate session's tag is a pair
+  /// ("EN → ES"), and reserving two letters' room would let a centered draft
+  /// run under it, so each further character adds its own width at this size.
+  private var tagInset: CGFloat {
+    guard let tag = content.languageTag else { return 24 }
+    return 46 + CGFloat(max(0, tag.count - 2)) * 6
   }
 
   @ViewBuilder

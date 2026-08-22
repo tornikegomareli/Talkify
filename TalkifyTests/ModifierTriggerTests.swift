@@ -173,42 +173,45 @@ struct ComboTriggerRegressionTests {
   }
 }
 
+/// Builds a synthetic mouse event, so the gesture rules can be driven without
+/// a live tap.
+private func mouseEvent(
+  _ type: CGEventType,
+  buttonNumber: Int64,
+  flags: CGEventFlags = []
+) throws -> CGEvent {
+  let button = try #require(CGMouseButton(rawValue: UInt32(buttonNumber)))
+  let event = try #require(CGEvent(
+    mouseEventSource: nil,
+    mouseType: type,
+    mouseCursorPosition: .zero,
+    mouseButton: button
+  ))
+  event.flags = flags
+  event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
+  return event
+}
+
+/// Records what the monitor emitted, from whichever thread emitted it.
+private final class EventLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: [GlobalKeyEventMonitor.Event] = []
+
+  func append(_ event: GlobalKeyEventMonitor.Event) {
+    lock.lock()
+    stored.append(event)
+    lock.unlock()
+  }
+
+  var events: [GlobalKeyEventMonitor.Event] {
+    lock.lock()
+    defer { lock.unlock() }
+    return stored
+  }
+}
+
 @Suite("Mouse-button triggers")
 struct MouseButtonTriggerTests {
-  private final class EventLog: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stored: [GlobalKeyEventMonitor.Event] = []
-
-    func append(_ event: GlobalKeyEventMonitor.Event) {
-      lock.lock()
-      stored.append(event)
-      lock.unlock()
-    }
-
-    var events: [GlobalKeyEventMonitor.Event] {
-      lock.lock()
-      defer { lock.unlock() }
-      return stored
-    }
-  }
-
-  private func mouseEvent(
-    _ type: CGEventType,
-    buttonNumber: Int64,
-    flags: CGEventFlags = []
-  ) throws -> CGEvent {
-    let button = try #require(CGMouseButton(rawValue: UInt32(buttonNumber)))
-    let event = try #require(CGEvent(
-      mouseEventSource: nil,
-      mouseType: type,
-      mouseCursorPosition: .zero,
-      mouseButton: button
-    ))
-    event.flags = flags
-    event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
-    return event
-  }
-
   @Test func middleClickPressesAndReleasesThePrimaryTrigger() throws {
     let log = EventLog()
     let monitor = GlobalKeyEventMonitor(handler: log.append)
@@ -574,5 +577,101 @@ struct MouseButtonTriggerTests {
     #expect(KeyBinding.mouseButton(number: 32) == nil)
     #expect(KeyBinding.mouseButton(number: 2)?.label == "Middle Click")
     #expect(KeyBinding.mouseButton(number: 31)?.label == "Mouse 32")
+  }
+}
+
+@Suite("Rebinding while a trigger is held")
+struct HeldTriggerRebindTests {
+  /// A rebind lands mid-gesture on its own: choosing a translation target
+  /// reapplies the bindings, and a finished model install writes that setting
+  /// without anyone touching a key. Losing the held slot there would swallow
+  /// the release, so the session would record until Escape.
+  @Test func aRebindKeepsAnUnchangedTriggerHeld() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(trigger: .fnTrigger, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskSecondaryFn
+    _ = monitor.process(type: .flagsChanged, event: down)
+    #expect(log.events == [.triggerPressed(.primary)])
+
+    // Exactly what choosing a translation target does while a key is down.
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  /// A swallowed press owes its release, whatever happens to the bindings in
+  /// between. Ending a session reapplies them, and a mouse gesture that ended
+  /// by releasing its modifier first is still holding its button right then —
+  /// letting that release through leaves the app under the pointer believing
+  /// the button is down (CONTEXT.md).
+  @Test func aRebindStillSwallowsAHeldButtonsRelease() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let optionMiddle = try #require(
+      KeyBinding.mouseButton(number: 2, modifiers: .option)
+    )
+    monitor.setBindings(
+      trigger: optionMiddle,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let down = try mouseEvent(.otherMouseDown, buttonNumber: 2, flags: .maskAlternate)
+    #expect(monitor.process(type: .otherMouseDown, event: down) == nil)
+
+    // The modifier goes first, which ends the gesture while the button is
+    // still down. That is what makes the session end and the bindings reapply.
+    let modifierUp = try #require(CGEvent(source: nil))
+    modifierUp.type = .flagsChanged
+    modifierUp.flags = []
+    _ = monitor.process(type: .flagsChanged, event: modifierUp)
+    monitor.setBindings(
+      trigger: optionMiddle,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let up = try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    #expect(monitor.process(type: .otherMouseUp, event: up) == nil)
+  }
+
+  /// A rebind that changes the held slot's own binding cannot keep it held:
+  /// the key that is down is no longer the trigger.
+  @Test func aRebindOfTheHeldTriggerDropsIt() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(trigger: .fnTrigger, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskSecondaryFn
+    _ = monitor.process(type: .flagsChanged, event: down)
+
+    monitor.setBindings(
+      trigger: .rightCommandTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.primary)])
   }
 }
