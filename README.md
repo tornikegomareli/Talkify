@@ -3,7 +3,7 @@
   <h1 align="center">Talkify</h1>
 </p>
 
-<h3 align="center">Beautiful and fastest way to do voice dictation on macOS</h3>
+<h3 align="center">Fast, private voice dictation for macOS, right from the notch</h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-6-orange.svg" />
@@ -28,7 +28,7 @@
 
 Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
 
-One thing worth knowing: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
+One caveat: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ brew trust --tap tornikegomareli/talkify
 brew install --cask talkify
 ```
 
-Homebrew 6 refuses to load anything from a third-party tap until you trust it (Talkify will be verified cask after 100 stars),
+Homebrew 6 refuses to load anything from a third-party tap until you trust it,
 so the middle line is required. It is asking whether you trust this repository;
 [read the cask](Casks/talkify.rb) first if you would rather check what it does.
 
@@ -132,7 +132,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `App/`: composition root, settings store, status item
 - `Input/`: the global key event tap and recorded bindings
 - `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
-- `Translation/`: the coordinator both callers talk to, the rules, and the one place Apple's Translation framework is imported
+- `Translation/`: the coordinator both callers talk to, the rules, and the two files that import Apple's Translation framework
 - `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`

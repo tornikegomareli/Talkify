@@ -1,7 +1,7 @@
 import Foundation
 import Translation
 
-/// The one file that imports Translation. Everything above it works in
+/// One of the two files that import Translation. Everything above it works in
 /// `TranslationPair` and `TranslationAvailability`, so the framework can be
 /// faked at the seam and cannot leak into the rest of the app.
 extension TranslationService.Client {

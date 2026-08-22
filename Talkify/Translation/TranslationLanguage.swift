@@ -16,7 +16,7 @@ struct TranslationPair: Hashable, Sendable {
 }
 
 /// What this Mac can do with a pair. Named here rather than exposing Apple's
-/// own status type, so `import Translation` stays inside one file.
+/// own status type, so `import Translation` stays in the two files that need it.
 enum TranslationAvailability: Sendable, Equatable {
   case installed
   /// Supported, but its model has to be fetched before it can translate.
