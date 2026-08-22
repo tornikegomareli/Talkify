@@ -55,7 +55,7 @@ struct SettingsView: View {
     // Above the section switch on purpose. Sections are identified by their
     // selection, so changing section replaces the whole content and would take
     // this with it — cancelling the one call that drives Apple's download.
-    .background(TranslationDownloadTask(pair: runtimeState.installingTranslationPair))
+    .background(TranslationDownloadTask(pair: runtimeState.installingTranslation?.pair))
     .background {
       ZStack {
         SettingsTheme.background

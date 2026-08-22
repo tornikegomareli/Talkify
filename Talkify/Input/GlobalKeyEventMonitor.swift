@@ -156,11 +156,17 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       // matter: the same binding recorded and clicked carries a different
       // label, and comparing whole values would miss the clash.
       var accepted: [(slot: TriggerSlot, binding: KeyBinding)] = []
-      for candidate in [
-        (TriggerSlot.primary, Optional(trigger)),
+      let candidates: [(TriggerSlot, KeyBinding?)] = [
+        (.primary, trigger),
         (.secondary, secondaryTrigger),
         (.translate, translateTrigger),
-      ] {
+      ]
+      // The slot holding a session goes first, whatever the usual order. A
+      // language enabled mid-session can carry the same stored key, and losing
+      // that clash would clear heldSlot and leave the release nowhere to land.
+      let ordered = candidates.filter { $0.0 == heldSlot }
+        + candidates.filter { $0.0 != heldSlot }
+      for candidate in ordered {
         guard let binding = candidate.1 else { continue }
         let clashes = accepted.contains { $0.binding.hasSameInputAndModifiers(as: binding) }
         guard !clashes else { continue }

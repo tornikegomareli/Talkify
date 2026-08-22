@@ -218,7 +218,7 @@ struct LanguageSettingsView: View {
   /// one that never finished.
   @ViewBuilder
   private var installRow: some View {
-    if let pair = runtimeState.installingTranslationPair {
+    if let pair = runtimeState.installingTranslation?.pair {
       SettingsRow(
         title: "Getting the \(name(of: pair.target)) model",
         description: "Downloading in the background. Dictation keeps working."
@@ -306,17 +306,16 @@ struct LanguageSettingsView: View {
       target: Locale.Language(identifier: target.id)
     )
     confirmingTarget = nil
-    runtimeState.installingTranslationPair = pair
+    let install = runtimeState.beginTranslationInstall(pair)
 
     Task {
       // A cancelled wait reports not-ready, so abandoning it lands on the
       // same revert as a model that never arrived.
       let outcome = await runtimeState.installTranslationModel(pair)
-      // Read after the wait, not before it: a pick made while this ran owns
-      // the state by now, and may already be installing something of its own.
-      if runtimeState.installingTranslationPair == pair {
-        runtimeState.installingTranslationPair = nil
-      }
+      // Released by attempt, not by pair: switching away and back starts a
+      // second attempt at the same pair, and this one must not clear the
+      // state that one now owns.
+      runtimeState.endTranslationInstall(install)
       switch outcome {
       case .installed, .superseded:
         // Superseded is not a failure. The dictation language can change under

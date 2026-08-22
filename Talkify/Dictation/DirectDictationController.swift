@@ -175,11 +175,11 @@ final class DirectDictationController {
     // actor would otherwise still find the old pair ready and snapshot it, and
     // the session would insert the language the user just stopped choosing
     // (ADR-0004).
-    translation.invalidate()
+    let request = translation.invalidate()
     Task { [weak self] in
       guard let self else { return }
       do {
-        try await prepareLanguages()
+        try await prepareLanguages(request: request)
         isPrepared = true
         preparationFailureMessage = nil
       } catch {
@@ -192,7 +192,7 @@ final class DirectDictationController {
   /// Resolves both picks, drops anything no longer bound to a key, then warms
   /// the primary language. The second warms behind it and never throws: a
   /// model that still needs downloading must not delay the primary key.
-  private func prepareLanguages() async throws {
+  private func prepareLanguages(request: Int) async throws {
     let primary = try await dependencies.resolveLocale(
       settings.recognitionLocaleIdentifier
     )
@@ -225,7 +225,7 @@ final class DirectDictationController {
     // the gap is refused and retried, which the begin guard already does.
     let pair = settings.translationPair(from: primary)
     Task { [weak self] in
-      await self?.translation.apply(pair, from: primary)
+      await self?.translation.apply(pair, from: primary, request: request)
     }
   }
 
@@ -325,7 +325,7 @@ final class DirectDictationController {
     preparationFailureMessage = nil
     // Synchronously, for the same reason as applyLanguages: the work below is
     // a task, and nothing may translate against a pair it has not resolved.
-    translation.invalidate()
+    let request = translation.invalidate()
 
     permissionTask = Task { [weak self] in
       guard let self else { return }
@@ -349,7 +349,7 @@ final class DirectDictationController {
       dependencies.requestAccessibilityAccess()
 
       do {
-        try await prepareLanguages()
+        try await prepareLanguages(request: request)
       } catch {
         guard !Task.isCancelled else { return }
         preparationFailed(message: error.localizedDescription)

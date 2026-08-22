@@ -70,7 +70,7 @@ struct TranslationCoordinatorTests {
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
 
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     #expect(coordinator.isReady)
     #expect(reported == [.ready])
@@ -86,7 +86,7 @@ struct TranslationCoordinatorTests {
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
 
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     #expect(!coordinator.isReady)
     #expect(reported == [.needsDownload])
@@ -102,7 +102,7 @@ struct TranslationCoordinatorTests {
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
 
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     #expect(!coordinator.isReady)
     #expect(reported == [.failed])
@@ -114,7 +114,7 @@ struct TranslationCoordinatorTests {
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
 
-    await coordinator.apply(nil, from: source)
+    await coordinator.apply(nil, from: source, request: coordinator.invalidate())
 
     #expect(coordinator.pair == nil)
     #expect(reported == [.none])
@@ -126,7 +126,7 @@ struct TranslationCoordinatorTests {
     let fake = Fake()
     fake.availability = .downloadable
     let coordinator = TranslationCoordinator(service: fake.service())
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -146,7 +146,7 @@ struct TranslationCoordinatorTests {
     var service = fake.service()
     service.installBudget = .milliseconds(5)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -170,7 +170,7 @@ struct TranslationCoordinatorTests {
     let fake = Fake()
     fake.availability = .downloadable
     let coordinator = TranslationCoordinator(service: fake.service())
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     let installing = Task { await coordinator.install(pair) }
     // Chosen while that install runs, exactly as picking another language does.
@@ -179,7 +179,7 @@ struct TranslationCoordinatorTests {
       target: Locale.Language(identifier: "de")
     )
     fake.availability = .installed
-    await coordinator.apply(other, from: source)
+    await coordinator.apply(other, from: source, request: coordinator.invalidate())
     fake.installsAfterChecks = 1
 
     #expect(await installing.value == .superseded)
@@ -192,7 +192,7 @@ struct TranslationCoordinatorTests {
   @Test func invalidatingLeavesNothingForTheTranslateKey() async {
     let fake = Fake()
     let coordinator = TranslationCoordinator(service: fake.service())
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
     #expect(coordinator.isReady)
 
     coordinator.invalidate()
@@ -207,7 +207,7 @@ struct TranslationCoordinatorTests {
     let fake = Fake()
     fake.availability = .downloadable
     let coordinator = TranslationCoordinator(service: fake.service())
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -225,7 +225,7 @@ struct TranslationCoordinatorTests {
     let fake = Fake()
     fake.availability = .downloadable
     let coordinator = TranslationCoordinator(service: fake.service())
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -255,7 +255,7 @@ struct TranslationCoordinatorTests {
     // in its place failed under a loaded machine and passed on its own.
     service.installBudget = .seconds(5)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -263,7 +263,7 @@ struct TranslationCoordinatorTests {
     await waitUntil { reported.contains(.downloading) }
 
     reported.removeAll()
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
     #expect(reported == [.downloading])
 
     coordinator.stopInstalling()
@@ -279,7 +279,7 @@ struct TranslationCoordinatorTests {
     var service = fake.service()
     service.installBudget = .seconds(30)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -305,7 +305,7 @@ struct TranslationCoordinatorTests {
     var service = fake.service()
     service.installBudget = .seconds(30)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -339,7 +339,7 @@ struct TranslationCoordinatorTests {
     var service = fake.service()
     service.installBudget = .seconds(30)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
@@ -352,7 +352,7 @@ struct TranslationCoordinatorTests {
       source: Locale.Language(identifier: "fr"),
       target: Locale.Language(identifier: "es")
     )
-    await coordinator.apply(other, from: Locale(identifier: "fr_FR"))
+    await coordinator.apply(other, from: Locale(identifier: "fr_FR"), request: coordinator.invalidate())
 
     #expect(await installTask.value == .superseded)
   }
@@ -366,7 +366,7 @@ struct TranslationCoordinatorTests {
     var service = fake.service()
     service.timeout = .milliseconds(20)
     let coordinator = TranslationCoordinator(service: service)
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
 
     fake.translateNeverAnswers = true
     await #expect(throws: TranslationFailure.timedOut) {
@@ -377,6 +377,25 @@ struct TranslationCoordinatorTests {
     fake.translateNeverAnswers = false
     let again = try await coordinator.translate("hola", with: pair)
     #expect(again == "traducido: hola")
+  }
+
+  /// Two settings changed in quick succession run two reloads, and the older
+  /// one can finish last. It carries the number its own invalidate handed out,
+  /// so finishing late is not the same as being newest.
+  @Test func anOlderReloadCannotPublishOverANewerOne() async {
+    let fake = Fake()
+    let coordinator = TranslationCoordinator(service: fake.service())
+
+    let stale = coordinator.invalidate()
+    let current = coordinator.invalidate()
+
+    await coordinator.apply(pair, from: source, request: stale)
+    #expect(!coordinator.isReady)
+    #expect(coordinator.pair == nil)
+
+    await coordinator.apply(pair, from: source, request: current)
+    #expect(coordinator.isReady)
+    #expect(coordinator.pair == pair)
   }
 
   /// A new source makes the published list wrong, not merely stale: a target
@@ -404,11 +423,11 @@ struct TranslationCoordinatorTests {
     var reported: [TranslationModelState] = []
     coordinator.onStateChange = { reported.append($0) }
 
-    let first = Task { await coordinator.apply(pair, from: source) }
+    let first = Task { await coordinator.apply(pair, from: source, request: coordinator.invalidate()) }
     // Long enough to be inside the first prepare, short enough to precede it.
     try? await Task.sleep(for: .milliseconds(20))
     fake.prepareError = Boom()
-    await coordinator.apply(pair, from: source)
+    await coordinator.apply(pair, from: source, request: coordinator.invalidate())
     await first.value
 
     // The second request said failed, and the first must not undo it.

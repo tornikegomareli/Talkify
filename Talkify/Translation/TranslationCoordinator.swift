@@ -80,11 +80,15 @@ final class TranslationCoordinator {
   /// Nothing is reported: the state is about to be replaced by the `apply`
   /// that follows, and announcing an interim `none` only blinks the Settings
   /// row on every language change.
-  func invalidate() {
+  /// - Returns: the number the reload that follows must carry, so a reload
+  ///   that overtook a newer one cannot publish as though it were the newest.
+  @discardableResult
+  func invalidate() -> Int {
     request += 1
     pair = nil
     isReady = false
     onTargetsChange?([], nil)
+    return request
   }
 
   /// Resolves a pair and readies it, reporting what it can do.
@@ -93,9 +97,12 @@ final class TranslationCoordinator {
   /// must not fail the preparation plain dictation depends on: the user may
   /// never press the translate key at all, and refusing to dictate because of
   /// it would be the wrong trade.
-  func apply(_ pair: TranslationPair?, from source: Locale) async {
-    request += 1
-    let request = request
+  func apply(_ pair: TranslationPair?, from source: Locale, request: Int) async {
+    // Numbered by the invalidate that opened this reload, not here: two
+    // reloads overlap whenever two settings change in quick succession, and
+    // the older one finishing last would otherwise take the newer number and
+    // publish a pair nobody chose.
+    guard request == self.request else { return }
     self.source = source
     self.pair = pair
     // A wait for a model nobody is asking for any more would poll out its
@@ -191,7 +198,7 @@ final class TranslationCoordinator {
       return .unavailable
     }
     // The same path a launch takes, so an install cannot drift from it.
-    await apply(pair, from: source)
+    await apply(pair, from: source, request: self.request)
     // The model arrived. Whether it then loaded is a different problem, and
     // the state callback has already said which — reporting this as a failed
     // download would revert the pick and hide the retry the failure needs.

@@ -649,6 +649,43 @@ struct HeldTriggerRebindTests {
     #expect(monitor.process(type: .otherMouseUp, event: up) == nil)
   }
 
+  /// A language enabled mid-session can carry the same stored key as the slot
+  /// already holding one. The held slot wins that clash, because losing it
+  /// would leave the release with nowhere to land.
+  @Test func aHeldSlotOutranksANewlyEnabledDuplicate() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    // The shared flag with no device bits: a keyboard that does not report
+    // sides, which the monitor treats as the key being down.
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskCommand
+    _ = monitor.process(type: .flagsChanged, event: down)
+    #expect(log.events == [.triggerPressed(.translate)])
+
+    // A second language turned on, bound to the very same key.
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: .rightCommandTrigger,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.translate), .triggerReleased(.translate)])
+  }
+
   /// A rebind that changes the held slot's own binding cannot keep it held:
   /// the key that is down is no longer the trigger.
   @Test func aRebindOfTheHeldTriggerDropsIt() throws {
