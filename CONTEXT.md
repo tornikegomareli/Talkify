@@ -265,6 +265,9 @@ _Avoid_: Transcript history, cloud analytics
 - Talkify swallows the configured Read Aloud shortcut so the system speak-selection never double-fires; plain Escape remains the dictation cancel, captured only mid-session
 - The Read Aloud shortcut is ignored while Direct Dictation is active — speech playback would feed the recognizer its own audio
 - The Read Aloud voice is a Settings pick listing only enhanced, premium, and authorized Personal voices, with the system default voice otherwise
+- An off-by-default **Translate before speaking** setting reads a selection in the voice's own language; the voice is the target, so there is no second language to choose
+- Read Aloud identifies the language of a selection, which Direct Dictation never does for speech: text identification exists, runs on device and reports a confidence, and below that confidence the selection is read as written
+- A selection whose pair has no installed model is not read at all; Read Aloud cannot install one, because Apple installs a translation model only from a View modifier and the shortcut has no window
 - Talkify cannot download synthesis voices (no public API); the Read Aloud section deep-links System Settings and the voice list refreshes live when a download finishes
 - Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
 - Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors

@@ -67,7 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let readAloudController = ReadAloudController(
       settings: settings,
-      hudController: hudController
+      hudController: hudController,
+      translation: dictationController.translation
     )
     self.readAloudController = readAloudController
 

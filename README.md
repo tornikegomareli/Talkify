@@ -81,6 +81,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
+| Read it aloud translated | Same key, with **Translate before speaking** on |
 | Everything else | Menu bar ghost → Settings |
 
 The trigger and the Read Aloud shortcut are rebindable in **Settings → Shortcuts**.

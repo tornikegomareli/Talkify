@@ -224,6 +224,16 @@ final class TranslationCoordinator {
     }
   }
 
+  /// Whether a pair can translate this moment.
+  ///
+  /// For callers that cannot prewarm. Read Aloud's source is whatever happened
+  /// to be selected, so it is only known when the key is pressed, and asking
+  /// first is the difference between silence with a reason and a voice reading
+  /// a language nobody can follow.
+  func canTranslate(_ pair: TranslationPair) async -> Bool {
+    await service.availability(of: pair) == .installed
+  }
+
   func translate(_ text: String, with pair: TranslationPair) async throws -> String {
     try await service.translate(text, with: pair)
   }

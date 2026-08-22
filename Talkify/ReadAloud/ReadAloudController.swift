@@ -14,10 +14,19 @@ final class ReadAloudController: NSObject {
   private let hudController: DictationHUDController
   private let selectionReader = FocusedSelectionReader()
   private let synthesizer = AVSpeechSynthesizer()
+  /// Only reached while the translate setting is on. Read Aloud does not own
+  /// translation and does not configure it; it borrows the same coordinator
+  /// dictation uses.
+  private let translation: TranslationCoordinator
 
-  init(settings: AppSettings, hudController: DictationHUDController) {
+  init(
+    settings: AppSettings,
+    hudController: DictationHUDController,
+    translation: TranslationCoordinator
+  ) {
     self.settings = settings
     self.hudController = hudController
+    self.translation = translation
     super.init()
     synthesizer.delegate = self
   }
@@ -54,12 +63,70 @@ final class ReadAloudController: NSObject {
       return
     }
 
-    let utterance = AVSpeechUtterance(string: text)
-    if !settings.readAloudVoiceID.isEmpty,
-     let voice = AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID) {
-      utterance.voice = voice
+    let voice = chosenVoice
+    guard settings.readAloudTranslates,
+      let target = voice.map({ Locale.Language(identifier: $0.language) })
+        ?? Self.systemVoiceLanguage,
+      let source = SelectionLanguage.detect(in: text),
+      SelectionLanguage.needsTranslation(from: source, to: target)
+    else {
+      // Nothing to translate, nothing confident enough to translate, or it is
+      // already the voice's language. Read it as it was written, which is what
+      // Read Aloud did before this setting existed.
+      speak(text, with: voice)
+      return
     }
+
+    speakTranslated(text, from: source, to: target, with: voice)
+  }
+
+  /// Speaks a selection in the voice's own language.
+  ///
+  /// The model is checked first. Read Aloud cannot install one, because Apple
+  /// only installs from a View modifier and this gesture has no window, and
+  /// reading Japanese aloud in an English voice is a worse answer than saying
+  /// why nothing happened.
+  private func speakTranslated(
+    _ text: String,
+    from source: Locale.Language,
+    to target: Locale.Language,
+    with voice: AVSpeechSynthesisVoice?
+  ) {
+    let pair = TranslationPair(source: source, target: target)
+    Task { [weak self] in
+      guard let self else { return }
+      guard await translation.canTranslate(pair) else {
+        hudController.showMessage("No \(Self.name(of: source)) to \(Self.name(of: target))")
+        return
+      }
+      guard let translated = try? await translation.translate(text, with: pair) else {
+        hudController.showMessage("Couldn't translate")
+        return
+      }
+      speak(translated, with: voice)
+    }
+  }
+
+  private func speak(_ text: String, with voice: AVSpeechSynthesisVoice?) {
+    let utterance = AVSpeechUtterance(string: text)
+    utterance.voice = voice
     synthesizer.speak(utterance)
+  }
+
+  private var chosenVoice: AVSpeechSynthesisVoice? {
+    guard !settings.readAloudVoiceID.isEmpty else { return nil }
+    return AVSpeechSynthesisVoice(identifier: settings.readAloudVoiceID)
+  }
+
+  /// The language the synthesizer speaks when no voice is chosen, so the
+  /// target is known even then.
+  private static var systemVoiceLanguage: Locale.Language? {
+    Locale.Language(identifier: AVSpeechSynthesisVoice.currentLanguageCode())
+  }
+
+  private static func name(of language: Locale.Language) -> String {
+    guard let code = language.languageCode?.identifier else { return "that" }
+    return SpeechLanguageCatalog.shortName(for: Locale(identifier: code))
   }
 }
 

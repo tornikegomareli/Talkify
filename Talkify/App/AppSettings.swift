@@ -25,6 +25,7 @@ final class AppSettings {
     static let glowCenter = "hudGlowCenter"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
+    static let readAloudTranslates = "readAloudTranslates"
     static let dictationTriggerBinding = "dictationTriggerBinding"
     static let readAloudBinding = "readAloudBinding"
     static let recognitionLocale = "recognitionLocale"
@@ -135,6 +136,14 @@ final class AppSettings {
 
   /// The Read Aloud voice's `AVSpeechSynthesisVoice` identifier; empty
   /// means the system default voice.
+  /// Whether Read Aloud translates a selection into the voice's own language
+  /// before speaking it. Off by default: Read Aloud has always read what was
+  /// written, and translating without being asked would change what a shortcut
+  /// someone already uses does.
+  var readAloudTranslates: Bool {
+    didSet { defaults.set(readAloudTranslates, forKey: Keys.readAloudTranslates) }
+  }
+
   var readAloudVoiceID: String {
     didSet { defaults.set(readAloudVoiceID, forKey: Keys.readAloudVoice) }
   }
@@ -264,6 +273,7 @@ final class AppSettings {
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
       ?? Double(HUDMetrics.maximumScale)
     readAloudVoiceID = defaults.string(forKey: Keys.readAloudVoice) ?? ""
+    readAloudTranslates = defaults.bool(forKey: Keys.readAloudTranslates)
     dictationTriggerBinding = Self.storedBinding(
       in: defaults,
       key: Keys.dictationTriggerBinding,
