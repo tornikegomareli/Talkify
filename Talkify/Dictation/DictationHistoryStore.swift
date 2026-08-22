@@ -65,10 +65,23 @@ actor DictationHistoryStore {
     self.calendar = calendar
   }
 
+  /// What a translated session put in the document, beside the words it was
+  /// made from. Recorded as a second labelled line rather than in place of
+  /// them: history exists to keep what was said (ADR-0007), and a translated
+  /// entry that dropped the original would be output history instead.
+  struct Translation: Sendable, Equatable {
+    /// The language the words were spoken in, as "EN".
+    let spokenTag: String
+    /// The language they were delivered in, as "ES".
+    let deliveredTag: String
+    let text: String
+  }
+
   /// Appends one session's text to its day file, creating the folder and the
   /// file as needed. Nothing is ever overwritten: a day file only grows.
   func record(
     _ text: String,
+    translation: Translation? = nil,
     from source: String? = nil,
     at date: Date = .now,
     in folder: URL
@@ -83,7 +96,7 @@ actor DictationHistoryStore {
 
     let fileURL = folder.appending(path: Self.fileName(for: date, calendar: calendar))
     let heading = Self.heading(for: date, source: source, calendar: calendar)
-    let entry = "\(heading)\n\(trimmed)\n\n"
+    let entry = "\(heading)\n\(Self.body(trimmed, translation))\n\n"
     let entryData = Data(entry.utf8)
 
     if let handle = try? FileHandle(forWritingTo: fileURL) {
@@ -93,6 +106,15 @@ actor DictationHistoryStore {
     } else {
       try entryData.write(to: fileURL, options: .withoutOverwriting)
     }
+  }
+
+  /// The entry's text. Untranslated sessions are one bare line, exactly as
+  /// they have always been, so a day of plain dictation reads unchanged.
+  private static func body(_ spoken: String, _ translation: Translation?) -> String {
+    guard let translation else { return spoken }
+    let delivered = translation.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !delivered.isEmpty else { return spoken }
+    return "\(translation.spokenTag): \(spoken)\n\(translation.deliveredTag): \(delivered)"
   }
 
   /// Deletes only the day files this store wrote. The folder is the user's —

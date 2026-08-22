@@ -25,6 +25,66 @@ struct DictationHistoryStoreTests {
     #expect(contents == "[14:03:05]\nHello there\n\n")
   }
 
+  /// A translated session keeps both halves, labelled. History exists so a
+  /// failed insertion cannot lose what was said (ADR-0007), and the spoken
+  /// half is the only one that cannot be produced again.
+  @Test func aTranslatedEntryKeepsTheSpokenWordsAndTheDeliveredOnes() async throws {
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let calendar = testCalendar()
+    let date = try #require(calendar.date(from: DateComponents(
+      year: 2026, month: 8, day: 17, hour: 14, minute: 3, second: 5
+    )))
+    let store = DictationHistoryStore(calendar: calendar)
+
+    try await store.record(
+      "hello there",
+      translation: DictationHistoryStore.Translation(
+        spokenTag: "EN",
+        deliveredTag: "DE",
+        text: "hallo da"
+      ),
+      from: "Ghostty",
+      at: date,
+      in: folder
+    )
+
+    let contents = try String(
+      contentsOf: folder.appending(path: "2026-08-17.txt"),
+      encoding: .utf8
+    )
+    #expect(contents == "[14:03:05] Ghostty\nEN: hello there\nDE: hallo da\n\n")
+  }
+
+  /// A translation that came back empty leaves the entry as plain dictation,
+  /// rather than a label with nothing after it.
+  @Test func anEmptyTranslationLeavesTheEntryPlain() async throws {
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let calendar = testCalendar()
+    let date = try #require(calendar.date(from: DateComponents(
+      year: 2026, month: 8, day: 17, hour: 14, minute: 3, second: 5
+    )))
+    let store = DictationHistoryStore(calendar: calendar)
+
+    try await store.record(
+      "hello there",
+      translation: DictationHistoryStore.Translation(
+        spokenTag: "EN",
+        deliveredTag: "DE",
+        text: "   "
+      ),
+      at: date,
+      in: folder
+    )
+
+    let contents = try String(
+      contentsOf: folder.appending(path: "2026-08-17.txt"),
+      encoding: .utf8
+    )
+    #expect(contents == "[14:03:05]\nhello there\n\n")
+  }
+
   @Test func sameDayRecordingsAppendInOrderToOneFile() async throws {
     let folder = temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }

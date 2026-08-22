@@ -25,6 +25,10 @@ extension DirectDictationController {
     let cancelRecognition: @Sendable () async -> Void
     let shutDownRecognition: @Sendable () async -> Void
 
+    /// Translation, whole. A collaborator rather than a seam: it has its own
+    /// seam one layer down, and Settings talks to it directly.
+    let translation: TranslationCoordinator
+
     // Text insertion.
     let captureFocusedTarget: @MainActor () -> TextInsertionService.Target?
     let insertText: @MainActor (
@@ -64,6 +68,7 @@ extension DirectDictationController {
     // Transcription history, written only while its setting is on.
     let recordHistory: @Sendable (
       _ text: String,
+      _ translation: DictationHistoryStore.Translation?,
       _ source: String?,
       _ folder: URL
     ) async -> Void
@@ -96,6 +101,9 @@ extension DirectDictationController {
         finishRecognition: { try await speechService.finish() },
         cancelRecognition: { await speechService.cancel() },
         shutDownRecognition: { await speechService.shutDown() },
+        translation: TranslationCoordinator(
+          service: TranslationService(client: .live)
+        ),
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
         insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
         requestMicrophoneAccess: { await PermissionService.requestMicrophoneAccess() },
@@ -124,10 +132,15 @@ extension DirectDictationController {
         recordSession: {
           await usageTracker.recordSession(wordCount: $0, speakingDuration: $1)
         },
-        recordHistory: { text, source, folder in
+        recordHistory: { text, translation, source, folder in
           // A history write must never cost the session its insertion; a
           // full disk or revoked folder loses the entry, not the words.
-          try? await historyStore.record(text, from: source, in: folder)
+          try? await historyStore.record(
+            text,
+            translation: translation,
+            from: source,
+            in: folder
+          )
         }
       )
     }

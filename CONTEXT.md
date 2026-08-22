@@ -222,6 +222,7 @@ _Avoid_: Transcript history, cloud analytics
 - A history entry names the application the text was aimed at, meaning the one that held focus when the session started, because a record of what was said is easier to use later when it says where it was being said
 - History is written before insertion, so an entry names where the words were headed rather than where they landed; a clipboard-only session names the clipboard, since it aimed at no application at all
 - An entry whose application cannot be named keeps the bare timestamp rather than reading "Unknown"
+- A translated session's entry keeps both languages as labelled lines, `EN: what was said` then `ES: what was inserted`, because the spoken words are the half that cannot be produced again
 - The history folder is the user's pick, and Clear History removes only the day files Talkify wrote there
 - The history choice is captured in the Dictation session settings snapshot at session start
 - A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened
@@ -229,6 +230,7 @@ _Avoid_: Transcript history, cloud analytics
 - **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count
 - **Insights** never stores recognized text or target application identifiers
 - A completed **Direct Dictation** session with nonempty inserted text updates **Insights**
+- **Insights** counts the words that were spoken rather than the words inserted, so a translated session is measured in the language and against the speaking time it was dictated in
 - **Insights** shows words, sessions, speaking time, weighted words per minute, Voice Momentum, 14-day activity, streaks, and a 16-week heatmap
 - Settings lets the user choose the session sounds, mute them, adjust their volume, choose the voice-reactive visual, the waveform style, and the edge glow's color palette
 - Insertion latency must be benchmarked before choosing permanent per-application defaults

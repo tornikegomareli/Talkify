@@ -3,7 +3,7 @@
   <h1 align="center">Talkify</h1>
 </p>
 
-<h3 align="center">Beautiful and fastest way to do voice dictation on macOS</h3>
+<h3 align="center">Fast, private voice dictation for macOS, right from the notch</h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-6-orange.svg" />
@@ -28,7 +28,7 @@
 
 Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
 
-One thing worth knowing: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
+One caveat: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ brew trust --tap tornikegomareli/talkify
 brew install --cask talkify
 ```
 
-Homebrew 6 refuses to load anything from a third-party tap until you trust it (Talkify will be verified cask after 100 stars),
+Homebrew 6 refuses to load anything from a third-party tap until you trust it,
 so the middle line is required. It is asking whether you trust this repository;
 [read the cask](Casks/talkify.rb) first if you would rather check what it does.
 
@@ -77,6 +77,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Dictate | Hold **fn**, speak, release |
 | Hands-free session | Quick-tap **fn**, speak, tap again to finish |
 | Dictate in your second language | Hold **right ⌥** instead |
+| Dictate and translate | Hold **right ⌘** instead |
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
@@ -98,15 +99,24 @@ Drag an audio or video file to the top of the screen and the island opens to
 take it. It transcribes in the background, so **fn** keeps working, and the menu
 bar ghost shows progress.
 
-When it finishes the island comes back holding the transcript. Drag it where you
-want it: a folder writes the `.txt`, a text field takes the words. Click it to
-copy the text instead. Leave it and after five seconds it saves next to the
-source file, or into a folder you set in **Settings → Drop Transcription**.
-Hovering pauses that timer.
+When it finishes the island comes back holding the transcript. Drag it to a
+folder for the `.txt`, or to a text field for the words. Click to copy. Leave it
+and after five seconds it saves next to the source file, or into a folder you set
+in **Settings → Drop Transcription**. Hovering pauses that timer.
 
 With a second dictation language configured, the target splits in two and the
 half you drop on picks the language. **Transcribe File…** in the menu does the
 same with a picker.
+
+## Speak one language, insert another
+
+Pick a language in **Settings → Language** and the Translate key writes in it.
+Hold **right ⌘**, say it in English, and Spanish lands in the document. The key
+does not change when the language does, so there is one shortcut to remember.
+
+Translation runs on your Mac through Apple's Translation framework, and the notch
+shows the pair before you speak. If it fails, nothing is pasted and your words go
+to the clipboard.
 
 ## Two languages, two triggers
 
@@ -115,18 +125,6 @@ Pick a second language in **Settings → Language** and it gets its own trigger.
 between. Both triggers are rebindable, and either can use a keyboard key or a
 supported mouse button.
 
-Apple Speech transcribes one language per session and offers no way to detect
-which language you are speaking, so Talkify does not guess. Guessing would mean
-transcribing first and inferring the language from the result, and in the wrong
-language that result is fluent nonsense rather than an error. A key per language
-is instant and never wrong.
-
-Both languages stay loaded, so the second answers as fast as the first, and the
-notch shows a small tag naming the one that is listening. macOS ships 30
-locales across German, English, Spanish, French, Italian, Japanese, Korean,
-Portuguese, Cantonese and Chinese; a language you have not used before downloads
-its model once, with progress shown in Settings and in the notch.
-
 ## Architecture
 
 Code is organized into folders, callbacks only flow one way from the main wiring point, and a pure reducer handles the state.
@@ -134,6 +132,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `App/`: composition root, settings store, status item
 - `Input/`: the global key event tap and recorded bindings
 - `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
+- `Translation/`: the coordinator both callers talk to, the rules, and the two files that import Apple's Translation framework
 - `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
