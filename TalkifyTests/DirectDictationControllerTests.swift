@@ -1071,6 +1071,12 @@ struct DirectDictationControllerTests {
       )
     )
     await prepare(controller, prewarmed: prewarmed)
+    // Preparation does not wait for the translation model, so the pair may not
+    // be resolved yet even though dictation is ready. Pressing before it is
+    // says "No translation language", which is a different refusal.
+    await waitUntil("Translation pair never resolved") {
+      controller.translationPairForTesting != nil
+    }
 
     controller.handle(.triggerPressed(.translate))
     #expect(controller.sessionStateForTesting == .idle)

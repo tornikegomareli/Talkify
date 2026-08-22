@@ -402,6 +402,9 @@ final class DirectDictationController {
   /// The key the session in flight owns, for the rule that a rebind must not
   /// take it away.
   var activeBindingForTesting: KeyBinding? { activeBinding }
+  /// The resolved pair. Preparation no longer waits for translation, so a test
+  /// about a translate press has to wait for this rather than for isPrepared.
+  var translationPairForTesting: TranslationPair? { translation.pair }
 
   func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
