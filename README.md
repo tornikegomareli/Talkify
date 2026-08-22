@@ -77,6 +77,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Dictate | Hold **fn**, speak, release |
 | Hands-free session | Quick-tap **fn**, speak, tap again to finish |
 | Dictate in your second language | Hold **right ⌥** instead |
+| Dictate and translate | Hold **right ⌘** instead |
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
@@ -98,11 +99,10 @@ Drag an audio or video file to the top of the screen and the island opens to
 take it. It transcribes in the background, so **fn** keeps working, and the menu
 bar ghost shows progress.
 
-When it finishes the island comes back holding the transcript. Drag it where you
-want it: a folder writes the `.txt`, a text field takes the words. Click it to
-copy the text instead. Leave it and after five seconds it saves next to the
-source file, or into a folder you set in **Settings → Drop Transcription**.
-Hovering pauses that timer.
+When it finishes the island comes back holding the transcript. Drag it to a
+folder for the `.txt`, or to a text field for the words. Click to copy. Leave it
+and after five seconds it saves next to the source file, or into a folder you set
+in **Settings → Drop Transcription**. Hovering pauses that timer.
 
 With a second dictation language configured, the target splits in two and the
 half you drop on picks the language. **Transcribe File…** in the menu does the
@@ -110,19 +110,16 @@ same with a picker.
 
 ## Speak one language, insert another
 
-Pick a target in **Settings → Language** and the Translate key dictates in your
-own language and inserts that one. Hold **right ⌘**, say it in English, and
-Spanish lands in the document. The key never changes when the language does, so
-there is one shortcut to remember rather than one per language.
+Pick a language in **Settings → Language** and the Translate key writes in it.
+Hold **right ⌘**, say it in English, and Spanish lands in the document. The key
+does not change when the language does, so there is one shortcut to remember.
 
-Translation runs on device through Apple's Translation framework, and the notch
-shows the pair before you speak, so a wrong target is caught while it still
-costs nothing. If the translation fails, nothing is pasted and your words go to
-the clipboard instead.
+Translation runs on your Mac through Apple's Translation framework, and the notch
+shows the pair before you speak. If it fails, nothing is pasted and your words go
+to the clipboard.
 
-Every language Apple can transcribe translates to English already. English
-translates to eleven more with nothing to fetch, and five others need a model
-downloaded once from Settings.
+English translates to eleven languages with nothing to fetch. Five more need a
+model downloaded once, from Settings.
 
 ## Two languages, two triggers
 
