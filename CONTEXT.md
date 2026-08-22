@@ -237,7 +237,9 @@ _Avoid_: Transcript history, cloud analytics
 - Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
 - A marked-text input method (system-dictation-style provisional text in any field) remains a considered route, deferred: it needs a separate installable input-source bundle, System Settings enablement, and cross-process wiring
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
-- Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
+- Read Aloud reads the selection through Accessibility, and by copying it when Accessibility answers nothing, which is what every browser does; if neither finds anything it shows "No text selected" through the HUD and speaks nothing
+- A copied selection restores the clipboard afterwards, and is not attempted at all when the clipboard cannot be captured first, because a clipboard that cannot be put back must not be taken
+- Nothing selected is known rather than guessed: a copy that finds nothing leaves the pasteboard change count alone, so the previous clipboard is never read aloud as though it were the selection
 - Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
 - The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key or supported mouse button becomes the binding, and plain Escape cancels recording
 - A **Dictation Trigger** is one keyboard key or supported mouse button plus any keyboard modifiers held with it; only the trigger may bind a bare modifier such as fn or a mouse button, because a hold gesture needs an input that can be held

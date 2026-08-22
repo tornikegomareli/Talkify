@@ -57,11 +57,16 @@ final class DirectDictationController {
   convenience init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    textInsertionService: TextInsertionService
   ) {
     self.init(
       settings: settings,
-      dependencies: .live(hudController: hudController, usageTracker: usageTracker)
+      dependencies: .live(
+        hudController: hudController,
+        usageTracker: usageTracker,
+        textInsertionService: textInsertionService
+      )
     )
   }
 

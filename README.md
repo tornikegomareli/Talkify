@@ -28,7 +28,11 @@
 
 Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
 
-One caveat: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
+Two caveats. Read Aloud reads a selection through Accessibility where it can,
+and by copying it where it cannot, which is any web page: the selection passes
+through the clipboard and the previous clipboard is put back afterwards.
+
+And dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
 
 ## Requirements
 

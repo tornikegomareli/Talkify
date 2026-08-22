@@ -5,6 +5,10 @@ import AVFAudio
 /// Settings-picked voice. Apple speech synthesis only (CONTEXT.md: Apple
 /// frameworks only); playback is on-device and offline. Errors surface
 /// through the HUD message surface, matching Direct Dictation.
+///
+/// It reads the selection through Accessibility where it can, and by copying
+/// it where it cannot: no browser answers the Accessibility question, and a
+/// read-aloud feature that cannot read a web page is broken.
 @MainActor
 final class ReadAloudController: NSObject {
   /// Follows the synthesizer's actual state; the status menu mirrors it.
@@ -18,15 +22,20 @@ final class ReadAloudController: NSObject {
   /// translation and does not configure it; it borrows the same coordinator
   /// dictation uses.
   private let translation: TranslationCoordinator
+  /// Borrowed for its clipboard, not for insertion. Shared with dictation so
+  /// one read lease covers both.
+  private let textInsertion: TextInsertionService
 
   init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    translation: TranslationCoordinator
+    translation: TranslationCoordinator,
+    textInsertion: TextInsertionService
   ) {
     self.settings = settings
     self.hudController = hudController
     self.translation = translation
+    self.textInsertion = textInsertion
     super.init()
     synthesizer.delegate = self
   }
@@ -49,20 +58,30 @@ final class ReadAloudController: NSObject {
       return
     }
 
-    let text: String
     switch selectionReader.selection() {
     case let .text(selected):
-      text = selected
+      speak(selection: selected)
     case .secureField:
       // Speaking a password out loud is a worse leak than pasting one, so
       // Read Aloud refuses the same fields Direct Dictation does.
       hudController.showMessage("Secure field")
-      return
     case .none:
-      hudController.showMessage("No text selected")
-      return
+      // Accessibility had no answer, which every browser gives. Copy instead.
+      Task { [weak self] in
+        guard let self else { return }
+        guard let copied = await textInsertion.copySelection(),
+          !copied.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+          hudController.showMessage("No text selected")
+          return
+        }
+        speak(selection: copied)
+      }
     }
+  }
 
+  /// Speaks one selection, translated first when that is switched on.
+  private func speak(selection text: String) {
     let voice = chosenVoice
     guard settings.readAloudTranslates,
       let target = voice.map({ Locale.Language(identifier: $0.language) })

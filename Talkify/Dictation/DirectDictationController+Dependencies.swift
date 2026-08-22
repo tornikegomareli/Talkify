@@ -78,10 +78,10 @@ extension DirectDictationController {
     @MainActor
     static func live(
       hudController: DictationHUDController,
-      usageTracker: UsageTracker
+      usageTracker: UsageTracker,
+      textInsertionService: TextInsertionService
     ) -> Self {
       let speechService = SpeechRecognitionService()
-      let textInsertionService = TextInsertionService()
       let historyStore = DictationHistoryStore()
 
       return Self(

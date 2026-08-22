@@ -1018,6 +1018,98 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
+  /// Copying is how a selection is read where Accessibility answers nothing,
+  /// which is every browser. The clipboard has to come back afterwards.
+  @Test func copyingASelectionReadsItAndPutsTheClipboardBack() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(200),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      // What Copy does in the focused application, which here is the selection
+      // arriving on the pasteboard.
+      postCopyShortcut: {
+        pasteboard.clearContents()
+        pasteboard.setString("the selected sentence", forType: .string)
+        return true
+      }
+    ))
+
+    let copied = await service.copySelection()
+
+    #expect(copied == "the selected sentence")
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// Nothing selected is known, not guessed: Copy that finds nothing leaves
+  /// the change count alone, so the old clipboard is never read back as if it
+  /// were the selection.
+  @Test func copyingWithNothingSelectedReadsNothing() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: makeClipboardReader(for: pasteboard),
+      snapshotTimeout: .milliseconds(200),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      // Copy fired and nothing came of it, exactly as an empty selection does.
+      postCopyShortcut: { true },
+      copyTimeout: .milliseconds(60)
+    ))
+
+    let copied = await service.copySelection()
+
+    #expect(copied == nil)
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// A clipboard that cannot be captured cannot be put back, so the copy is
+  /// never attempted.
+  @Test func copyingIsRefusedWhenTheClipboardCannotBeSnapshotted() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    let didCopy = OSAllocatedUnfairLock(initialState: false)
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: { nil },
+      snapshotTimeout: .milliseconds(200),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      postCopyShortcut: {
+        didCopy.withLock { $0 = true }
+        return true
+      }
+    ))
+
+    let copied = await service.copySelection()
+
+    #expect(copied == nil)
+    #expect(didCopy.withLock { $0 } == false)
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
   private func makePasteboard() -> NSPasteboard {
     NSPasteboard(
       name: NSPasteboard.Name("TextInsertionServiceTests-\(UUID().uuidString)")

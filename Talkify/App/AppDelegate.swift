@@ -56,10 +56,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.hudStage = stage
     let hudController = DictationHUDController(stage: stage, settings: settings)
     let usageTracker = UsageTracker()
+    // One insertion service for the whole app. Its clipboard read lease is per
+    // instance, so a second one would let a dictation insertion and a Read
+    // Aloud copy work the pasteboard at the same time.
+    let textInsertionService = TextInsertionService()
     let dictationController = DirectDictationController(
       settings: settings,
       hudController: hudController,
-      usageTracker: usageTracker
+      usageTracker: usageTracker,
+      textInsertionService: textInsertionService
     )
     self.hudController = hudController
     self.dictationController = dictationController
@@ -68,7 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let readAloudController = ReadAloudController(
       settings: settings,
       hudController: hudController,
-      translation: dictationController.translation
+      translation: dictationController.translation,
+      textInsertion: textInsertionService
     )
     self.readAloudController = readAloudController
 
