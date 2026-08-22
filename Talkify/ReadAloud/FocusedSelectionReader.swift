@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 
 /// Read-only Accessibility access to the focused element's selected text —
@@ -28,19 +29,41 @@ struct FocusedSelectionReader {
     static let live = Dependencies(focus: Self.readFocus)
 
     private static func readFocus() -> Focus? {
-      let systemWide = AXUIElementCreateSystemWide()
-      guard let value = copyAttribute(systemWide, kAXFocusedUIElementAttribute),
-         CFGetTypeID(value) == AXUIElementGetTypeID()
-      else {
-        // The success code says the attribute was read, not that it holds the
-        // type its name implies, so the type is checked before the cast.
-        return nil
-      }
-      let element = value as! AXUIElement
+      guard let element = focusedElement() else { return nil }
       return Focus(
         subrole: copyAttribute(element, kAXSubroleAttribute) as? String,
         selectedText: copyAttribute(element, kAXSelectedTextAttribute) as? String
       )
+    }
+
+    /// The focused element, asked of the frontmost application first.
+    ///
+    /// The systemwide element is the obvious way to ask and it answers nothing
+    /// here: measured on macOS 26 it returns no focused element at all, for
+    /// every application, including one with text plainly selected. Read Aloud
+    /// used only that, so it said "No text selected" everywhere. Asking the
+    /// application returns the text area and its selection. The systemwide
+    /// element stays as a fallback rather than being deleted, because it costs
+    /// one call and this is the kind of behaviour that comes back.
+    private static func focusedElement() -> AXUIElement? {
+      if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+        let focused = element(AXUIElementCreateApplication(pid), kAXFocusedUIElementAttribute) {
+        return focused
+      }
+      return element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+    }
+
+    /// Reads an attribute that should hold another element. The success code
+    /// says the attribute was read, not that it holds the type its name
+    /// implies, so the type is checked before the cast.
+    private static func element(
+      _ of: AXUIElement,
+      _ attribute: String
+    ) -> AXUIElement? {
+      guard let value = copyAttribute(of, attribute),
+        CFGetTypeID(value) == AXUIElementGetTypeID()
+      else { return nil }
+      return (value as! AXUIElement)
     }
 
     private static func copyAttribute(
