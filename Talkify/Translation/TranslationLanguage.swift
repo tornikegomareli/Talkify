@@ -52,11 +52,12 @@ struct TranslationTarget: Identifiable, Hashable, Sendable {
   let availability: TranslationAvailability
 
   /// What the picker shows. A language needing a download says so, rather
-  /// than looking identical to one that works and then not working.
+  /// than looking identical to one that works and then not working. It cannot
+  /// say "on first use", because a model is only ever fetched from Settings.
   var label: String {
     switch availability {
     case .installed: name
-    case .downloadable: "\(name) — downloads on first use"
+    case .downloadable: "\(name) — needs a download"
     case .unsupported: "\(name) — not available"
     }
   }

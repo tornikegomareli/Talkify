@@ -23,10 +23,18 @@ struct TranslationServiceTests {
     var answer = "traducido"
     /// Set to hang the translator, so the timeout is the only way out.
     var neverAnswers = false
+    /// Set to hang the availability probe instead, which is the other call a
+    /// finish waits on.
+    var availabilityNeverAnswers = false
     var candidates: [Locale.Language] = []
+    /// Flips availability to installed once this many checks have happened,
+    /// standing in for a download finishing.
+    var installsAfterChecks: Int?
     /// Availability per language code, for the catalog tests.
     var perLanguage: [String: TranslationAvailability] = [:]
 
+    private var availabilityCalls = 0
+    var availabilityCount: Int { lock.withLock { availabilityCalls } }
     var translateCount: Int { lock.withLock { translateCalls } }
     var prepareCount: Int { lock.withLock { prepareCalls } }
     var retainedPairs: [TranslationPair?] { lock.withLock { retained } }
@@ -34,7 +42,13 @@ struct TranslationServiceTests {
     func client() -> TranslationService.Client {
       TranslationService.Client(
         availability: { [self] pair in
-          perLanguage[pair.target.languageCode?.identifier ?? ""] ?? availability
+          let checks = lock.withLock { () -> Int in
+            availabilityCalls += 1
+            return availabilityCalls
+          }
+          if availabilityNeverAnswers { try? await Task.sleep(for: .seconds(3600)) }
+          if let installsAfterChecks, checks >= installsAfterChecks { return .installed }
+          return perLanguage[pair.target.languageCode?.identifier ?? ""] ?? availability
         },
         prepare: { [self] _ in
           lock.withLock { prepareCalls += 1 }
@@ -119,13 +133,94 @@ struct TranslationServiceTests {
     #expect(spy.prepareCount == 0)
   }
 
-  @Test func aDownloadablePairIsStillWorthPreparing() async {
+  /// Preparing a pair whose model is missing does not fetch it. It waits for
+  /// Apple's download sheet, and with no window to present one the call never
+  /// returns, wedging the pair until the app is relaunched. So it is never made.
+  @Test func aPairThatNeedsADownloadIsNeverPrepared() async {
     let spy = Spy()
     spy.availability = .downloadable
     let service = TranslationService(client: spy.client())
 
+    #expect(await service.prewarm(pair) == false)
+    #expect(spy.prepareCount == 0)
+  }
+
+  @Test func anInstalledPairIsPrepared() async {
+    let spy = Spy()
+    let service = TranslationService(client: spy.client())
+
     #expect(await service.prewarm(pair) == true)
     #expect(spy.prepareCount == 1)
+  }
+
+  /// The install call presents Apple's sheet and does not return when the
+  /// download it started finishes, so availability is polled instead.
+  @Test func waitingForAnInstallPollsUntilTheModelLands() async {
+    let spy = Spy()
+    spy.availability = .downloadable
+    spy.installsAfterChecks = 3
+    var service = TranslationService(client: spy.client())
+    service.installPollInterval = .milliseconds(1)
+
+    #expect(await service.awaitInstall(pair) == true)
+    #expect(spy.availabilityCount >= 3)
+  }
+
+  @Test func waitingForAnInstallGivesUpOnItsBudget() async {
+    let spy = Spy()
+    spy.availability = .downloadable
+    var service = TranslationService(client: spy.client())
+    service.installPollInterval = .milliseconds(1)
+    service.installBudget = .milliseconds(10)
+
+    #expect(await service.awaitInstall(pair) == false)
+  }
+
+  /// The budget covers the whole finish, not only the translation. Asking
+  /// whether a pair is supported is a call that can stall too, and a stall
+  /// there used to leave the session unbounded with its HUD already hidden.
+  @Test func aStalledAvailabilityProbeStillTimesOut() async {
+    let spy = Spy()
+    spy.availabilityNeverAnswers = true
+    var service = TranslationService(client: spy.client())
+    service.timeout = .milliseconds(30)
+
+    await #expect(throws: TranslationFailure.timedOut) {
+      _ = try await service.translate("hola", with: pair)
+    }
+  }
+
+  /// One row per language, but the row must stand for the variant that
+  /// actually answered: the preference stores this identifier and the pair is
+  /// rebuilt from it, so recording a bare "zh" for an installed "zh-TW" would
+  /// advertise a model that is not the one probed.
+  @Test func aRowKeepsTheVariantThatAnsweredInstalled() async {
+    let spy = Spy()
+    spy.candidates = ["zh-TW", "zh-HK"].map { Locale.Language(identifier: $0) }
+    spy.perLanguage = ["zh": .installed]
+    let service = TranslationService(client: spy.client())
+
+    let targets = await service.targets(from: Locale(identifier: "en_US"))
+
+    #expect(targets.count == 1)
+    #expect(targets.first?.id == "zh-TW")
+    // Named for the language, not the variant, so one row does not read as a
+    // region. Derived rather than written out: the name is localized.
+    #expect(targets.first?.name == SpeechLanguageCatalog.shortName(for: Locale(identifier: "zh")))
+  }
+
+  /// Among variants that can do the same thing, the plain language wins, so a
+  /// stored pick stays "es" rather than drifting to whichever region came back
+  /// first.
+  @Test func thePlainLanguageWinsOverItsRegionalVariants() async {
+    let spy = Spy()
+    spy.candidates = ["es-MX", "es", "es-US"].map { Locale.Language(identifier: $0) }
+    spy.perLanguage = ["es": .installed]
+    let service = TranslationService(client: spy.client())
+
+    let targets = await service.targets(from: Locale(identifier: "en_US"))
+
+    #expect(targets.map(\.id) == ["es"])
   }
 
   /// The picker's list: installed first because those work now, then
@@ -140,9 +235,21 @@ struct TranslationServiceTests {
 
     let targets = await service.targets(from: Locale(identifier: "en_US"))
 
-    #expect(targets.map(\.id) == ["de", "es", "pl", "uk"])
+    // The names are localized, so the order they sort into is computed rather
+    // than written out in English.
+    let installed = ["de", "es"].sorted(by: byName)
+    let downloadable = ["pl", "uk"].sorted(by: byName)
+    #expect(targets.map(\.id) == installed + downloadable)
     #expect(targets.first?.availability == .installed)
     #expect(targets.last?.availability == .downloadable)
+  }
+
+  /// The order the service sorts by, so these tests hold on a Mac that is not
+  /// running in English.
+  private func byName(_ first: String, _ second: String) -> Bool {
+    let firstName = SpeechLanguageCatalog.shortName(for: Locale(identifier: first))
+    let secondName = SpeechLanguageCatalog.shortName(for: Locale(identifier: second))
+    return firstName.localizedCaseInsensitiveCompare(secondName) == .orderedAscending
   }
 
   /// Never offer the source as its own target, and never offer a pair this Mac
@@ -172,10 +279,7 @@ struct TranslationServiceTests {
 
     let targets = await service.targets(from: Locale(identifier: "en_US"))
 
-    #expect(targets.map(\.id) == ["zh", "de", "es"].sorted { a, b in
-      let names = ["zh": "Chinese", "de": "German", "es": "Spanish"]
-      return names[a]! < names[b]!
-    })
+    #expect(targets.map(\.id) == ["zh", "de", "es"].sorted(by: byName))
     #expect(targets.count == 3)
   }
 
@@ -201,7 +305,7 @@ struct TranslationServiceTests {
     let downloadable = TranslationTarget(id: "uk", name: "Ukrainian", availability: .downloadable)
 
     #expect(installed.label == "Spanish")
-    #expect(downloadable.label == "Ukrainian — downloads on first use")
+    #expect(downloadable.label == "Ukrainian — needs a download")
   }
 
   /// Changing the target has to drop the old pair, or the previous language's
