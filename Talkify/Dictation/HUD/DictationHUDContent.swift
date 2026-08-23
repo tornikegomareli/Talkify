@@ -32,4 +32,6 @@ final class DictationHUDContent {
   /// on the change rather than on the listening state, so they never
   /// re-fire mid-session.
   var sessionEpoch = 0
+  var isEditable = false
+  var onEdited: ((String) -> Void)?
 }

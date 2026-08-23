@@ -137,10 +137,10 @@ text file at `~/Library/Application Support/Talkify/dictionary.txt` (one line pe
 entry, `# off:` for disabled) and stay local — no network, no cloud. Enabled
 terms feed Apple's `AnalysisContext` as a bounded nudge (up to 40 phrases) and
 correction pairs are applied deterministically after recognition but never
-overwrite the raw engine result kept for history. When you edit recognized text
-(e.g., in an editable draft), Talkify learns attributable word/phrase corrections
-for next time, deduplicates them, and ignores punctuation-only or whole-sentence
-rewrites.
+overwrite the raw engine result kept for history. When you edit the HUD draft
+presented after dictation, Talkify learns the attributable word/phrase correction
+for next time via the HUD edit/finish path, deduplicates it, and ignores
+punctuation-only or whole-sentence rewrites.
 
 ## Architecture
 

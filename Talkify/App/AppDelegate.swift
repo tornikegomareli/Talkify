@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.hudController = hudController
     self.dictationController = dictationController
     self.usageTracker = usageTracker
+    dictationController.attachHUD(hudController)
 
     let readAloudController = ReadAloudController(
       settings: settings,

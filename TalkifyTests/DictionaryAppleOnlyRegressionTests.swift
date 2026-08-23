@@ -125,6 +125,66 @@ struct DictionaryAppleOnlyRegressionTests {
     #expect(entries.isEmpty)
   }
 
+  @Test func hudEditPathLearnsCorrection() async {
+    let learnCaptured = OSAllocatedUnfairLock<[(String, String, String)]>(initialState: [])
+    let recorder = RecordingBridge()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let rawText = "clowd code"
+    let controller = DirectDictationController(
+      settings: AppSettings(defaults: Self.freshDefaults()),
+      dependencies: Self.makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        learnCaptured: learnCaptured,
+        finishText: rawText
+      )
+    )
+    controller.applyLanguages()
+    await Self.waitUntil { prewarmed.withLock { $0 } }
+    try? await Task.sleep(for: .milliseconds(20))
+    controller.toggleFromMenu()
+    await Self.waitUntil { controller.sessionStateForTesting == .recording(.latched) }
+    controller.toggleFromMenu()
+    await Self.waitUntil { !recorder.insertedTexts.isEmpty }
+    controller.handleHUDDraftEdited("Claude Code")
+    let captured = learnCaptured.withLock { $0 }
+    #expect(captured.count == 1)
+    #expect(captured.first?.0 == rawText)
+    #expect(captured.first?.1 == rawText)
+    #expect(captured.first?.2 == "Claude Code")
+    controller.stop()
+  }
+
+  @Test func hudEditViaControllerCallbackLearns() async {
+    let learnCaptured = OSAllocatedUnfairLock<[(String, String, String)]>(initialState: [])
+    let recorder = RecordingBridge()
+    let prewarmed = OSAllocatedUnfairLock<Bool>(initialState: false)
+    let stage = HUDStage(settings: AppSettings(defaults: Self.freshDefaults()))
+    let hud = DictationHUDController(stage: stage, settings: AppSettings(defaults: Self.freshDefaults()))
+    let controller = DirectDictationController(
+      settings: AppSettings(defaults: Self.freshDefaults()),
+      dependencies: Self.makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        learnCaptured: learnCaptured,
+        finishText: "clowd code"
+      )
+    )
+    controller.attachHUD(hud)
+    controller.applyLanguages()
+    await Self.waitUntil { prewarmed.withLock { $0 } }
+    try? await Task.sleep(for: .milliseconds(20))
+    controller.toggleFromMenu()
+    await Self.waitUntil { controller.sessionStateForTesting == .recording(.latched) }
+    controller.toggleFromMenu()
+    await Self.waitUntil { !recorder.insertedTexts.isEmpty }
+    hud.commitEditedDraft("Claude Code")
+    let direct = learnCaptured.withLock { $0 }
+    #expect(direct.count == 1)
+    #expect(direct.first?.2 == "Claude Code")
+    controller.stop()
+  }
+
   // Helpers
 
   @MainActor
@@ -155,6 +215,7 @@ struct DictionaryAppleOnlyRegressionTests {
     biasPhrases: [String] = [],
     capturedBias: OSAllocatedUnfairLock<[[String]]>? = nil,
     applyDictionary: (@Sendable (String) -> (corrected: String, applied: [AppliedCorrection], raw: String))? = nil,
+    learnCaptured: OSAllocatedUnfairLock<[(String, String, String)]>? = nil,
     finishText: String
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -174,7 +235,9 @@ struct DictionaryAppleOnlyRegressionTests {
         if let applyDictionary { return applyDictionary(text) }
         return (text, [], text)
       },
-      learnFromEdit: { _, _, _ in },
+      learnFromEdit: { raw, corrected, edited in
+        learnCaptured?.withLock { $0.append((raw, corrected, edited)) }
+      },
       captureFocusedTarget: {
         TextInsertionService.Target(
           element: nil,

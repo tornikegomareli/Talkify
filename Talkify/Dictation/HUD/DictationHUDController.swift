@@ -21,12 +21,16 @@ final class DictationHUDController {
   private var micWatchdogTask: Task<Void, Never>?
   private var hasPlayedBeginSound = false
 
+  var onDraftEdited: ((String) -> Void)?
+
   private var content: DictationHUDContent { stage.dictationContent }
   private var isListening: Bool { stage.occupant == .dictation }
 
   init(stage: HUDStage, settings: AppSettings) {
     self.stage = stage
     sessionSettings = settings.sessionSettings
+    bindContentCallbacks()
+    observeEditability()
   }
 
   /// Live microphone level, 0–1, ~46 Hz while listening. Smoothed with a
@@ -109,6 +113,28 @@ final class DictationHUDController {
   func showLiveText(_ text: String) {
     guard isListening, !text.isEmpty else { return }
     content.text = text
+  }
+
+  func commitEditedDraft(_ editedText: String) {
+    onDraftEdited?(editedText)
+  }
+
+  private func bindContentCallbacks() {
+    content.onEdited = { [weak self] edited in
+      self?.commitEditedDraft(edited)
+    }
+  }
+
+  private func observeEditability() {
+    withObservationTracking {
+      _ = content.isEditable
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        stage.acceptsMouse = content.isEditable
+        observeEditability()
+      }
+    }
   }
 
   /// Speech has stopped but the recognized text has not arrived yet.

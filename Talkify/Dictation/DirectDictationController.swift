@@ -397,12 +397,11 @@ final class DirectDictationController {
   private var pendingLiveText: String?
   private var pendingRawText: String?
   private var lastRawText = ""
+  private var lastCorrectedText = ""
 
   private func checkAndBegin() {
-    // Held here rather than once recording starts: the first HUD frames are
-    // what a napped process draws badly, and by then they have been drawn.
-    // Every rejection below releases it, because .beginRejected produces no
-    // effects and nothing downstream would.
+    lastRawText = ""
+    lastCorrectedText = ""
     activity.hold()
 
     guard isPrepared else {
@@ -496,6 +495,18 @@ final class DirectDictationController {
     dependencies.learnFromEdit(rawText, correctedText, editedText)
   }
 
+  func handleHUDDraftEdited(_ editedText: String) {
+    let trimmed = editedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty, !lastRawText.isEmpty, !lastCorrectedText.isEmpty else { return }
+    learnFromUserEdit(rawText: lastRawText, correctedText: lastCorrectedText, editedText: trimmed)
+  }
+
+  func attachHUD(_ hudController: DictationHUDController) {
+    hudController.onDraftEdited = { [weak self] edited in
+      self?.handleHUDDraftEdited(edited)
+    }
+  }
+
   /// What the history entry names as this session's destination.
   ///
   /// Clipboard-only never aims at an application, so naming the one that
@@ -527,6 +538,7 @@ final class DirectDictationController {
           )
         }
         lastRawText = rawText
+        lastCorrectedText = text
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )

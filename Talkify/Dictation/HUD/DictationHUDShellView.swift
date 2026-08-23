@@ -207,20 +207,31 @@ struct DictationHUDShellView: View {
   /// the text hangs off the indicator instead of floating centered.
   @ViewBuilder
   private var compactDraftText: some View {
-    switch settings.longDraftStyle {
-    case .tailOnly:
-      Text(content.text)
-        .lineLimit(1)
-        .truncationMode(.head)
-    case .growDown:
-      Text(content.text)
-        .lineLimit(4)
+    if content.isEditable {
+      TextField("", text: Binding(get: { content.text }, set: { content.text = $0 }), onCommit: { commitEditedDraft() })
+        .textFieldStyle(.plain)
         .multilineTextAlignment(.leading)
-    case .shrinkToFit:
-      Text(content.text)
-        .lineLimit(1)
-        .truncationMode(.head)
-        .minimumScaleFactor(0.55)
+        .lineLimit(4)
+        .onSubmit { commitEditedDraft() }
+    } else {
+      switch settings.longDraftStyle {
+      case .tailOnly:
+        Text(content.text)
+          .lineLimit(1)
+          .truncationMode(.head)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      case .growDown:
+        Text(content.text)
+          .lineLimit(4)
+          .multilineTextAlignment(.leading)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      case .shrinkToFit:
+        Text(content.text)
+          .lineLimit(1)
+          .truncationMode(.head)
+          .minimumScaleFactor(0.55)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      }
     }
   }
 
@@ -230,21 +241,38 @@ struct DictationHUDShellView: View {
   /// the line cap is hit.
   @ViewBuilder
   private var draftText: some View {
-    switch settings.longDraftStyle {
-    case .tailOnly:
-      Text(content.text)
-        .lineLimit(1)
-        .truncationMode(.head)
-    case .growDown:
-      Text(content.text)
-        .lineLimit(4)
+    if content.isEditable {
+      TextField("", text: Binding(get: { content.text }, set: { content.text = $0 }), onCommit: { commitEditedDraft() })
+        .textFieldStyle(.plain)
         .multilineTextAlignment(.center)
-    case .shrinkToFit:
-      Text(content.text)
-        .lineLimit(1)
-        .truncationMode(.head)
-        .minimumScaleFactor(0.55)
+        .lineLimit(4)
+        .onSubmit { commitEditedDraft() }
+    } else {
+      switch settings.longDraftStyle {
+      case .tailOnly:
+        Text(content.text)
+          .lineLimit(1)
+          .truncationMode(.head)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      case .growDown:
+        Text(content.text)
+          .lineLimit(4)
+          .multilineTextAlignment(.center)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      case .shrinkToFit:
+        Text(content.text)
+          .lineLimit(1)
+          .truncationMode(.head)
+          .minimumScaleFactor(0.55)
+          .onTapGesture(count: 2) { content.isEditable = true }
+      }
     }
+  }
+
+  private func commitEditedDraft() {
+    let edited = content.text
+    content.isEditable = false
+    content.onEdited?(edited)
   }
 
   /// The Edge Glow particle cloud, clipped to the housing so no mote leaks
