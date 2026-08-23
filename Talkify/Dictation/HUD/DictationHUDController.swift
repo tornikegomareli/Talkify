@@ -113,7 +113,7 @@ final class DictationHUDController {
   }
 
   func showLiveText(_ text: String) {
-    guard isListening, !text.isEmpty else { return }
+    guard isListening, !text.isEmpty, !content.isEditable else { return }
     content.text = text
   }
 

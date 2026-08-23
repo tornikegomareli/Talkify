@@ -32,7 +32,9 @@ enum DictionaryLearning {
 
     var seen = Set<String>()
     for entry in existing {
-      let key = "\(entry.kind.rawValue)|\(entry.hear.lowercased())|\(entry.write.lowercased())"
+      let hear = entry.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let write = entry.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let key = "\(entry.kind.rawValue)|\(hear)|\(write)"
       seen.insert(key)
     }
 
@@ -40,9 +42,12 @@ enum DictionaryLearning {
     for candidate in candidates {
       let key: String
       if candidate.kind == .correction {
-        key = "correction|\(candidate.hear.lowercased())|\(candidate.write.lowercased())"
+        let hear = candidate.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let write = candidate.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        key = "correction|\(hear)|\(write)"
       } else {
-        key = "term|\(candidate.write.lowercased())|"
+        let write = candidate.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        key = "term||\(write)"
       }
       guard !seen.contains(key) else { continue }
       seen.insert(key)
@@ -94,14 +99,12 @@ enum DictionaryLearning {
   private static func diffEntries(from raw: String, to edited: String) -> [DictionaryEntry] {
     let rawTokens = splitPreservingWords(raw)
     let editedTokens = splitPreservingWords(edited)
-    let rawWords = rawTokens
-    let editedWords = editedTokens
 
     var i = 0
     var j = 0
     var entries: [DictionaryEntry] = []
-    while i < rawWords.count || j < editedWords.count {
-      if i < rawWords.count, j < editedWords.count, rawWords[i] == editedWords[j] {
+    while i < rawTokens.count || j < editedTokens.count {
+      if i < rawTokens.count, j < editedTokens.count, rawTokens[i] == editedTokens[j] {
         i += 1
         j += 1
         continue
@@ -116,29 +119,29 @@ enum DictionaryLearning {
         for dj in 0...lookahead {
           let ni = startI + di
           let nj = startJ + dj
-          if ni < rawWords.count, nj < editedWords.count, rawWords[ni] == editedWords[nj] {
+          if ni < rawTokens.count, nj < editedTokens.count, rawTokens[ni] == editedTokens[nj] {
             consumedI = di
             consumedJ = dj
             found = true
             break outer
           }
-          if ni == rawWords.count, nj == editedWords.count {
-            consumedI = rawWords.count - startI
-            consumedJ = editedWords.count - startJ
+          if ni == rawTokens.count, nj == editedTokens.count {
+            consumedI = rawTokens.count - startI
+            consumedJ = editedTokens.count - startJ
             found = true
             break outer
           }
         }
       }
       if !found {
-        consumedI = rawWords.count - startI
-        consumedJ = editedWords.count - startJ
+        consumedI = rawTokens.count - startI
+        consumedJ = editedTokens.count - startJ
       }
       if consumedI == 0, consumedJ == 0 {
         consumedI = 1
         consumedJ = 1
-        if startI + consumedI > rawWords.count { consumedI = rawWords.count - startI }
-        if startJ + consumedJ > editedWords.count { consumedJ = editedWords.count - startJ }
+        if startI + consumedI > rawTokens.count { consumedI = rawTokens.count - startI }
+        if startJ + consumedJ > editedTokens.count { consumedJ = editedTokens.count - startJ }
       }
       let rawSpan = rawTokens[startI..<min(startI + consumedI, rawTokens.count)].joined(separator: " ")
       let editedSpan = editedTokens[startJ..<min(startJ + consumedJ, editedTokens.count)].joined(separator: " ")
@@ -165,7 +168,9 @@ enum DictionaryLearning {
     var deduped: [DictionaryEntry] = []
     var seenKeys = Set<String>()
     for entry in entries {
-      let key = "\(entry.kind.rawValue)|\(entry.hear.lowercased())|\(entry.write.lowercased())"
+      let hear = entry.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let write = entry.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let key = "\(entry.kind.rawValue)|\(hear)|\(write)"
       if seenKeys.insert(key).inserted {
         deduped.append(entry)
       }
