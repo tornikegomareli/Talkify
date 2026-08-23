@@ -36,11 +36,13 @@ final class DictionaryStore {
   }
 
   func add(_ entry: DictionaryEntry) {
+    guard entry.isValidForFile else { return }
     entries.append(entry)
     save()
   }
 
   func update(_ entry: DictionaryEntry) {
+    guard entry.isValidForFile else { return }
     guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
     entries[index] = entry
     save()
@@ -160,6 +162,7 @@ final class DictionaryStore {
   }
 
   func learn(correction: DictionaryEntry) {
+    guard correction.isValidForFile else { return }
     let normalizedWrite = correction.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
     let normalizedHear = correction.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
     guard !normalizedWrite.isEmpty else { return }

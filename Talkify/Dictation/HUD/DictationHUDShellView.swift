@@ -11,6 +11,15 @@ struct DictationHUDShellView: View {
   let screen: HUDScreenSnapshot
   let settings: DictationSessionSettings
   let content: DictationHUDContent
+  let stage: HUDStage?
+  @State private var preEditText = ""
+
+  init(screen: HUDScreenSnapshot, settings: DictationSessionSettings, content: DictationHUDContent, stage: HUDStage? = nil) {
+    self.screen = screen
+    self.settings = settings
+    self.content = content
+    self.stage = stage
+  }
 
   /// The shape's dimensions at the session's HUD size. Everything the user
   /// can resize is read from here; the housing band and fillets are not.
@@ -223,6 +232,10 @@ struct DictationHUDShellView: View {
         .lineLimit(4)
         .focused($isDraftFocused)
         .onSubmit { commitEditedDraft() }
+        .onExitCommand { cancelEditing() }
+        .onChange(of: isDraftFocused) { _, focused in
+          if !focused && content.isEditable { commitEditedDraft() }
+        }
         .onAppear { isDraftFocused = true }
     } else {
       switch settings.longDraftStyle {
@@ -247,15 +260,27 @@ struct DictationHUDShellView: View {
   }
 
   private func enterEditMode() {
+    preEditText = content.text
+    stage?.acceptsMouse = true
     content.isEditable = true
     isDraftFocused = true
   }
 
   private func commitEditedDraft() {
+    guard content.isEditable else { return }
     let edited = content.text
     isDraftFocused = false
     content.isEditable = false
-    content.onEdited?(edited)
+    if edited.trimmingCharacters(in: .whitespacesAndNewlines) != preEditText.trimmingCharacters(in: .whitespacesAndNewlines) {
+      content.onEdited?(edited)
+    }
+  }
+
+  private func cancelEditing() {
+    guard content.isEditable else { return }
+    isDraftFocused = false
+    content.text = preEditText
+    content.isEditable = false
   }
 
   /// The Edge Glow particle cloud, clipped to the housing so no mote leaks

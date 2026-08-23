@@ -130,10 +130,10 @@ final class DictationHUDController {
     withObservationTracking {
       _ = content.isEditable
     } onChange: { [weak self] in
-      Task { @MainActor [weak self] in
-        guard let self else { return }
-        stage.acceptsMouse = content.isEditable
-        observeEditability()
+      guard let self else { return }
+      MainActor.assumeIsolated {
+        self.stage.acceptsMouse = self.content.isEditable
+        self.observeEditability()
       }
     }
   }

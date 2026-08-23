@@ -150,7 +150,7 @@ private struct DictionaryEditorView: View {
   }
 
   private var warnings: [DictionaryWarning] { DictionaryWarning.check(draft) }
-  private var isValid: Bool { !draft.write.isEmpty && (kind == .term || !draft.hear.isEmpty) }
+  private var isValid: Bool { draft.isValidForFile }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {

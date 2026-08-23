@@ -63,7 +63,8 @@ final class HUDStage {
         screen: placeholder,
         settings: renderedSettings,
         content: dictationContent,
-        drop: dropContent
+        drop: dropContent,
+        stage: nil
       )
     )
     // The window size is this stage's decision, not the content's; without
@@ -225,6 +226,7 @@ final class HUDStage {
       settings: renderedSettings,
       content: dictationContent,
       drop: dropContent,
+      stage: self,
       onDrop: { [weak self] index in
         self?.onDropReceived?(index)
       },

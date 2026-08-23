@@ -46,6 +46,18 @@ struct DictionaryEntry: Identifiable, Codable, Hashable, Sendable, Equatable {
   var normalizedHear: String {
     hear.trimmingCharacters(in: .whitespacesAndNewlines)
   }
+
+  var isValidForFile: Bool {
+    let w = write.trimmingCharacters(in: .whitespacesAndNewlines)
+    let h = hear.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !w.isEmpty else { return false }
+    if w.contains("\n") || w.contains("\r") || w.contains("->") { return false }
+    if kind == .correction {
+      guard !h.isEmpty else { return false }
+      if h.contains("\n") || h.contains("\r") || h.contains("->") { return false }
+    }
+    return true
+  }
 }
 
 struct DictionaryWarning: Identifiable, Sendable {
