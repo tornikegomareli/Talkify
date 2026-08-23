@@ -410,6 +410,8 @@ final class DirectDictationController {
   private var lastCorrectedText = ""
 
   private func checkAndBegin() {
+    postFinalizationHideTask?.cancel()
+    postFinalizationHideTask = nil
     lastRawText = ""
     lastCorrectedText = ""
     activity.hold()

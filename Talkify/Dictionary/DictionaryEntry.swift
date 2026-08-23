@@ -52,9 +52,11 @@ struct DictionaryEntry: Identifiable, Codable, Hashable, Sendable, Equatable {
     let h = hear.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !w.isEmpty else { return false }
     if w.contains("\n") || w.contains("\r") || w.contains("->") { return false }
+    if kind == .term, w.hasPrefix("#") { return false }
     if kind == .correction {
       guard !h.isEmpty else { return false }
       if h.contains("\n") || h.contains("\r") || h.contains("->") { return false }
+      if h.hasPrefix("#") { return false }
     }
     return true
   }
