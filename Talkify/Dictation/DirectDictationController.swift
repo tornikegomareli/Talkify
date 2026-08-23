@@ -47,6 +47,8 @@ final class DirectDictationController {
   /// Which slot's key began the session in flight, so the session runs in
   /// the language of the key that started it even if Settings change.
   private var activeSlot: GlobalKeyEventMonitor.TriggerSlot = .primary
+  private var postFinalizationHideTask: Task<Void, Never>?
+  private let finalTextDwell: Duration
 
   convenience init(
     settings: AppSettings,
@@ -59,9 +61,14 @@ final class DirectDictationController {
     )
   }
 
-  init(settings: AppSettings, dependencies: Dependencies) {
+  init(
+    settings: AppSettings,
+    dependencies: Dependencies,
+    finalTextDwell: Duration = .milliseconds(2500)
+  ) {
     self.settings = settings
     self.dependencies = dependencies
+    self.finalTextDwell = finalTextDwell
     keyEventMonitor = GlobalKeyEventMonitor { [weak self] event in
       Task { @MainActor [weak self] in
         self?.handle(event)
@@ -192,6 +199,8 @@ final class DirectDictationController {
   }
 
   func stop() {
+    postFinalizationHideTask?.cancel()
+    postFinalizationHideTask = nil
     // Before anything else: quitting mid-session must not leave the Mac quiet.
     ducking.restore()
     noSpeechTask?.cancel()
@@ -355,6 +364,8 @@ final class DirectDictationController {
     case .stopNoSpeechTimer:
       stopNoSpeechTimer()
     case let .showListening(latched):
+      postFinalizationHideTask?.cancel()
+      postFinalizationHideTask = nil
       let session = settings.sessionSettings
       currentSessionSettings = session
       dependencies.showListening(
@@ -496,6 +507,15 @@ final class DirectDictationController {
     let trimmed = editedText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty, !lastRawText.isEmpty, !lastCorrectedText.isEmpty else { return }
     learnFromUserEdit(rawText: lastRawText, correctedText: lastCorrectedText, editedText: trimmed)
+    if postFinalizationHideTask != nil {
+      postFinalizationHideTask?.cancel()
+      postFinalizationHideTask = Task { [weak self] in
+        try? await Task.sleep(for: .milliseconds(600))
+        guard !Task.isCancelled else { return }
+        self?.dependencies.hideHUD()
+        self?.postFinalizationHideTask = nil
+      }
+    }
   }
 
   func attachHUD(_ hudController: DictationHUDController) {
@@ -539,14 +559,26 @@ final class DirectDictationController {
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )
-        dependencies.hideHUD()
         switch outcome {
         case .inserted, .copiedToClipboard:
           dependencies.playPasteSound()
           send(.sessionEnded)
           let wordCount = UsageMetrics.wordCount(in: text)
           await dependencies.recordSession(wordCount, speakingDuration)
+          if finalTextDwell == .zero {
+            dependencies.hideHUD()
+          } else {
+            postFinalizationHideTask?.cancel()
+            postFinalizationHideTask = Task { [weak self] in
+              guard let self else { return }
+              try? await Task.sleep(for: self.finalTextDwell)
+              guard !Task.isCancelled else { return }
+              self.dependencies.hideHUD()
+              self.postFinalizationHideTask = nil
+            }
+          }
         case .unavailable:
+          dependencies.hideHUD()
           send(.sessionEnded)
           dependencies.showMessage("Couldn't insert text", nil)
         }

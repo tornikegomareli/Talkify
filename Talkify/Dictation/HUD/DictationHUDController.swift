@@ -152,7 +152,13 @@ final class DictationHUDController {
 
   func hide() {
     stage.cancelMessageDismiss()
-    content.isEditable = false
+    if content.isEditable {
+      let draft = content.text
+      content.isEditable = false
+      commitEditedDraft(draft)
+    } else {
+      content.isEditable = false
+    }
     if isListening {
       stage.sounds.playEnd(using: sessionSettings.sounds)
     }

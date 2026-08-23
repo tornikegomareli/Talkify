@@ -137,11 +137,13 @@ struct DirectDictationControllerTests {
 
   private func makeController(
     settings: AppSettings? = nil,
-    dependencies: DirectDictationController.Dependencies
+    dependencies: DirectDictationController.Dependencies,
+    finalTextDwell: Duration = .milliseconds(20)
   ) -> DirectDictationController {
     DirectDictationController(
       settings: settings ?? AppSettings(defaults: freshDefaults()),
-      dependencies: dependencies
+      dependencies: dependencies,
+      finalTextDwell: finalTextDwell
     )
   }
 
@@ -260,6 +262,9 @@ struct DirectDictationControllerTests {
     await waitUntil("Usage was never recorded") {
       recorder.recordedSessions.count == 1
     }
+    await waitUntil("HUD was never hidden") {
+      recorder.events.contains("hideHUD")
+    }
 
     #expect(controller.sessionStateForTesting == .idle)
     #expect(recorder.insertedTexts == ["hello world"])
@@ -269,7 +274,7 @@ struct DirectDictationControllerTests {
     let soundIndex = recorder.events.firstIndex(of: "playPasteSound")
     #expect(hideIndex != nil && soundIndex != nil)
     if let hideIndex, let soundIndex {
-      #expect(hideIndex < soundIndex)
+      #expect(soundIndex < hideIndex)
     }
     controller.stop()
   }
