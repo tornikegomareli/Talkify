@@ -73,3 +73,24 @@ Choosing the second reveals a folder chooser.
 
 It belongs in a card of its own inside a Drop Transcription section, or in
 the existing structure if the section turns out to hold only this one row.
+
+## What Dictionary adds
+
+A **Dictionary** section (`DictionarySettingsView`) with three cards: a search
+field that filters by either side of `hear -> write`, counts and actions
+(Add Entry, Reveal File), an entries list where each row shows enabled state,
+kind (Term / Fix), the phrase(s) and per-row Enable/Disable, Edit, Delete
+controls, and an About card documenting the file path and that edits apply
+live. Adding or editing opens a sheet with a segmented Type picker, validated
+fields (`->` , newlines and `#` prefixes are rejected; corrections require both
+sides), inline warnings for common words, very short triggers and self-rewrites
+(`DictionaryWarning`), and Save disabled until valid. The section also owns
+the **Personal Dictionary** file lifecycle: `DictionaryStore` parses
+`dictionary.txt` (`# off:` for disabled, other `#` lines ignored), deduplicates
+bias phrases case-insensitively, and watches the file for external edits.
+
+The companion HUD behaviour is that the post-session draft is editable via
+double-click for about 2.5 seconds after `finishRecognition` (see `hud-anatomy.md`):
+committing the edit calls through `DirectDictationController.learnFromUserEdit`
+into `DictionaryLearning.learnableEntries`, which is the same path the store
+uses for batch learning.

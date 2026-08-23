@@ -67,6 +67,14 @@ _Avoid_: Drop zone, catch area
 A finished **Drop Transcription** held in a temporary folder under its final name while the HUD offers it, before a drag or the card's timer decides where it lands.
 _Avoid_: Draft, cache, pending file
 
+**Personal Dictionary**:
+A local, user-editable list of terms and correction pairs that bias Apple Speech and rewrite its display text. Stored as a plain-text file at `~/Library/Application Support/Talkify/dictionary.txt` and never leaves the Mac.
+_Avoid_: Custom vocabulary, word list
+
+**Dictionary Entry**:
+One **Personal Dictionary** row. A term teaches Apple Speech a phrase exists; a correction rewrites what was heard into what was written. Each entry can be enabled, disabled, edited, deleted and searched; disabled rows are stored as `# off:` in the file.
+_Avoid_: Rule, mapping
+
 **Settings section**:
 A navigable category of persisted application preferences with a visible user-facing purpose.
 _Avoid_: Placeholder tab, settings page
@@ -98,7 +106,7 @@ _Avoid_: Transcript history, cloud analytics
 - The HUD renders volatile recognition results immediately
 - **Direct Dictation** inserts finalized recognition text plus the latest volatile result when recognition ends before finalizing it
 - The **Direct Dictation** HUD expands from the physical notch on the focused input's display
-- Settings exposes **Appearance**, **Sounds**, and **Insights** in that order
+- Settings exposes **General**, **Appearance**, **Sounds**, **Dictation**, **Drop Transcription**, **Read Aloud**, **Language**, **Dictionary**, **Shortcuts**, **Updates**, and **Insights** in that order
 - The Settings navigation supports labeled groups, but renders no empty or disabled sections
 - A new Settings section appears only after its underlying preferences and behavior exist
 - If the focused input's display is unknown, the HUD uses the display containing the pointer
@@ -117,12 +125,17 @@ _Avoid_: Transcript history, cloud analytics
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
 - The host window stays sized for the 100% shape whatever the **HUD size**, so a smaller shape centers inside the same fixed window
 - The HUD appears above full-screen applications and on every Space
-- The HUD is display-only during Direct Dictation: mouse clicks pass through it and it never takes focus
-- The HUD accepts the mouse only as a **Drop Target** and while it holds a finished **Drop Transcription**; it never takes focus in either state
+- The HUD is display-only while Direct Dictation listens: mouse clicks pass through it and it never takes focus
+- The HUD accepts the mouse only as a **Drop Target**, while it holds a finished **Drop Transcription**, and while the post-session draft is editable after finalization; it never takes focus in any of those states
+- After finalization the HUD shows the corrected draft for about 2.5 seconds. Double-clicking the draft enters inline editing; the edit commits on Return, on focus loss, or when the HUD hides, and Escape cancels and restores the pre-edit text. A committed edit learns an attributable **Dictionary Entry** correction for next time
 - The HUD's display is locked when the session starts and does not follow windows
 - If the HUD's display disconnects mid-session, the HUD moves to the pointer's display
 - The HUD is the only surface for dictation status and error messages
 - HUD status and error messages dismiss themselves after about two seconds
+- The **Personal Dictionary** lives in `~/Library/Application Support/Talkify/dictionary.txt`, a UTF-8 plain-text file with a `# Talkify dictionary` header, one entry per line (`term` or `heard -> write`, `# off:` for disabled). Lines starting with `#` that are not `# off:` are ignored. The file is watched live and may be edited by hand.
+- Enabled terms feed Apple Speech as `AnalysisContext` bias phrases each session, bounded to 40 phrases deduplicated case-insensitively in file order
+- Enabled corrections are applied deterministically after recognition but never overwrite the raw engine result kept for history: longest trigger first, whole-word boundaries (`\p{L}\p{N}`), case-insensitive, hyphen/whitespace tolerant, one pass per trigger
+- Editing the HUD draft after dictation learns attributable word/phrase corrections (up to 4 words per side, new terms require >= 2 letters with a letter) and ignores whitespace/punctuation-only changes and whole-sentence rewrites (similarity < 0.5 over > 4 words); duplicate entries are ignored case-insensitively
 - The HUD writes nothing while it retracts and its bands do not resize: the shape leaves exactly as it stood, and its text and layout reset only once it is off screen
 - The wait between the last word and the recognized text is silent — no label stands in for it, and the voice visual comes to rest rather than reading the silence as a dead microphone
 - Compact opens with no text at all, because it is built around the live draft and a placeholder would be words nobody spoke

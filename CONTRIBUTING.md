@@ -233,7 +233,9 @@ These are settled. Reopening one needs a new argument, not a preference:
 - AppKit is the shell: lifecycle, status item, non-activating panels. SwiftUI
   renders windowed UI inside it
 - Apple Speech only, `SpeechAnalyzer` and `SpeechTranscriber`. No Whisper, no
-  local inference models
+  local inference models, no Parakeet/FluidAudio; the **Personal Dictionary**
+  augments Apple Speech via `AnalysisContext` bias phrases and deterministic
+  post-recognition corrections only
 - Model-View with local pure reducers. No MVVM, no TCA, no global store
   (`docs/adr/0005-mv-with-local-reducers.md`)
 - Exactly one third-party dependency, Sparkle, confined to `Talkify/Updates/`.

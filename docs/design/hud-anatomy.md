@@ -66,7 +66,9 @@ instead.
 Waveform and Edge Glow while listening, and always present under Reduce
 Motion. Draft text is 15pt medium white, centered, with three long-draft
 behaviors the user picks between: single line with head truncation, wrap and
-grow downward capped at four lines, or single line that shrinks to fit.
+grow downward capped at four lines, or single line that shrinks to fit. After
+finalization the same band shows the corrected draft and, on double-click,
+becomes an inline `TextField` for editing the result before it is inserted.
 
 **Language tag.** A small capsule pinned to the top leading corner below the
 housing, shown only when a second dictation language is configured. It hangs
@@ -101,10 +103,21 @@ Historically none: the HUD ignored all mouse events and never took focus, so
 clicks passed straight through to whatever was behind it
 (`HUDPanel.swift`).
 
-This is changing for Drop Transcription. The HUD now accepts the mouse in
-exactly two states — while it is a drop target, and while it holds a finished
-transcript — and still never takes focus. In every other state it remains
-click-through. See `FEATURE.md`.
+The HUD now accepts the mouse in exactly three states — while it is a drop
+target, while it holds a finished transcript, and while the post-session draft
+is editable after Direct Dictation finalizes — and still never takes focus
+in any of them. In every other state it remains click-through. See
+`FEATURE.md`.
+
+**Editable draft.** After recognition finalizes, the HUD keeps the corrected
+draft visible for about 2.5 seconds. Double-clicking the draft enters editing:
+the text becomes a focused `TextField` (leading-aligned in Compact, centered
+otherwise). The edit commits on Return, on focus loss, or when the HUD
+hides; Escape cancels and restores the pre-edit text. A committed change is
+attributed into a word/phrase correction and learned into the **Personal
+Dictionary** via `DictionaryLearning` (deduped, ignoring punctuation-only and
+whole-sentence rewrites). While editable, `HUDStage.acceptsMouse` is true so
+the panel receives clicks without ever activating Talkify.
 
 ## Display behavior
 

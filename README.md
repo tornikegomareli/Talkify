@@ -136,10 +136,12 @@ disabled, edited, deleted, and searched. They are stored as a human-editable
 text file at `~/Library/Application Support/Talkify/dictionary.txt` (one line per
 entry, `# off:` for disabled) and stay local — no network, no cloud. Enabled
 terms feed Apple's `AnalysisContext` as a bounded nudge (up to 40 phrases) and
-correction pairs are applied deterministically after recognition but never
-overwrite the raw engine result kept for history. When you edit the HUD draft
-presented after dictation, Talkify learns the attributable word/phrase correction
-for next time via the HUD edit/finish path, deduplicates it, and ignores
+correction pairs are applied deterministically after recognition (longest
+trigger first, whole-word, case-insensitive) but never overwrite the raw
+engine result kept for history. After dictation the corrected draft stays
+visible for about 2.5 seconds — double-click it to edit inline (Return or
+focus loss commits, Esc cancels) and Talkify learns the attributable
+word/phrase correction for next time, deduplicates it, and ignores
 punctuation-only or whole-sentence rewrites.
 
 ## Architecture
