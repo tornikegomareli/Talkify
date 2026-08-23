@@ -395,7 +395,6 @@ final class DirectDictationController {
   /// The text carried alongside the current `updateReceived` action; the
   /// machine decides whether it shows, the controller remembers what.
   private var pendingLiveText: String?
-  private var pendingRawText: String?
   private var lastRawText = ""
   private var lastCorrectedText = ""
 
@@ -485,10 +484,8 @@ final class DirectDictationController {
     let displayText = corrected.corrected
     let hasVisibleText = !displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     pendingLiveText = displayText
-    pendingRawText = rawDisplay
     send(.updateReceived(hasVisibleText: hasVisibleText))
     pendingLiveText = nil
-    pendingRawText = nil
   }
 
   func learnFromUserEdit(rawText: String, correctedText: String, editedText: String) {

@@ -6,6 +6,7 @@ import SwiftUI
 /// shares.
 struct DictationHUDShellView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @FocusState private var isDraftFocused: Bool
 
   let screen: HUDScreenSnapshot
   let settings: DictationSessionSettings
@@ -203,74 +204,56 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// The Compact draft: the same long-draft semantics, leading-aligned so
-  /// the text hangs off the indicator instead of floating centered.
   @ViewBuilder
   private var compactDraftText: some View {
+    editableDraft(alignment: .leading)
+  }
+
+  @ViewBuilder
+  private var draftText: some View {
+    editableDraft(alignment: .center)
+  }
+
+  @ViewBuilder
+  private func editableDraft(alignment: TextAlignment) -> some View {
     if content.isEditable {
-      TextField("", text: Binding(get: { content.text }, set: { content.text = $0 }), onCommit: { commitEditedDraft() })
+      TextField("", text: Binding(get: { content.text }, set: { content.text = $0 }))
         .textFieldStyle(.plain)
-        .multilineTextAlignment(.leading)
+        .multilineTextAlignment(alignment)
         .lineLimit(4)
+        .focused($isDraftFocused)
         .onSubmit { commitEditedDraft() }
+        .onAppear { isDraftFocused = true }
     } else {
       switch settings.longDraftStyle {
       case .tailOnly:
         Text(content.text)
           .lineLimit(1)
           .truncationMode(.head)
-          .onTapGesture(count: 2) { content.isEditable = true }
+          .onTapGesture(count: 2) { enterEditMode() }
       case .growDown:
         Text(content.text)
           .lineLimit(4)
-          .multilineTextAlignment(.leading)
-          .onTapGesture(count: 2) { content.isEditable = true }
+          .multilineTextAlignment(alignment)
+          .onTapGesture(count: 2) { enterEditMode() }
       case .shrinkToFit:
         Text(content.text)
           .lineLimit(1)
           .truncationMode(.head)
           .minimumScaleFactor(0.55)
-          .onTapGesture(count: 2) { content.isEditable = true }
+          .onTapGesture(count: 2) { enterEditMode() }
       }
     }
   }
 
-  /// The single-line variants truncate the head — the newest words are what
-  /// the speaker checks. Grow Down cannot: head truncation forces
-  /// single-line rendering, so it wraps and truncates the tail only when
-  /// the line cap is hit.
-  @ViewBuilder
-  private var draftText: some View {
-    if content.isEditable {
-      TextField("", text: Binding(get: { content.text }, set: { content.text = $0 }), onCommit: { commitEditedDraft() })
-        .textFieldStyle(.plain)
-        .multilineTextAlignment(.center)
-        .lineLimit(4)
-        .onSubmit { commitEditedDraft() }
-    } else {
-      switch settings.longDraftStyle {
-      case .tailOnly:
-        Text(content.text)
-          .lineLimit(1)
-          .truncationMode(.head)
-          .onTapGesture(count: 2) { content.isEditable = true }
-      case .growDown:
-        Text(content.text)
-          .lineLimit(4)
-          .multilineTextAlignment(.center)
-          .onTapGesture(count: 2) { content.isEditable = true }
-      case .shrinkToFit:
-        Text(content.text)
-          .lineLimit(1)
-          .truncationMode(.head)
-          .minimumScaleFactor(0.55)
-          .onTapGesture(count: 2) { content.isEditable = true }
-      }
-    }
+  private func enterEditMode() {
+    content.isEditable = true
+    isDraftFocused = true
   }
 
   private func commitEditedDraft() {
     let edited = content.text
+    isDraftFocused = false
     content.isEditable = false
     content.onEdited?(edited)
   }
