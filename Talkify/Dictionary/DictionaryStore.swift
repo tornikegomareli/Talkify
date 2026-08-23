@@ -11,6 +11,8 @@ final class DictionaryStore {
 
   private var watcher: DispatchSourceFileSystemObject?
   private var isSaving = false
+  private var cachedCorrector: DictionaryCorrector?
+  private var cachedCorrectorRevision: Int?
 
   static var fileURL: URL {
     let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -66,7 +68,13 @@ final class DictionaryStore {
     }
   }
 
-  var corrector: DictionaryCorrector { DictionaryCorrector(entries: entries) }
+  var corrector: DictionaryCorrector {
+    if let cached = cachedCorrector, cachedCorrectorRevision == revision { return cached }
+    let built = DictionaryCorrector(entries: entries)
+    cachedCorrector = built
+    cachedCorrectorRevision = revision
+    return built
+  }
 
   var biasPhrases: [String] { DictionaryCorrector.biasPhrases(from: entries) }
 
@@ -162,17 +170,31 @@ final class DictionaryStore {
   }
 
   func learn(correction: DictionaryEntry) {
-    guard correction.isValidForFile else { return }
-    let normalizedWrite = correction.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-    let normalizedHear = correction.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !normalizedWrite.isEmpty else { return }
-    if correction.kind == .correction, normalizedHear.isEmpty { return }
-    let exists = entries.contains {
-      $0.kind == correction.kind
-        && $0.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == normalizedWrite
-        && $0.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == normalizedHear
+    learn(corrections: [correction])
+  }
+
+  func learn(corrections: [DictionaryEntry]) {
+    let valid = corrections.filter(\.isValidForFile)
+    guard !valid.isEmpty else { return }
+    var seen = Set<String>()
+    for entry in entries {
+      let w = entry.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let h = entry.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      seen.insert("\(entry.kind.rawValue)|\(h)|\(w)")
     }
-    guard !exists else { return }
-    add(correction)
+    var toAdd: [DictionaryEntry] = []
+    for correction in valid {
+      let w = correction.write.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      let h = correction.hear.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !w.isEmpty else { continue }
+      if correction.kind == .correction, h.isEmpty { continue }
+      let key = "\(correction.kind.rawValue)|\(h)|\(w)"
+      guard !seen.contains(key) else { continue }
+      seen.insert(key)
+      toAdd.append(correction)
+    }
+    guard !toAdd.isEmpty else { return }
+    entries.append(contentsOf: toAdd)
+    save()
   }
 }

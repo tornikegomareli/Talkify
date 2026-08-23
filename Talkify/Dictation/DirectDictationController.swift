@@ -523,9 +523,11 @@ final class DirectDictationController {
       defer { finishTask = nil }
       do {
         let rawText = try await dependencies.finishRecognition()
-        dependencies.hideHUD()
         let correctedResult = dependencies.applyDictionary(rawText)
         let text = correctedResult.corrected
+        lastRawText = rawText
+        lastCorrectedText = text
+        if !text.isEmpty { dependencies.showLiveText(text) }
         let session = currentSessionSettings ?? settings.sessionSettings
         if session.historyEnabled, !rawText.isEmpty {
           await dependencies.recordHistory(
@@ -534,11 +536,10 @@ final class DirectDictationController {
             session.historyFolder
           )
         }
-        lastRawText = rawText
-        lastCorrectedText = text
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )
+        dependencies.hideHUD()
         switch outcome {
         case .inserted, .copiedToClipboard:
           dependencies.playPasteSound()

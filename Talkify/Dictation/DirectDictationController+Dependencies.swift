@@ -117,7 +117,7 @@ extension DirectDictationController {
             editedText: edited,
             existing: store.entries
           )
-          for entry in entries { store.learn(correction: entry) }
+          store.learn(corrections: entries)
         },
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
         insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
