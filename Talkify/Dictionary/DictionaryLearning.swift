@@ -13,9 +13,9 @@ enum DictionaryLearning {
     guard rawTrimmed != editedTrimmed else { return [] }
 
     if let corrected = correctedText?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !corrected.isEmpty,
-       corrected != rawTrimmed,
-       editedTrimmed == corrected {
+      !corrected.isEmpty,
+      corrected != rawTrimmed,
+      editedTrimmed == corrected {
       return []
     }
 
@@ -148,7 +148,7 @@ enum DictionaryLearning {
       let rawSpanTrimmed = rawSpan.trimmingCharacters(in: .whitespacesAndNewlines)
       let editedSpanTrimmed = editedSpan.trimmingCharacters(in: .whitespacesAndNewlines)
       if !rawSpanTrimmed.isEmpty, !editedSpanTrimmed.isEmpty,
-         rawSpanTrimmed.lowercased() != editedSpanTrimmed.lowercased() {
+        rawSpanTrimmed.lowercased() != editedSpanTrimmed.lowercased() {
         let wordCount = rawSpanTrimmed.split(whereSeparator: { $0.isWhitespace }).count
         let editedCount = editedSpanTrimmed.split(whereSeparator: { $0.isWhitespace }).count
         if wordCount <= 4, editedCount <= 4 {

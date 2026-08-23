@@ -298,9 +298,9 @@ struct DictationHUDShellView: View {
   @ViewBuilder
   private var siriOrb: some View {
     if !reduceMotion,
-     settings.voiceVisual == .glow,
-     settings.glowCenter == .siriOrb,
-     content.showsVoiceVisual {
+      settings.voiceVisual == .glow,
+      settings.glowCenter == .siriOrb,
+      content.showsVoiceVisual {
       HUDSiriOrbView(content: content, side: size.height - 8 * metrics.scale)
     }
   }

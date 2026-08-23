@@ -22,8 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     application.delegate = delegate
     application.run()
   }
- 
- 
 
   /// True while this process hosts the test suite rather than a user.
   ///
