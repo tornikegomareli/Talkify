@@ -26,7 +26,7 @@
 
 ## Privacy
 
-Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
+Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights. The personal dictionary lives only in `~/Library/Application Support/Talkify/dictionary.txt` — a plain text file you can edit by hand — and never leaves the Mac.
 
 One thing worth knowing: dictated text is inserted by pasting it, so it passes through the system clipboard for up to about half a second before your previous clipboard is put back. A clipboard manager or Universal Clipboard can see it during that window.
 
@@ -127,6 +127,21 @@ locales across German, English, Spanish, French, Italian, Japanese, Korean,
 Portuguese, Cantonese and Chinese; a language you have not used before downloads
 its model once, with progress shown in Settings and in the notch.
 
+## Personal Dictionary
+
+Teach Talkify words it keeps getting wrong in **Settings → Dictionary**. Add a
+term (e.g., "Anthropic") to bias recognition, or a correction pair (e.g.,
+"cloud code → Claude Code") to rewrite what was heard. Entries can be enabled,
+disabled, edited, deleted, and searched. They are stored as a human-editable
+text file at `~/Library/Application Support/Talkify/dictionary.txt` (one line per
+entry, `# off:` for disabled) and stay local — no network, no cloud. Enabled
+terms feed Apple's `AnalysisContext` as a bounded nudge (up to 40 phrases) and
+correction pairs are applied deterministically after recognition but never
+overwrite the raw engine result kept for history. When you edit recognized text
+(e.g., in an editable draft), Talkify learns attributable word/phrase corrections
+for next time, deduplicates them, and ignores punctuation-only or whole-sentence
+rewrites.
+
 ## Architecture
 
 Code is organized into folders, callbacks only flow one way from the main wiring point, and a pure reducer handles the state.
@@ -134,6 +149,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `App/`: composition root, settings store, status item
 - `Input/`: the global key event tap and recorded bindings
 - `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
+- `Dictionary/`: `DictionaryEntry`, `DictionaryCorrector`, `DictionaryStore` (plain-text file under Application Support), and deterministic correction-learning
 - `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`

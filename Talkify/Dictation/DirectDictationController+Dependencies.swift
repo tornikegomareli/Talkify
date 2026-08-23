@@ -17,6 +17,7 @@ extension DirectDictationController {
     let prewarm: @Sendable (Locale) async throws -> Void
     let startRecognition: @Sendable (
       Locale,
+      _ biasPhrases: [String],
       _ updateHandler: @escaping @Sendable (SpeechRecognitionService.Update) -> Void,
       _ failureHandler: @escaping @Sendable (String) -> Void,
       _ levelHandler: @escaping @Sendable (Float) -> Void
@@ -24,6 +25,9 @@ extension DirectDictationController {
     let finishRecognition: @Sendable () async throws -> String
     let cancelRecognition: @Sendable () async -> Void
     let shutDownRecognition: @Sendable () async -> Void
+    let dictionaryBiasPhrases: @MainActor () -> [String]
+    let applyDictionary: @MainActor (String) -> (corrected: String, applied: [AppliedCorrection], raw: String)
+    let learnFromEdit: @MainActor (String, String, String) -> Void
 
     // Text insertion.
     let captureFocusedTarget: @MainActor () -> TextInsertionService.Target?
@@ -85,9 +89,10 @@ extension DirectDictationController {
         supportedLocale: { await speechService.supportedLocale(identifier: $0) },
         retainOnly: { await speechService.retainOnly(locales: $0) },
         prewarm: { try await speechService.prewarm(locale: $0) },
-        startRecognition: { locale, updateHandler, failureHandler, levelHandler in
+        startRecognition: { locale, biasPhrases, updateHandler, failureHandler, levelHandler in
           try await speechService.start(
             locale: locale,
+            biasPhrases: biasPhrases,
             updateHandler: updateHandler,
             failureHandler: failureHandler,
             levelHandler: levelHandler
@@ -96,6 +101,24 @@ extension DirectDictationController {
         finishRecognition: { try await speechService.finish() },
         cancelRecognition: { await speechService.cancel() },
         shutDownRecognition: { await speechService.shutDown() },
+        dictionaryBiasPhrases: {
+          DictionaryStore.shared.biasPhrases
+        },
+        applyDictionary: { text in
+          let store = DictionaryStore.shared
+          let (corrected, applied) = store.corrector.apply(to: text)
+          return (corrected, applied, text)
+        },
+        learnFromEdit: { raw, corrected, edited in
+          let store = DictionaryStore.shared
+          let entries = DictionaryLearning.learnableEntries(
+            rawText: raw,
+            correctedText: corrected,
+            editedText: edited,
+            existing: store.entries
+          )
+          for entry in entries { store.learn(correction: entry) }
+        },
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
         insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
         requestMicrophoneAccess: { await PermissionService.requestMicrophoneAccess() },

@@ -257,6 +257,8 @@ private struct SettingsContent: View {
           ReadAloudSettingsView(settings: settings)
         case .language:
           LanguageSettingsView(settings: settings, runtimeState: runtimeState)
+        case .dictionary:
+          DictionarySettingsView()
         case .shortcuts:
           ShortcutsSettingsView(settings: settings)
         case .updates:

@@ -201,6 +201,7 @@ actor SpeechRecognitionService {
 
   func start(
     locale: Locale,
+    biasPhrases: [String] = [],
     updateHandler: @escaping @Sendable (Update) -> Void,
     failureHandler: @escaping @Sendable (String) -> Void,
     levelHandler: (@Sendable (Float) -> Void)? = nil
@@ -211,6 +212,12 @@ actor SpeechRecognitionService {
 
     let prepared = try await takePreparedSession(locale: locale)
     try Task.checkCancellation()
+    if !biasPhrases.isEmpty {
+      let prefix = Array(biasPhrases.prefix(DictionaryCorrector.biasLimit))
+      let context = AnalysisContext()
+      context.contextualStrings[.general] = prefix
+      try? await prepared.analyzer.setContext(context)
+    }
     let (stream, continuation) = AsyncStream.makeStream(
       of: AnalyzerInput.self,
       bufferingPolicy: .bufferingNewest(64)

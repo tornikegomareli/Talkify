@@ -395,6 +395,8 @@ final class DirectDictationController {
   /// The text carried alongside the current `updateReceived` action; the
   /// machine decides whether it shows, the controller remembers what.
   private var pendingLiveText: String?
+  private var pendingRawText: String?
+  private var lastRawText = ""
 
   private func checkAndBegin() {
     // Held here rather than once recording starts: the first HUD frames are
@@ -436,12 +438,14 @@ final class DirectDictationController {
       fail(message: "Preparing speech…", wasCancelled: false)
       return
     }
+    let biasPhrases = dependencies.dictionaryBiasPhrases()
 
     sessionStartTask = Task { [weak self] in
       guard let self else { return }
       do {
         try await dependencies.startRecognition(
           locale,
+          biasPhrases,
           { [weak self] update in
             Task { @MainActor [weak self] in
               self?.receive(update)
@@ -477,13 +481,19 @@ final class DirectDictationController {
   }
 
   private func receive(_ update: SpeechRecognitionService.Update) {
-    let displayText = update.displayText
-    let hasVisibleText = !displayText
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .isEmpty
+    let rawDisplay = update.displayText
+    let corrected = dependencies.applyDictionary(rawDisplay)
+    let displayText = corrected.corrected
+    let hasVisibleText = !displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     pendingLiveText = displayText
+    pendingRawText = rawDisplay
     send(.updateReceived(hasVisibleText: hasVisibleText))
     pendingLiveText = nil
+    pendingRawText = nil
+  }
+
+  func learnFromUserEdit(rawText: String, correctedText: String, editedText: String) {
+    dependencies.learnFromEdit(rawText, correctedText, editedText)
   }
 
   /// What the history entry names as this session's destination.
@@ -504,20 +514,19 @@ final class DirectDictationController {
       guard let self else { return }
       defer { finishTask = nil }
       do {
-        let text = try await dependencies.finishRecognition()
+        let rawText = try await dependencies.finishRecognition()
         dependencies.hideHUD()
-        // Delivery follows the session snapshot, so a Settings change
-        // mid-session applies to the next session (ADR-0004).
+        let correctedResult = dependencies.applyDictionary(rawText)
+        let text = correctedResult.corrected
         let session = currentSessionSettings ?? settings.sessionSettings
-        if session.historyEnabled, !text.isEmpty {
-          // Before the outcome routing: words the paste then loses are
-          // exactly the words history exists to keep.
+        if session.historyEnabled, !rawText.isEmpty {
           await dependencies.recordHistory(
-            text,
+            rawText,
             historySource(for: session.insertionDestination),
             session.historyFolder
           )
         }
+        lastRawText = rawText
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )

@@ -65,7 +65,11 @@ struct DirectDictationControllerTests {
     shutDownRecognition: @escaping @Sendable () async -> Void = {},
     historyEntries: OSAllocatedUnfairLock<[(text: String, source: String?, folder: URL)]>
       = .init(initialState: []),
-    insertOutcome: TextInsertionService.InsertionOutcome = .inserted
+    insertOutcome: TextInsertionService.InsertionOutcome = .inserted,
+    biasPhrases: [String] = [],
+    capturedBias: OSAllocatedUnfairLock<[[String]]>? = nil,
+    applyDictionary: (@Sendable (String) -> (corrected: String, applied: [AppliedCorrection], raw: String))? = nil,
+    learnEntries: OSAllocatedUnfairLock<[(String, String, String)]>? = nil
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
       setDownloadHandler: { _ in },
@@ -73,13 +77,22 @@ struct DirectDictationControllerTests {
       supportedLocale: { _ in nil },
       retainOnly: { _ in },
       prewarm: { _ in prewarmed.withLock { $0 = true } },
-      startRecognition: { locale, _, _, _ in
+      startRecognition: { locale, phrases, _, _, _ in
         startEntries.withLock { $0 += 1 }
+        if let capturedBias { capturedBias.withLock { $0.append(phrases) } }
         try await startRecognitionBody?(locale)
       },
       finishRecognition: finishRecognition,
       cancelRecognition: { cancelCount.withLock { $0 += 1 } },
       shutDownRecognition: shutDownRecognition,
+      dictionaryBiasPhrases: { biasPhrases },
+      applyDictionary: { text in
+        if let applyDictionary { return applyDictionary(text) }
+        return (text, [], text)
+      },
+      learnFromEdit: { raw, corrected, edited in
+        learnEntries?.withLock { $0.append((raw, corrected, edited)) }
+      },
       captureFocusedTarget: captureFocusedTarget,
       insertText: { text, _, destination in
         recorder.events.append("insertText")
