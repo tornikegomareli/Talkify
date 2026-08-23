@@ -33,5 +33,6 @@ final class DictationHUDContent {
   /// re-fire mid-session.
   var sessionEpoch = 0
   var isEditable = false
+  var preEditText = ""
   var onEdited: ((String) -> Void)?
 }

@@ -12,7 +12,6 @@ struct DictationHUDShellView: View {
   let settings: DictationSessionSettings
   let content: DictationHUDContent
   let stage: HUDStage?
-  @State private var preEditText = ""
 
   init(screen: HUDScreenSnapshot, settings: DictationSessionSettings, content: DictationHUDContent, stage: HUDStage? = nil) {
     self.screen = screen
@@ -180,11 +179,11 @@ struct DictationHUDShellView: View {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
-          compactDraftText
+          editableDraft(alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
       } else {
-        draftText
+        editableDraft(alignment: .center)
       }
     }
     .font(.system(size: 15 * metrics.scale, weight: .medium))
@@ -211,16 +210,6 @@ struct DictationHUDShellView: View {
         .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
         .allowsHitTesting(false)
     }
-  }
-
-  @ViewBuilder
-  private var compactDraftText: some View {
-    editableDraft(alignment: .leading)
-  }
-
-  @ViewBuilder
-  private var draftText: some View {
-    editableDraft(alignment: .center)
   }
 
   @ViewBuilder
@@ -260,7 +249,7 @@ struct DictationHUDShellView: View {
   }
 
   private func enterEditMode() {
-    preEditText = content.text
+    content.preEditText = content.text
     stage?.acceptsMouse = true
     content.isEditable = true
     isDraftFocused = true
@@ -269,9 +258,11 @@ struct DictationHUDShellView: View {
   private func commitEditedDraft() {
     guard content.isEditable else { return }
     let edited = content.text
+    let baseline = content.preEditText
     isDraftFocused = false
     content.isEditable = false
-    if edited.trimmingCharacters(in: .whitespacesAndNewlines) != preEditText.trimmingCharacters(in: .whitespacesAndNewlines) {
+    content.preEditText = ""
+    if edited.trimmingCharacters(in: .whitespacesAndNewlines) != baseline.trimmingCharacters(in: .whitespacesAndNewlines) {
       content.onEdited?(edited)
     }
   }
@@ -279,7 +270,8 @@ struct DictationHUDShellView: View {
   private func cancelEditing() {
     guard content.isEditable else { return }
     isDraftFocused = false
-    content.text = preEditText
+    content.text = content.preEditText
+    content.preEditText = ""
     content.isEditable = false
   }
 

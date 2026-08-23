@@ -74,6 +74,7 @@ final class DictationHUDController {
     hasPlayedBeginSound = false
     content.languageTag = languageTag
     content.isEditable = false
+    content.preEditText = ""
     sessionIsLatched = isLatched
     // Dictation outranks a file job for the shape: the user is speaking now,
     // and the transcription keeps running with the status item carrying it.
@@ -154,10 +155,15 @@ final class DictationHUDController {
     stage.cancelMessageDismiss()
     if content.isEditable {
       let draft = content.text
+      let baseline = content.preEditText
       content.isEditable = false
-      commitEditedDraft(draft)
+      content.preEditText = ""
+      if draft.trimmingCharacters(in: .whitespacesAndNewlines) != baseline.trimmingCharacters(in: .whitespacesAndNewlines) {
+        commitEditedDraft(draft)
+      }
     } else {
       content.isEditable = false
+      content.preEditText = ""
     }
     if isListening {
       stage.sounds.playEnd(using: sessionSettings.sounds)
