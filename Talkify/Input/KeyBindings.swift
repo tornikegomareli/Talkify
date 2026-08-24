@@ -96,6 +96,15 @@ struct KeyBinding: Equatable, Codable {
     label: "right ⌥", keyEquivalent: ""
   )
 
+  /// Default Dictate and Translate trigger: right command held, sharing no key
+  /// with fn. An fn combination cannot work here, because fn alone is already
+  /// the primary trigger, so adding a modifier to a held fn ends that session
+  /// rather than starting this one.
+  static let rightCommandTrigger = KeyBinding(
+    keyCode: 54, modifierFlags: 0, isModifierKey: true,
+    label: "right ⌘", keyEquivalent: ""
+  )
+
   static let optionEscape = KeyBinding(
     keyCode: 53, modifierFlags: CGEventFlags.maskAlternate.rawValue,
     isModifierKey: false, label: "⌥ ⎋", keyEquivalent: "\u{1B}"

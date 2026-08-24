@@ -72,6 +72,16 @@ final class TextInsertionService {
     let isTargetFocused: @MainActor (Target) -> Bool
     let postPasteShortcut: @MainActor () -> Bool
     let waitForPasteRead: @MainActor () async -> Void
+    /// Presses Copy in the focused application, for reading a selection
+    /// Accessibility will not answer for.
+    ///
+    /// Defaulted, unlike the fields above it, so the insertion tests that
+    /// never copy keep their call sites: refusing to copy is what they expect
+    /// and the safe answer besides.
+    var postCopyShortcut: @MainActor () -> Bool = { false }
+    /// How long a copy is given to reach the pasteboard. Long enough for a
+    /// browser to answer, short enough that a key press does not feel stuck.
+    var copyTimeout: Duration = .milliseconds(400)
 
     /// Builds the production boundaries around the shared general pasteboard.
     static var live: Self {
@@ -103,7 +113,9 @@ final class TextInsertionService {
         postPasteShortcut: TextInsertionService.postPasteShortcut,
         waitForPasteRead: {
           try? await Task.sleep(for: .milliseconds(500))
-        }
+        },
+        postCopyShortcut: TextInsertionService.postCopyShortcut,
+        copyTimeout: .milliseconds(400)
       )
     }
   }
@@ -331,10 +343,64 @@ final class TextInsertionService {
     return .inserted
   }
 
+  /// Copies the focused application's selection and hands it back, leaving
+  /// the clipboard as it was.
+  ///
+  /// For the applications Accessibility cannot answer for. Measured on macOS
+  /// 26, Chromium browsers report no focused element at all and Safari reports
+  /// a web area with no selected text, so a read-only reader finds nothing on
+  /// any web page. Copy works wherever Copy works.
+  ///
+  /// - Returns: the copied text, or nil when there was nothing to copy. That
+  ///   is known rather than guessed: a copy that found nothing leaves the
+  ///   pasteboard's change count where it was.
+  func copySelection() async -> String? {
+    // The snapshot comes first because it is the permission to proceed: a
+    // clipboard that cannot be captured cannot be put back, and taking
+    // someone's clipboard to read a tweet is not a trade to make.
+    guard case let .accepted(items, changeCount) = await snapshotClipboardItems() else {
+      return nil
+    }
+    guard dependencies.postCopyShortcut() else { return nil }
+    guard let copiedCount = await waitForCopy(after: changeCount) else {
+      return nil
+    }
+
+    let copied = dependencies.pasteboard.string(forType: .string)
+    restoreClipboard(items, ifUnchangedSince: copiedCount)
+    return copied
+  }
+
+  /// Waits for the copy to land, and reports the count it landed at.
+  ///
+  /// - Returns: the new change count, or nil if the count never moved, which
+  ///   is what nothing being selected looks like.
+  private func waitForCopy(after changeCount: Int) async -> Int? {
+    let deadline = ContinuousClock.now.advanced(by: dependencies.copyTimeout)
+    while ContinuousClock.now < deadline {
+      let current = dependencies.pasteboard.changeCount
+      if current != changeCount { return current }
+      do {
+        try await Task.sleep(for: .milliseconds(10))
+      } catch {
+        return nil
+      }
+    }
+    return nil
+  }
+
+  private static func postCopyShortcut() -> Bool {
+    postShortcut(virtualKey: 8)
+  }
+
   private static func postPasteShortcut() -> Bool {
+    postShortcut(virtualKey: 9)
+  }
+
+  private static func postShortcut(virtualKey: CGKeyCode) -> Bool {
     guard let source = CGEventSource(stateID: .combinedSessionState),
-       let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
+       let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false) else {
       return false
     }
 

@@ -7,6 +7,22 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   enum TriggerSlot: Sendable, Equatable {
     case primary
     case secondary
+    /// Dictates in the primary language and inserts a translation. A slot
+    /// rather than a separate binding because it needs the same one-at-a-time
+    /// arbitration every trigger needs: heldSlot is what makes a session
+    /// exclusive, a held combination end when it breaks, and a swallowed
+    /// mouse button stay swallowed.
+    case translate
+
+    /// The preference this slot's key comes from, so a session can capture the
+    /// key it started with.
+    var bindingRole: BindingRole {
+      switch self {
+      case .primary: .dictation
+      case .secondary: .secondLanguage
+      case .translate: .translate
+      }
+    }
   }
 
   enum Event: Sendable, Equatable {
@@ -37,9 +53,14 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   private var suspended = false
   // Bindings, mutable from the main actor via setBindings; read on the
   // tap thread under the lock. Defaults match AppSettings' defaults.
-  private var triggerBinding = KeyBinding.fnTrigger
-  /// The second language's trigger; nil when no second language is chosen.
-  private var secondaryTriggerBinding: KeyBinding?
+  /// Every bound slot, in the order that settles an overlap: primary first,
+  /// then secondary, then translate. Ordered rather than keyed, because the
+  /// precedence is a rule and a dictionary has none. One table rather than a
+  /// field per slot, so a new slot cannot be forgotten in a resolver and
+  /// silently answer as another one.
+  private var slotBindings: [(slot: TriggerSlot, binding: KeyBinding)] = [
+    (.primary, .fnTrigger),
+  ]
   private var readAloudBinding = KeyBinding.optionEscape
 
   init(handler: @escaping @Sendable (Event) -> Void) {
@@ -126,19 +147,55 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   func setBindings(
     trigger: KeyBinding,
     secondaryTrigger: KeyBinding?,
-    readAloud: KeyBinding
+    readAloud: KeyBinding,
+    translateTrigger: KeyBinding? = nil
   ) {
     stateLock.withLock {
-      triggerBinding = trigger
-      // A second trigger identical to the first would make the slot
-      // ambiguous, so the primary always wins and the second is dropped. Only
-      // the inputs matter here: the same binding recorded and clicked carries
-      // a different label, and comparing whole values would miss the clash.
-      let isDuplicate = secondaryTrigger?.hasSameInputAndModifiers(as: trigger) ?? false
-      secondaryTriggerBinding = isDuplicate ? nil : secondaryTrigger
+      // Two triggers on the same input would make the slot ambiguous, so an
+      // earlier slot always wins and the later one is dropped. Only the inputs
+      // matter: the same binding recorded and clicked carries a different
+      // label, and comparing whole values would miss the clash.
+      var accepted: [(slot: TriggerSlot, binding: KeyBinding)] = []
+      let candidates: [(TriggerSlot, KeyBinding?)] = [
+        (.primary, trigger),
+        (.secondary, secondaryTrigger),
+        (.translate, translateTrigger),
+      ]
+      // The slot holding a session goes first, whatever the usual order. A
+      // language enabled mid-session can carry the same stored key, and losing
+      // that clash would clear heldSlot and leave the release nowhere to land.
+      let ordered = candidates.filter { $0.0 == heldSlot }
+        + candidates.filter { $0.0 != heldSlot }
+      for candidate in ordered {
+        guard let binding = candidate.1 else { continue }
+        let clashes = accepted.contains { $0.binding.hasSameInputAndModifiers(as: binding) }
+        guard !clashes else { continue }
+        accepted.append((candidate.0, binding))
+      }
+      // A rebind lands mid-gesture whenever something rebinds itself: choosing
+      // a translation target reapplies the bindings, and a finished model
+      // install writes that setting on its own. Dropping the held slot there
+      // means the release never arrives, so the session records until Escape
+      // and the words are lost. A slot whose binding did not change stays held.
+      let heldBinding = slotBindings.first { $0.slot == heldSlot }?.binding
+      let isStillHeld = heldBinding.map { binding in
+        accepted.contains {
+          $0.slot == heldSlot && $0.binding.hasSameInputAndModifiers(as: binding)
+        }
+      } ?? false
+
+      slotBindings = accepted
       readAloudBinding = readAloud
-      heldSlot = nil
-      capturedMouseButtons.removeAll()
+      if !isStillHeld {
+        heldSlot = nil
+      }
+      // capturedMouseButtons is deliberately left alone. Its whole job is to
+      // remember a press this tap ate so the matching release is eaten too,
+      // and letting that release through leaves the application under the
+      // pointer believing the button is still down (CONTEXT.md). Only
+      // otherMouseUp may drain it. Ending a session reapplies the bindings,
+      // and a mouse gesture that ended by releasing its modifier first is
+      // still holding its button at exactly that moment.
     }
   }
 
@@ -338,14 +395,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// The modifier trigger these flags currently satisfy, primary first so it
   /// wins any overlap. Called with `stateLock` held.
   private func satisfiedModifierTrigger(flags: CGEventFlags) -> (TriggerSlot, KeyBinding)? {
-    if triggerBinding.isModifierKey, Self.isTriggerHeld(triggerBinding, flags: flags) {
-      return (.primary, triggerBinding)
+    slotBindings.first {
+      $0.binding.isModifierKey && Self.isTriggerHeld($0.binding, flags: flags)
     }
-    if let secondary = secondaryTriggerBinding,
-     secondary.isModifierKey, Self.isTriggerHeld(secondary, flags: flags) {
-      return (.secondary, secondary)
-    }
-    return nil
   }
 
   /// The binding behind a currently held slot, when it is a modifier trigger.
@@ -357,41 +409,28 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   }
 
   private func binding(for slot: TriggerSlot) -> KeyBinding? {
-    slot == .primary ? triggerBinding : secondaryTriggerBinding
+    slotBindings.first { $0.slot == slot }?.binding
   }
 
   private func plainKeyTrigger(
     forKeyCode keyCode: Int64,
     flags: CGEventFlags
   ) -> (TriggerSlot, KeyBinding)? {
-    if !triggerBinding.isModifierKey,
-     keyCode == triggerBinding.keyCode,
-     Self.flagsMatch(flags, mask: triggerBinding.modifiers) {
-      return (.primary, triggerBinding)
+    slotBindings.first {
+      !$0.binding.isModifierKey
+        && keyCode == $0.binding.keyCode
+        && Self.flagsMatch(flags, mask: $0.binding.modifiers)
     }
-    if let secondary = secondaryTriggerBinding,
-     !secondary.isModifierKey,
-     keyCode == secondary.keyCode,
-     Self.flagsMatch(flags, mask: secondary.modifiers) {
-      return (.secondary, secondary)
-    }
-    return nil
   }
 
   private func satisfiedMouseTrigger(
     forButtonNumber buttonNumber: Int64,
     flags: CGEventFlags
   ) -> (TriggerSlot, KeyBinding)? {
-    if triggerBinding.mouseButtonNumber == buttonNumber,
-     Self.flagsMatch(flags, mask: triggerBinding.modifiers) {
-      return (.primary, triggerBinding)
+    slotBindings.first {
+      $0.binding.mouseButtonNumber == buttonNumber
+        && Self.flagsMatch(flags, mask: $0.binding.modifiers)
     }
-    if let secondary = secondaryTriggerBinding,
-     secondary.mouseButtonNumber == buttonNumber,
-     Self.flagsMatch(flags, mask: secondary.modifiers) {
-      return (.secondary, secondary)
-    }
-    return nil
   }
 
   /// Whether the bound modifier key itself is down.

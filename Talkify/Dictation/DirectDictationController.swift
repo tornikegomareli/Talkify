@@ -44,18 +44,29 @@ final class DirectDictationController {
   /// Speech supports. `secondary` is nil unless a second language is chosen.
   private var primaryLocale: Locale?
   private var secondaryLocale: Locale?
+  /// Everything about translation, which this controller only asks two
+  /// questions of. Settings drives it directly.
+  var translation: TranslationCoordinator { dependencies.translation }
   /// Which slot's key began the session in flight, so the session runs in
   /// the language of the key that started it even if Settings change.
   private var activeSlot: GlobalKeyEventMonitor.TriggerSlot = .primary
+  /// The key that slot was bound to when the session began. A rebind while a
+  /// gesture is running must not take the key the gesture is still using.
+  private var activeBinding: KeyBinding?
 
   convenience init(
     settings: AppSettings,
     hudController: DictationHUDController,
-    usageTracker: UsageTracker
+    usageTracker: UsageTracker,
+    textInsertionService: TextInsertionService
   ) {
     self.init(
       settings: settings,
-      dependencies: .live(hudController: hudController, usageTracker: usageTracker)
+      dependencies: .live(
+        hudController: hudController,
+        usageTracker: usageTracker,
+        textInsertionService: textInsertionService
+      )
     )
   }
 
@@ -108,24 +119,72 @@ final class DirectDictationController {
   /// Pushes the recorded Settings bindings into the event tap; called at
   /// start and whenever the Shortcuts section changes them.
   func applyKeyBindings() {
+    let bindings = Self.triggerBindings(
+      settings: settings,
+      sessionSlot: machine.isSessionActive ? activeSlot : nil,
+      sessionBinding: activeBinding
+    )
     keyEventMonitor?.setBindings(
-      trigger: settings.dictationTriggerBinding,
-      secondaryTrigger: settings.isSecondLanguageEnabled
-        ? settings.secondaryTriggerBinding
-        : nil,
-      readAloud: settings.readAloudBinding
+      trigger: bindings.trigger,
+      secondaryTrigger: bindings.secondary,
+      readAloud: bindings.readAloud,
+      translateTrigger: bindings.translate
     )
     keyEventMonitor?.setEventHandlingSuspended(settings.isRecordingKeybind)
+  }
+
+  /// Which key each slot should hold, given the preferences and the session in
+  /// flight.
+  ///
+  /// Pure, and static, because the tap it feeds is built in `init` and has no
+  /// seam: this is the only place the rule can be pinned. And the rule needs
+  /// pinning. The slot driving a session keeps its key exactly as it was when
+  /// the session started, because turning a language off takes the binding
+  /// away and rebinding replaces it — either one leaves a held release
+  /// discarded and a latched session with nothing to finish it, so it records
+  /// until Escape. A preference change applies to the next session
+  /// (CONTEXT.md).
+  static func triggerBindings(
+    settings: AppSettings,
+    sessionSlot: GlobalKeyEventMonitor.TriggerSlot?,
+    sessionBinding: KeyBinding?
+  ) -> (
+    trigger: KeyBinding,
+    secondary: KeyBinding?,
+    readAloud: KeyBinding,
+    translate: KeyBinding?
+  ) {
+    func held(_ slot: GlobalKeyEventMonitor.TriggerSlot) -> KeyBinding? {
+      sessionSlot == slot ? sessionBinding : nil
+    }
+
+    return (
+      trigger: held(.primary) ?? settings.dictationTriggerBinding,
+      secondary: settings.isSecondLanguageEnabled || sessionSlot == .secondary
+        ? held(.secondary) ?? settings.secondaryTriggerBinding
+        : nil,
+      readAloud: settings.readAloudBinding,
+      // Not installed until a target is chosen, so an unconfigured key
+      // swallows nothing and behaves as if the feature were not there.
+      translate: settings.isTranslationEnabled || sessionSlot == .translate
+        ? held(.translate) ?? settings.translateTriggerBinding
+        : nil
+    )
   }
 
   /// Re-resolves both languages and warms them. Called whenever the Language
   /// section changes a pick, so the key you press next is already prepared
   /// rather than building its analyzer on the keypress.
   func applyLanguages() {
+    // Synchronously, before the task: a translate key already queued on this
+    // actor would otherwise still find the old pair ready and snapshot it, and
+    // the session would insert the language the user just stopped choosing
+    // (ADR-0004).
+    let request = translation.invalidate()
     Task { [weak self] in
       guard let self else { return }
       do {
-        try await prepareLanguages()
+        try await prepareLanguages(request: request)
         isPrepared = true
         preparationFailureMessage = nil
       } catch {
@@ -138,7 +197,7 @@ final class DirectDictationController {
   /// Resolves both picks, drops anything no longer bound to a key, then warms
   /// the primary language. The second warms behind it and never throws: a
   /// model that still needs downloading must not delay the primary key.
-  private func prepareLanguages() async throws {
+  private func prepareLanguages(request: Int) async throws {
     let primary = try await dependencies.resolveLocale(
       settings.recognitionLocaleIdentifier
     )
@@ -163,18 +222,45 @@ final class DirectDictationController {
     if let secondaryLocale {
       try? await dependencies.prewarm(secondaryLocale)
     }
+
+    // Started, not awaited, which is what "never fatal" has to mean: this
+    // returning is what sets isPrepared and installs the event tap, and a
+    // translation model that will not load must not hold plain dictation
+    // behind a feature the user may never press. A translate key pressed in
+    // the gap is refused and retried, which the begin guard already does.
+    let pair = settings.translationPair(from: primary)
+    Task { [weak self] in
+      await self?.translation.apply(pair, from: primary, request: request)
+    }
+  }
+
+  /// Records which slot owns the session about to start, and the key it owns
+  /// it with. Both together, always: a slot claimed without its key leaves the
+  /// last session's key pinned, and the tap then holds one the user cannot
+  /// press while refusing the one they can.
+  private func claimSession(for slot: GlobalKeyEventMonitor.TriggerSlot) {
+    activeSlot = slot
+    activeBinding = settings.binding(for: slot.bindingRole)
   }
 
   private func locale(for slot: GlobalKeyEventMonitor.TriggerSlot) -> Locale? {
     switch slot {
     case .primary: primaryLocale
     case .secondary: secondaryLocale ?? primaryLocale
+    // The source of a translation is always the primary language. The second
+    // language exists so a different language can be dictated; translating
+    // from it would put two settings behind one key.
+    case .translate: primaryLocale
     }
   }
 
   /// The HUD's language tag, shown only once a second language exists: with
   /// one language there is nothing to disambiguate.
   private var activeLanguageTag: String? {
+    // A translate session names the pair whatever else is configured. The
+    // target is the one thing the user cannot check anywhere else before
+    // speaking, and a wrong one is only obvious after the text lands.
+    if activeSlot == .translate { return translation.pair?.tag }
     guard secondaryLocale != nil, let locale = locale(for: activeSlot) else { return nil }
     return SpeechLanguageCatalog.tag(for: locale)
   }
@@ -183,10 +269,19 @@ final class DirectDictationController {
   /// Termination waits on this rather than racing it.
   var isFinishing: Bool { finishTask != nil }
 
+  /// How long a quit is held for a finish still in flight.
+  ///
+  /// Long enough for the longest bounded step a finish can be inside. A
+  /// translating session waits out `TranslationService.defaultTimeout` before
+  /// it writes history or reaches the clipboard, and killing the process in
+  /// that window loses the words with nothing to recover them from. No longer
+  /// than that: a wedged insertion must not hold the quit open forever.
+  static let finishGrace = TranslationService.defaultTimeout + .seconds(2)
+
   /// Waits for an in-flight finish to insert its text, giving up after
   /// `timeout` so a stuck insertion cannot hold the quit forever. Giving up
   /// only stops the waiting; the finish keeps running until the process goes.
-  func waitForFinish(timeout: Duration) async {
+  func waitForFinish(timeout: Duration = DirectDictationController.finishGrace) async {
     guard let finishTask else { return }
     await awaitValue(of: finishTask, orGiveUpAfter: timeout)
   }
@@ -214,16 +309,17 @@ final class DirectDictationController {
     // insertion must not keep the speech service alive forever.
     Task { [dependencies, finishTask] in
       if let finishTask {
-        await awaitValue(of: finishTask, orGiveUpAfter: .seconds(2))
+        await awaitValue(of: finishTask, orGiveUpAfter: Self.finishGrace)
       }
       await dependencies.shutDownRecognition()
+      await translation.shutDown()
     }
   }
 
   func toggleFromMenu() {
     // The menu item has no language of its own, so it dictates in the first.
     if !machine.isSessionActive {
-      activeSlot = .primary
+      claimSession(for: .primary)
     }
     send(.menuToggled(now: .now))
   }
@@ -232,6 +328,9 @@ final class DirectDictationController {
     permissionTask?.cancel()
     isPrepared = false
     preparationFailureMessage = nil
+    // Synchronously, for the same reason as applyLanguages: the work below is
+    // a task, and nothing may translate against a pair it has not resolved.
+    let request = translation.invalidate()
 
     permissionTask = Task { [weak self] in
       guard let self else { return }
@@ -255,7 +354,7 @@ final class DirectDictationController {
       dependencies.requestAccessibilityAccess()
 
       do {
-        try await prepareLanguages()
+        try await prepareLanguages(request: request)
       } catch {
         guard !Task.isCancelled else { return }
         preparationFailed(message: error.localizedDescription)
@@ -299,6 +398,18 @@ final class DirectDictationController {
   /// The machine's current state, so tests can pin transitions the
   /// controller's effects produce.
   var sessionStateForTesting: DictationSessionMachine.State { machine.state }
+  /// Whether preparation has finished, so a test can wait for the state it
+  /// needs rather than for a duration. Preparation grew a translation tail,
+  /// and a fixed sleep long enough on an idle machine is not long enough on a
+  /// loaded one.
+  var isPreparedForTesting: Bool { isPrepared }
+  var isTranslationReadyForTesting: Bool { translation.isReady }
+  /// The key the session in flight owns, for the rule that a rebind must not
+  /// take it away.
+  var activeBindingForTesting: KeyBinding? { activeBinding }
+  /// The resolved pair. Preparation no longer waits for translation, so a test
+  /// about a translate press has to wait for this rather than for isPrepared.
+  var translationPairForTesting: TranslationPair? { translation.pair }
 
   func handle(_ event: GlobalKeyEventMonitor.Event) {
     switch event {
@@ -309,7 +420,7 @@ final class DirectDictationController {
       if machine.isSessionActive {
         guard slot == activeSlot else { return }
       } else {
-        activeSlot = slot
+        claimSession(for: slot)
       }
       send(.triggerPressed(now: .now))
     case let .triggerReleased(slot):
@@ -323,7 +434,15 @@ final class DirectDictationController {
   }
 
   private func send(_ action: DictationSessionMachine.Action) {
+    let wasActive = machine.isSessionActive
     perform(machine.reduce(action))
+    // A session keeps the key that started it even after Settings turns that
+    // language off, so ending one is when the binding has to be given back.
+    // Nothing else reapplies them, and a stale slot either swallows its key or
+    // starts a session in a language nobody chose.
+    if wasActive, !machine.isSessionActive {
+      applyKeyBindings()
+    }
   }
 
   private func perform(_ effects: [DictationSessionMachine.Effect]) {
@@ -355,7 +474,10 @@ final class DirectDictationController {
     case .stopNoSpeechTimer:
       stopNoSpeechTimer()
     case let .showListening(latched):
-      let session = settings.sessionSettings
+      let session = DictationSessionSettings(
+        settings: settings,
+        translation: activeSlot == .translate ? translation.pair : nil
+      )
       currentSessionSettings = session
       dependencies.showListening(
         focusedTarget?.displayID,
@@ -427,6 +549,19 @@ final class DirectDictationController {
       return
     }
 
+    // Refused before the user speaks, which is much better than letting them
+    // finish a sentence into a rescue path.
+    if activeSlot == .translate, !translation.isReady {
+      dependencies.showMessage(
+        translation.pair == nil ? "No translation language" : "Translation not ready",
+        target?.displayID
+      )
+      translation.retry()
+      activity.release()
+      send(.beginRejected)
+      return
+    }
+
     focusedTarget = target
     send(.beginApproved)
   }
@@ -486,6 +621,37 @@ final class DirectDictationController {
     pendingLiveText = nil
   }
 
+  /// Writes the session's entry, after any translation and before the
+  /// insertion: an entry names where the words were headed, and words the
+  /// paste then loses are exactly the words history exists to keep.
+  private func recordHistory(
+    spoken: String,
+    delivered: String?,
+    session: DictationSessionSettings
+  ) async {
+    guard session.historyEnabled, !spoken.isEmpty else { return }
+    // The spoken words are the entry, always. A translation goes beside them
+    // rather than instead of them: history exists so a failed insertion cannot
+    // lose what was said (ADR-0007), and only the spoken half is unrecoverable.
+    var translation: DictationHistoryStore.Translation?
+    // Whatever it produced, including the same string back: a name, a URL or
+    // a number translates to itself, and the entry still says which languages
+    // the session ran between.
+    if let pair = session.translation, let delivered {
+      translation = DictationHistoryStore.Translation(
+        spokenTag: pair.source.shortTag,
+        deliveredTag: pair.target.shortTag,
+        text: delivered
+      )
+    }
+    await dependencies.recordHistory(
+      spoken,
+      translation,
+      historySource(for: session.insertionDestination),
+      session.historyFolder
+    )
+  }
+
   /// What the history entry names as this session's destination.
   ///
   /// Clipboard-only never aims at an application, so naming the one that
@@ -504,20 +670,40 @@ final class DirectDictationController {
       guard let self else { return }
       defer { finishTask = nil }
       do {
-        let text = try await dependencies.finishRecognition()
+        let spoken = try await dependencies.finishRecognition()
         dependencies.hideHUD()
         // Delivery follows the session snapshot, so a Settings change
         // mid-session applies to the next session (ADR-0004).
         let session = currentSessionSettings ?? settings.sessionSettings
-        if session.historyEnabled, !text.isEmpty {
-          // Before the outcome routing: words the paste then loses are
-          // exactly the words history exists to keep.
-          await dependencies.recordHistory(
-            text,
-            historySource(for: session.insertionDestination),
-            session.historyFolder
-          )
+
+        // The one place between recognition and insertion where the words may
+        // change. A transform that fails delivers nothing: the trigger
+        // promised a translation, and pasting the untranslated words instead
+        // lands the wrong language in someone else's document.
+        var text = spoken
+        if let pair = session.translation, !spoken.isEmpty {
+          do {
+            text = try await translation.translate(spoken, with: pair)
+          } catch {
+            await recordHistory(spoken: spoken, delivered: nil, session: session)
+            // Clipboard-only whatever the session's destination: nothing is
+            // pasted, and the words survive where the user can reach them.
+            let rescue = await dependencies.insertText(spoken, nil, .clipboardOnly)
+            // Ended, not failed: a failure action would drive the machine to
+            // cancelling and cancel a session that has already finished.
+            send(.sessionEnded)
+            // The clipboard can refuse too, while a read still holds its
+            // lease. Reporting only the translation would promise words that
+            // are not anywhere the user can reach (CONTEXT.md).
+            dependencies.showMessage(
+              rescue == .unavailable ? "Couldn't translate or copy" : "Couldn't translate",
+              nil
+            )
+            return
+          }
         }
+
+        await recordHistory(spoken: spoken, delivered: text, session: session)
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )
@@ -525,7 +711,11 @@ final class DirectDictationController {
         case .inserted, .copiedToClipboard:
           dependencies.playPasteSound()
           send(.sessionEnded)
-          let wordCount = UsageMetrics.wordCount(in: text)
+          // The words that were spoken, not the words inserted. Speaking
+          // duration is measured on the source side, so counting a
+          // translation's words against it would divide one language's count
+          // by another's minutes.
+          let wordCount = UsageMetrics.wordCount(in: spoken)
           await dependencies.recordSession(wordCount, speakingDuration)
         case .unavailable:
           send(.sessionEnded)

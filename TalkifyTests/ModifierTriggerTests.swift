@@ -173,42 +173,45 @@ struct ComboTriggerRegressionTests {
   }
 }
 
+/// Builds a synthetic mouse event, so the gesture rules can be driven without
+/// a live tap.
+private func mouseEvent(
+  _ type: CGEventType,
+  buttonNumber: Int64,
+  flags: CGEventFlags = []
+) throws -> CGEvent {
+  let button = try #require(CGMouseButton(rawValue: UInt32(buttonNumber)))
+  let event = try #require(CGEvent(
+    mouseEventSource: nil,
+    mouseType: type,
+    mouseCursorPosition: .zero,
+    mouseButton: button
+  ))
+  event.flags = flags
+  event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
+  return event
+}
+
+/// Records what the monitor emitted, from whichever thread emitted it.
+private final class EventLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: [GlobalKeyEventMonitor.Event] = []
+
+  func append(_ event: GlobalKeyEventMonitor.Event) {
+    lock.lock()
+    stored.append(event)
+    lock.unlock()
+  }
+
+  var events: [GlobalKeyEventMonitor.Event] {
+    lock.lock()
+    defer { lock.unlock() }
+    return stored
+  }
+}
+
 @Suite("Mouse-button triggers")
 struct MouseButtonTriggerTests {
-  private final class EventLog: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stored: [GlobalKeyEventMonitor.Event] = []
-
-    func append(_ event: GlobalKeyEventMonitor.Event) {
-      lock.lock()
-      stored.append(event)
-      lock.unlock()
-    }
-
-    var events: [GlobalKeyEventMonitor.Event] {
-      lock.lock()
-      defer { lock.unlock() }
-      return stored
-    }
-  }
-
-  private func mouseEvent(
-    _ type: CGEventType,
-    buttonNumber: Int64,
-    flags: CGEventFlags = []
-  ) throws -> CGEvent {
-    let button = try #require(CGMouseButton(rawValue: UInt32(buttonNumber)))
-    let event = try #require(CGEvent(
-      mouseEventSource: nil,
-      mouseType: type,
-      mouseCursorPosition: .zero,
-      mouseButton: button
-    ))
-    event.flags = flags
-    event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
-    return event
-  }
-
   @Test func middleClickPressesAndReleasesThePrimaryTrigger() throws {
     let log = EventLog()
     let monitor = GlobalKeyEventMonitor(handler: log.append)
@@ -485,11 +488,227 @@ struct MouseButtonTriggerTests {
     #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
   }
 
+  /// The translate slot is a trigger like any other: it holds, it releases,
+  /// and it is arbitrated by the same heldSlot that makes a session exclusive.
+  @Test func rightCommandPressesTheTranslateSlotWhileFnPressesThePrimary() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    // right command down: device bit 0x10 plus the shared command flag.
+    let commandDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: true
+    ))
+    commandDown.flags = CGEventFlags(
+      rawValue: CGEventFlags.maskCommand.rawValue | 0x0000_0010
+    )
+    #expect(monitor.process(type: .flagsChanged, event: commandDown) == nil)
+    #expect(log.events == [.triggerPressed(.translate)])
+
+    let commandUp = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: false
+    ))
+    commandUp.flags = []
+    #expect(monitor.process(type: .flagsChanged, event: commandUp) == nil)
+    #expect(log.events == [.triggerPressed(.translate), .triggerReleased(.translate)])
+  }
+
+  /// One session at a time, whichever slot started it. The translate key is
+  /// inert while fn holds the shape, exactly as the second language's key is.
+  @Test func theTranslateSlotIsInertWhileAnotherSlotHoldsTheSession() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let fnDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 63, keyDown: true
+    ))
+    fnDown.flags = .maskSecondaryFn
+    #expect(monitor.process(type: .flagsChanged, event: fnDown) == nil)
+
+    let commandDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 54, keyDown: true
+    ))
+    commandDown.flags = CGEventFlags(
+      rawValue: CGEventFlags.maskSecondaryFn.rawValue
+        | CGEventFlags.maskCommand.rawValue | 0x0000_0010
+    )
+    _ = monitor.process(type: .flagsChanged, event: commandDown)
+
+    // Whatever the combination did to the held fn session, it did not start a
+    // second one on top of it.
+    #expect(!log.events.contains(.triggerPressed(.translate)))
+  }
+
+  /// An earlier slot wins an identical input, so a translate binding equal to
+  /// the primary is dropped rather than making the slot ambiguous.
+  @Test func aTranslateBindingIdenticalToThePrimaryIsDropped() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .fnTrigger
+    )
+
+    let fnDown = try #require(CGEvent(
+      keyboardEventSource: nil, virtualKey: 63, keyDown: true
+    ))
+    fnDown.flags = .maskSecondaryFn
+    #expect(monitor.process(type: .flagsChanged, event: fnDown) == nil)
+
+    #expect(log.events == [.triggerPressed(.primary)])
+  }
+
   @Test func leftRightAndButtonsAboveTheSystemLimitAreNotBindable() {
     #expect(KeyBinding.mouseButton(number: 0) == nil)
     #expect(KeyBinding.mouseButton(number: 1) == nil)
     #expect(KeyBinding.mouseButton(number: 32) == nil)
     #expect(KeyBinding.mouseButton(number: 2)?.label == "Middle Click")
     #expect(KeyBinding.mouseButton(number: 31)?.label == "Mouse 32")
+  }
+}
+
+@Suite("Rebinding while a trigger is held")
+struct HeldTriggerRebindTests {
+  /// A rebind lands mid-gesture on its own: choosing a translation target
+  /// reapplies the bindings, and a finished model install writes that setting
+  /// without anyone touching a key. Losing the held slot there would swallow
+  /// the release, so the session would record until Escape.
+  @Test func aRebindKeepsAnUnchangedTriggerHeld() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(trigger: .fnTrigger, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskSecondaryFn
+    _ = monitor.process(type: .flagsChanged, event: down)
+    #expect(log.events == [.triggerPressed(.primary)])
+
+    // Exactly what choosing a translation target does while a key is down.
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.primary), .triggerReleased(.primary)])
+  }
+
+  /// A swallowed press owes its release, whatever happens to the bindings in
+  /// between. Ending a session reapplies them, and a mouse gesture that ended
+  /// by releasing its modifier first is still holding its button right then —
+  /// letting that release through leaves the app under the pointer believing
+  /// the button is down (CONTEXT.md).
+  @Test func aRebindStillSwallowsAHeldButtonsRelease() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    let optionMiddle = try #require(
+      KeyBinding.mouseButton(number: 2, modifiers: .option)
+    )
+    monitor.setBindings(
+      trigger: optionMiddle,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let down = try mouseEvent(.otherMouseDown, buttonNumber: 2, flags: .maskAlternate)
+    #expect(monitor.process(type: .otherMouseDown, event: down) == nil)
+
+    // The modifier goes first, which ends the gesture while the button is
+    // still down. That is what makes the session end and the bindings reapply.
+    let modifierUp = try #require(CGEvent(source: nil))
+    modifierUp.type = .flagsChanged
+    modifierUp.flags = []
+    _ = monitor.process(type: .flagsChanged, event: modifierUp)
+    monitor.setBindings(
+      trigger: optionMiddle,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let up = try mouseEvent(.otherMouseUp, buttonNumber: 2)
+    #expect(monitor.process(type: .otherMouseUp, event: up) == nil)
+  }
+
+  /// A language enabled mid-session can carry the same stored key as the slot
+  /// already holding one. The held slot wins that clash, because losing it
+  /// would leave the release with nowhere to land.
+  @Test func aHeldSlotOutranksANewlyEnabledDuplicate() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    // The shared flag with no device bits: a keyboard that does not report
+    // sides, which the monitor treats as the key being down.
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskCommand
+    _ = monitor.process(type: .flagsChanged, event: down)
+    #expect(log.events == [.triggerPressed(.translate)])
+
+    // A second language turned on, bound to the very same key.
+    monitor.setBindings(
+      trigger: .fnTrigger,
+      secondaryTrigger: .rightCommandTrigger,
+      readAloud: .optionEscape,
+      translateTrigger: .rightCommandTrigger
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.translate), .triggerReleased(.translate)])
+  }
+
+  /// A rebind that changes the held slot's own binding cannot keep it held:
+  /// the key that is down is no longer the trigger.
+  @Test func aRebindOfTheHeldTriggerDropsIt() throws {
+    let log = EventLog()
+    let monitor = GlobalKeyEventMonitor(handler: log.append)
+    monitor.setBindings(trigger: .fnTrigger, secondaryTrigger: nil, readAloud: .optionEscape)
+
+    let down = try #require(CGEvent(source: nil))
+    down.type = .flagsChanged
+    down.flags = .maskSecondaryFn
+    _ = monitor.process(type: .flagsChanged, event: down)
+
+    monitor.setBindings(
+      trigger: .rightCommandTrigger,
+      secondaryTrigger: nil,
+      readAloud: .optionEscape
+    )
+
+    let up = try #require(CGEvent(source: nil))
+    up.type = .flagsChanged
+    up.flags = []
+    _ = monitor.process(type: .flagsChanged, event: up)
+
+    #expect(log.events == [.triggerPressed(.primary)])
   }
 }

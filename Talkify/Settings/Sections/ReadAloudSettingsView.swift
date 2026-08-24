@@ -33,6 +33,16 @@ struct ReadAloudSettingsView: View {
         )
 
         SettingsRow(
+          title: "Translate before speaking",
+          description: "Selected text in another language is read in the "
+            + "voice's own language. Needs the pair's model already installed."
+        ) {
+          Toggle("Translate before speaking", isOn: $settings.readAloudTranslates)
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+
+        SettingsRow(
           title: "Preview",
           description: "Hear a sample with the selected voice"
         ) {

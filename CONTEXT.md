@@ -222,6 +222,7 @@ _Avoid_: Transcript history, cloud analytics
 - A history entry names the application the text was aimed at, meaning the one that held focus when the session started, because a record of what was said is easier to use later when it says where it was being said
 - History is written before insertion, so an entry names where the words were headed rather than where they landed; a clipboard-only session names the clipboard, since it aimed at no application at all
 - An entry whose application cannot be named keeps the bare timestamp rather than reading "Unknown"
+- A translated session's entry keeps both languages as labelled lines, `EN: what was said` then `ES: what was inserted`, because the spoken words are the half that cannot be produced again
 - The history folder is the user's pick, and Clear History removes only the day files Talkify wrote there
 - The history choice is captured in the Dictation session settings snapshot at session start
 - A **Drop Transcription** writes a transcript file because the user asked for one; Talkify keeps no copy of it and no record that it happened
@@ -229,13 +230,16 @@ _Avoid_: Transcript history, cloud analytics
 - **Insights** stores only the local calendar day, word count, speaking duration, and completed-session count
 - **Insights** never stores recognized text or target application identifiers
 - A completed **Direct Dictation** session with nonempty inserted text updates **Insights**
+- **Insights** counts the words that were spoken rather than the words inserted, so a translated session is measured in the language and against the speaking time it was dictated in
 - **Insights** shows words, sessions, speaking time, weighted words per minute, Voice Momentum, 14-day activity, streaks, and a 16-week heatmap
 - Settings lets the user choose the session sounds, mute them, adjust their volume, choose the voice-reactive visual, the waveform style, and the edge glow's color palette
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
 - Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
 - A marked-text input method (system-dictation-style provisional text in any field) remains a considered route, deferred: it needs a separate installable input-source bundle, System Settings enablement, and cross-process wiring
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
-- Read Aloud reads the selection through Accessibility only; if nothing is selected it shows "No text selected" through the HUD and speaks nothing
+- Read Aloud reads the selection through Accessibility, and by copying it when Accessibility answers nothing, which is what every browser does; if neither finds anything it shows "No text selected" through the HUD and speaks nothing
+- A copied selection restores the clipboard afterwards, and is not attempted at all when the clipboard cannot be captured first, because a clipboard that cannot be put back must not be taken
+- Nothing selected is known rather than guessed: a copy that finds nothing leaves the pasteboard change count alone, so the previous clipboard is never read aloud as though it were the selection
 - Read Aloud starts and stops from the status menu ("Read Selected Text" / "Stop Reading") or with its recorded shortcut (Option+Escape by default, matching macOS speak-selection)
 - The Shortcuts section records bindings System Settings-style: the control arms and the next pressed key or supported mouse button becomes the binding, and plain Escape cancels recording
 - A **Dictation Trigger** is one keyboard key or supported mouse button plus any keyboard modifiers held with it; only the trigger may bind a bare modifier such as fn or a mouse button, because a hold gesture needs an input that can be held
@@ -263,6 +267,9 @@ _Avoid_: Transcript history, cloud analytics
 - Talkify swallows the configured Read Aloud shortcut so the system speak-selection never double-fires; plain Escape remains the dictation cancel, captured only mid-session
 - The Read Aloud shortcut is ignored while Direct Dictation is active — speech playback would feed the recognizer its own audio
 - The Read Aloud voice is a Settings pick listing only enhanced, premium, and authorized Personal voices, with the system default voice otherwise
+- An off-by-default **Translate before speaking** setting reads a selection in the voice's own language; the voice is the target, so there is no second language to choose
+- Read Aloud identifies the language of a selection, which Direct Dictation never does for speech: text identification exists, runs on device and reports a confidence, and below that confidence the selection is read as written
+- A selection whose pair has no installed model is not read at all; Read Aloud cannot install one, because Apple installs a translation model only from a View modifier and the shortcut has no window
 - Talkify cannot download synthesis voices (no public API); the Read Aloud section deep-links System Settings and the voice list refreshes live when a download finishes
 - Personal Voice requires the user's authorization, requested from the Read Aloud section; it is personal, non-commercial use by Apple's terms
 - Read Aloud uses Apple speech synthesis exclusively; local-inference voice models were researched and rejected to keep the app dependency-free — the project stays open source and integrations are left to contributors

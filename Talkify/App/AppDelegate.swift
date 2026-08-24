@@ -56,10 +56,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.hudStage = stage
     let hudController = DictationHUDController(stage: stage, settings: settings)
     let usageTracker = UsageTracker()
+    // One insertion service for the whole app. Its clipboard read lease is per
+    // instance, so a second one would let a dictation insertion and a Read
+    // Aloud copy work the pasteboard at the same time.
+    let textInsertionService = TextInsertionService()
     let dictationController = DirectDictationController(
       settings: settings,
       hudController: hudController,
-      usageTracker: usageTracker
+      usageTracker: usageTracker,
+      textInsertionService: textInsertionService
     )
     self.hudController = hudController
     self.dictationController = dictationController
@@ -67,7 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let readAloudController = ReadAloudController(
       settings: settings,
-      hudController: hudController
+      hudController: hudController,
+      translation: dictationController.translation,
+      textInsertion: textInsertionService
     )
     self.readAloudController = readAloudController
 
@@ -100,6 +107,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
       statusItemController?.setRecording(isRecording, accent: accent)
       settingsRuntimeState?.isDictating = isRecording
+    }
+    // Settings drives translation directly. Routing it through the dictation
+    // controller would only make that controller forward three things it has
+    // no opinion about.
+    let translation = dictationController.translation
+    settingsRuntimeState.installTranslationModel = { [weak translation] pair in
+      await translation?.install(pair) ?? .unavailable
+    }
+    settingsRuntimeState.stopInstallingTranslationModel = { [weak translation] in
+      translation?.stopInstalling()
+    }
+    translation.onTargetsChange = { [weak settingsRuntimeState] targets, source in
+      settingsRuntimeState?.translationTargets = targets
+      settingsRuntimeState?.translationSource = source
+    }
+    translation.onStateChange = { [weak settingsRuntimeState] state in
+      settingsRuntimeState?.translationModelState = state
     }
     dictationController.onLanguageDownloadChange = {
       [weak settingsRuntimeState] identifier, fraction in
@@ -147,10 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       _ = settings.dictationTriggerBinding
       _ = settings.secondaryTriggerBinding
       _ = settings.readAloudBinding
+      _ = settings.translateTriggerBinding
       _ = settings.isRecordingKeybind
       // The second trigger is only installed once a second language exists,
       // so the pick that enables it belongs in this loop too.
       _ = settings.secondaryRecognitionLocaleIdentifier
+      // The target is what installs the translate trigger, the same reason the
+      // second language's pick belongs in this loop.
+      _ = settings.translationTargetIdentifier
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.applyKeyBindings()
@@ -166,6 +194,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     withObservationTracking {
       _ = settings.recognitionLocaleIdentifier
       _ = settings.secondaryRecognitionLocaleIdentifier
+      // The translation target belongs here as well as in the key-binding
+      // loop: that one installs the trigger, this one resolves and warms the
+      // pair the trigger will use. Without it a changed target reinstalled a
+      // trigger that had nothing to translate into.
+      _ = settings.translationTargetIdentifier
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.dictationController?.applyLanguages()
@@ -193,7 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return .terminateNow
     }
     Task { @MainActor in
-      await dictationController.waitForFinish(timeout: .seconds(2))
+      await dictationController.waitForFinish()
       sender.reply(toApplicationShouldTerminate: true)
     }
     return .terminateLater
