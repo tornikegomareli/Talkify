@@ -54,7 +54,8 @@ struct HUDMinimumScaleTests {
         frame: CGRect(x: 0, y: 0, width: width, height: 982),
         safeAreaTop: 0,
         auxiliaryTopLeftArea: nil,
-        auxiliaryTopRightArea: nil
+        auxiliaryTopRightArea: nil,
+        menuBarHeight: 24
       )
     }
     let side = (width - notchWidth) / 2
@@ -63,7 +64,8 @@ struct HUDMinimumScaleTests {
       frame: CGRect(x: 0, y: 0, width: width, height: 982),
       safeAreaTop: 32,
       auxiliaryTopLeftArea: CGRect(x: 0, y: 0, width: side, height: 32),
-      auxiliaryTopRightArea: CGRect(x: width - side, y: 0, width: side, height: 32)
+      auxiliaryTopRightArea: CGRect(x: width - side, y: 0, width: side, height: 32),
+      menuBarHeight: 32
     )
   }
 

@@ -8,14 +8,16 @@ struct HUDPlacementTests {
     frame: CGRect(x: 0, y: 0, width: 1728, height: 1117),
     safeAreaTop: 32,
     auxiliaryTopLeftArea: nil,
-    auxiliaryTopRightArea: nil
+    auxiliaryTopRightArea: nil,
+    menuBarHeight: 24
   )
   private let external = HUDScreenSnapshot(
     id: 2,
     frame: CGRect(x: 1728, y: 200, width: 2560, height: 1440),
     safeAreaTop: 0,
     auxiliaryTopLeftArea: nil,
-    auxiliaryTopRightArea: nil
+    auxiliaryTopRightArea: nil,
+    menuBarHeight: 24
   )
 
   @Test func selectsDisplayOfKnownTarget() {

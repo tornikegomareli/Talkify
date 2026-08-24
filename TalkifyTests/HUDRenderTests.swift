@@ -22,7 +22,8 @@ struct HUDRenderTests {
       frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
       safeAreaTop: 32,
       auxiliaryTopLeftArea: CGRect(x: 0, y: 0, width: 663.5, height: 32),
-      auxiliaryTopRightArea: CGRect(x: 848.5, y: 0, width: 663.5, height: 32)
+      auxiliaryTopRightArea: CGRect(x: 848.5, y: 0, width: 663.5, height: 32),
+      menuBarHeight: 32
     )
   }
 

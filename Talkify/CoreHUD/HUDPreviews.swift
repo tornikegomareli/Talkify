@@ -10,16 +10,19 @@ enum HUDPreviewScreen {
     frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
     safeAreaTop: 32,
     auxiliaryTopLeftArea: CGRect(x: 0, y: 950, width: 663.5, height: 32),
-    auxiliaryTopRightArea: CGRect(x: 848.5, y: 950, width: 663.5, height: 32)
+    auxiliaryTopRightArea: CGRect(x: 848.5, y: 950, width: 663.5, height: 32),
+    menuBarHeight: 32
   )
 
-  /// An external display: simulated notch footprint, no fillets.
+  /// An external display: simulated notch footprint, no fillets, and its own
+  /// menu bar the housing has to hang below (issue #83).
   static let external = HUDScreenSnapshot(
     id: 2,
     frame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
     safeAreaTop: 0,
     auxiliaryTopLeftArea: nil,
-    auxiliaryTopRightArea: nil
+    auxiliaryTopRightArea: nil,
+    menuBarHeight: 24
   )
 
   static var wallpaper: some View {
