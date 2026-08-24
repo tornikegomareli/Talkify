@@ -104,8 +104,22 @@ enum HUDNotchGeometry {
     hasMeasuredNotch(for: screen) ? 11 : 0
   }
 
+  /// Clearance between the true top of the screen and the housing, on a
+  /// display with no measured notch.
+  ///
+  /// A real notch already sits in its own housing, clear of wherever the
+  /// system draws status items. The simulated stand-in has no such housing:
+  /// pinned flush to the screen's top edge it draws directly over the menu
+  /// bar, hiding whatever status item sits under it — including Talkify's
+  /// own (issue #83). So there the shape hangs just below the menu bar
+  /// instead of over it.
+  static func topInset(for screen: HUDScreenSnapshot) -> CGFloat {
+    hasMeasuredNotch(for: screen) ? 0 : screen.menuBarHeight
+  }
+
   /// The host window's frame: content size plus shadow slack, centered and
-  /// pinned to the top, clamped to the screen width.
+  /// pinned to the top (below the menu bar on a display with no notch of its
+  /// own), clamped to the screen width.
   ///
   /// Sized for the standard metrics whatever the user's HUD size, so the
   /// window stays fixed per display (ADR-0001) and a smaller shape simply
@@ -120,7 +134,7 @@ enum HUDNotchGeometry {
 
     return CGRect(
       x: screen.frame.midX - width / 2,
-      y: screen.frame.maxY - height,
+      y: screen.frame.maxY - height - topInset(for: screen),
       width: width,
       height: height
     )

@@ -56,7 +56,8 @@ final class HUDStage {
       frame: .zero,
       safeAreaTop: 0,
       auxiliaryTopLeftArea: nil,
-      auxiliaryTopRightArea: nil
+      auxiliaryTopRightArea: nil,
+      menuBarHeight: 0
     )
     hostingView = NSHostingView(
       rootView: HUDRootView(
@@ -99,7 +100,8 @@ final class HUDStage {
         frame: screen.frame,
         safeAreaTop: screen.safeAreaInsets.top,
         auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
-        auxiliaryTopRightArea: screen.auxiliaryTopRightArea
+        auxiliaryTopRightArea: screen.auxiliaryTopRightArea,
+        menuBarHeight: screen.frame.maxY - screen.visibleFrame.maxY
       )
     }
     return HUDPlacement.selectDisplay(

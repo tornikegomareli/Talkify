@@ -8,14 +8,16 @@ struct HUDNotchGeometryTests {
     frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
     safeAreaTop: 32,
     auxiliaryTopLeftArea: CGRect(x: 0, y: 950, width: 663.5, height: 32),
-    auxiliaryTopRightArea: CGRect(x: 848.5, y: 950, width: 663.5, height: 32)
+    auxiliaryTopRightArea: CGRect(x: 848.5, y: 950, width: 663.5, height: 32),
+    menuBarHeight: 32
   )
   private let external = HUDScreenSnapshot(
     id: 2,
     frame: CGRect(x: 1512, y: 200, width: 2560, height: 1440),
     safeAreaTop: 0,
     auxiliaryTopLeftArea: nil,
-    auxiliaryTopRightArea: nil
+    auxiliaryTopRightArea: nil,
+    menuBarHeight: 24
   )
 
   @Test func measuresNotchBySubtractingAuxiliaryAreas() {
@@ -33,7 +35,8 @@ struct HUDNotchGeometryTests {
       frame: CGRect(x: 0, y: 0, width: 1728, height: 1117),
       safeAreaTop: 0,
       auxiliaryTopLeftArea: CGRect(x: 0, y: 1085, width: 700, height: 32),
-      auxiliaryTopRightArea: CGRect(x: 1028, y: 1085, width: 700, height: 32)
+      auxiliaryTopRightArea: CGRect(x: 1028, y: 1085, width: 700, height: 32),
+      menuBarHeight: 32
     )
     #expect(HUDNotchGeometry.measuredClosedSize(for: flat) == nil)
   }
@@ -106,6 +109,26 @@ struct HUDNotchGeometryTests {
     #expect(frame.maxY == notched.frame.maxY)
   }
 
+  /// Issue #83: a real notch already sits in its own housing, clear of
+  /// wherever the system draws status items, so there is nothing for the
+  /// shape to hide there — it keeps hugging the true top edge.
+  @Test func topInsetIsZeroOnANotchedDisplay() {
+    #expect(HUDNotchGeometry.topInset(for: notched) == 0)
+  }
+
+  /// Issue #83: with no real notch to hug, a shape pinned flush to the
+  /// screen's top edge draws directly over the menu bar — hiding whatever
+  /// status item sits under it, including Talkify's own. Clearing the menu
+  /// bar's own height keeps the shape below it instead.
+  @Test func topInsetMatchesTheMenuBarOnADisplayWithNoNotch() {
+    #expect(HUDNotchGeometry.topInset(for: external) == external.menuBarHeight)
+  }
+
+  @Test func windowFrameHangsBelowTheMenuBarWithNoNotch() {
+    let frame = HUDNotchGeometry.windowFrame(for: external)
+    #expect(frame.maxY == external.frame.maxY - external.menuBarHeight)
+  }
+
   /// Issue #24: the shape shrinks so it stops covering usable screen, but
   /// the housing band does not — it is hardware here and menu-bar clearance
   /// on a display with no notch.
@@ -165,7 +188,8 @@ struct HUDNotchGeometryTests {
       frame: CGRect(x: 0, y: 0, width: 600, height: 800),
       safeAreaTop: 0,
       auxiliaryTopLeftArea: nil,
-      auxiliaryTopRightArea: nil
+      auxiliaryTopRightArea: nil,
+      menuBarHeight: 24
     )
     let frame = HUDNotchGeometry.windowFrame(for: narrow)
     #expect(frame.width == 600)
