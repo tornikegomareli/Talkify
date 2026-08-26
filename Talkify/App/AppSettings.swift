@@ -36,6 +36,7 @@ final class AppSettings {
     static let transcriptDestination = "transcriptDestination"
     static let transcriptFolder = "transcriptFolder"
     static let insertionDestination = "dictationInsertionDestination"
+    static let fillerWordFilteringEnabled = "dictationFillerWordFilteringEnabled"
     static let historyEnabled = "dictationHistoryEnabled"
     static let historyFolder = "dictationHistoryFolder"
   }
@@ -83,6 +84,11 @@ final class AppSettings {
   /// always happened, the clipboard alone, or both.
   var insertionDestination: InsertionDestination {
     didSet { defaults.set(insertionDestination.rawValue, forKey: Keys.insertionDestination) }
+  }
+
+  /// Whether Direct Dictation removes standalone vocal fillers before delivery.
+  var fillerWordFilteringEnabled: Bool {
+    didSet { defaults.set(fillerWordFilteringEnabled, forKey: Keys.fillerWordFilteringEnabled) }
   }
 
   /// Whether finished dictation text is saved to the history folder. Off by
@@ -260,6 +266,7 @@ final class AppSettings {
     transcriptDestination = Self.stored(in: defaults, key: Keys.transcriptDestination) ?? .besideSource
     transcriptFolder = (defaults.string(forKey: Keys.transcriptFolder)).map { URL(filePath: $0) }
     insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
+    fillerWordFilteringEnabled = defaults.object(forKey: Keys.fillerWordFilteringEnabled) as? Bool ?? true
     dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
@@ -389,6 +396,7 @@ enum BindingRole: Hashable, CaseIterable {
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
   let insertionDestination: InsertionDestination
+  let fillerWordFilteringEnabled: Bool
   /// The translation this session performs, or nil when it inserts the words
   /// as spoken. Captured with everything else: changing the target
   /// mid-session must not redirect the session already under way (ADR-0004).
@@ -423,6 +431,7 @@ struct DictationSessionSettings: Equatable {
       volume: settings.dictationSoundVolume
     )
     insertionDestination = settings.insertionDestination
+    fillerWordFilteringEnabled = settings.fillerWordFilteringEnabled
     historyEnabled = settings.dictationHistoryEnabled
     historyFolder = settings.resolvedHistoryFolder
     ducksOtherAudio = settings.duckOtherAudioWhileDictating

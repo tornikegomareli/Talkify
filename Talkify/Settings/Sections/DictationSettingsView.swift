@@ -23,6 +23,15 @@ struct DictationSettingsView: View {
           optionLabel: { $0.title },
           selection: $settings.insertionDestination
         )
+
+        SettingsRow(
+          title: "Filter filler words",
+          description: "Remove standalone fillers before finished Direct Dictation is delivered."
+        ) {
+          Toggle("Filter filler words", isOn: $settings.fillerWordFilteringEnabled)
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
       }
 
       SettingsCard(title: "History") {

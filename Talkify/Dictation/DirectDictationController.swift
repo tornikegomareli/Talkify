@@ -612,7 +612,9 @@ final class DirectDictationController {
   }
 
   private func receive(_ update: SpeechRecognitionService.Update) {
-    let displayText = update.displayText
+    let displayText = currentSessionSettings?.fillerWordFilteringEnabled == true
+      ? FillerWordFilter().filter(update.displayText)
+      : update.displayText
     let hasVisibleText = !displayText
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .isEmpty
@@ -680,10 +682,12 @@ final class DirectDictationController {
         // change. A transform that fails delivers nothing: the trigger
         // promised a translation, and pasting the untranslated words instead
         // lands the wrong language in someone else's document.
-        var text = spoken
-        if let pair = session.translation, !spoken.isEmpty {
+        var text = session.fillerWordFilteringEnabled
+          ? FillerWordFilter().filter(spoken)
+          : spoken
+        if let pair = session.translation, !text.isEmpty {
           do {
-            text = try await translation.translate(spoken, with: pair)
+            text = try await translation.translate(text, with: pair)
           } catch {
             await recordHistory(spoken: spoken, delivered: nil, session: session)
             // Clipboard-only whatever the session's destination: nothing is

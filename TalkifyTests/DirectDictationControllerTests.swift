@@ -312,6 +312,55 @@ struct DirectDictationControllerTests {
     controller.stop()
   }
 
+  @Test func enabledFillerWordFilteringRemovesFillersBeforeInsertion() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "Uhmm, write the note mhmm" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["Write the note"])
+    controller.stop()
+  }
+
+  @Test func disabledFillerWordFilteringPreservesRecognizedText() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.fillerWordFilteringEnabled = false
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "Uhmm, write the note" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["Uhmm, write the note"])
+    controller.stop()
+  }
+
   @Test func clipboardFallbackStillPlaysPasteSoundAndRecordsUsage() async {
     let recorder = Recorder()
     let prewarmed = OSAllocatedUnfairLock(initialState: false)

@@ -23,6 +23,7 @@ struct AppSettingsTests {
     // Existing users must not be resized by an upgrade.
     #expect(settings.hudScale == Double(HUDMetrics.maximumScale))
     #expect(settings.readAloudVoiceID.isEmpty)
+    #expect(settings.fillerWordFilteringEnabled)
     #expect(settings.dictationTriggerBinding == .fnTrigger)
     #expect(settings.readAloudBinding == .optionEscape)
   }
@@ -39,6 +40,7 @@ struct AppSettingsTests {
     settings.longDraftStyle = .shrinkToFit
     settings.hudScale = 0.75
     settings.readAloudVoiceID = "com.apple.voice.premium.en-US.Zoe"
+    settings.fillerWordFilteringEnabled = false
     let f5Binding = KeyBinding(
       keyCode: 96, modifierFlags: 0, isModifierKey: false,
       label: "F5", keyEquivalent: ""
@@ -60,6 +62,7 @@ struct AppSettingsTests {
     #expect(reloaded.longDraftStyle == .shrinkToFit)
     #expect(reloaded.hudScale == 0.75)
     #expect(reloaded.readAloudVoiceID == "com.apple.voice.premium.en-US.Zoe")
+    #expect(!reloaded.fillerWordFilteringEnabled)
     #expect(reloaded.dictationTriggerBinding == rightCommandTrigger)
     #expect(reloaded.readAloudBinding == f5Binding)
   }
@@ -75,6 +78,7 @@ struct AppSettingsTests {
     settings.revealStyle = .drift
     settings.longDraftStyle = .tailOnly
     settings.readAloudVoiceID = "com.apple.voice.enhanced.en-GB.Jamie"
+    settings.fillerWordFilteringEnabled = false
 
     #expect(defaults.string(forKey: "dictationSoundSet") == "Click")
     #expect(defaults.object(forKey: "dictationSoundsEnabled") as? Bool == false)
@@ -84,6 +88,7 @@ struct AppSettingsTests {
     #expect(defaults.string(forKey: "hudRevealStyle") == "Drift")
     #expect(defaults.string(forKey: "hudLongDraftStyle") == "Tail Only")
     #expect(defaults.string(forKey: "readAloudVoice") == "com.apple.voice.enhanced.en-GB.Jamie")
+    #expect(defaults.object(forKey: "dictationFillerWordFilteringEnabled") as? Bool == false)
   }
 
   @Test func keyBindingsPersistUnderTheirHistoricalKeys() {
@@ -410,6 +415,16 @@ struct AppSettingsTests {
     settings.insertionDestination = .both
 
     #expect(snapshot.insertionDestination == .clipboardOnly)
+  }
+
+  @Test func sessionSnapshotCapturesFillerWordFiltering() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.fillerWordFilteringEnabled = false
+
+    let snapshot = settings.sessionSettings
+    settings.fillerWordFilteringEnabled = true
+
+    #expect(!snapshot.fillerWordFilteringEnabled)
   }
 
   /// The stored value is a plain number rather than a named case, so a
