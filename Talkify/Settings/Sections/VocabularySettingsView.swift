@@ -13,15 +13,30 @@ struct VocabularySettingsView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
       SettingsCard(title: "Your words") {
-        SettingsRow(title: "Add a word", description: description) {
-          HStack(spacing: 8) {
+        SettingsRow(
+          title: "Add a word",
+          description: "Up to \(Vocabulary.maximumTermLength) characters each"
+        ) {
+          HStack(spacing: 10) {
             TextField("Name, acronym, jargon", text: $entry)
               .textFieldStyle(.roundedBorder)
-              .frame(width: 200)
+              .frame(width: 190)
               .onSubmit(add)
+              .disabled(isFull)
             Button("Add", action: add)
               .buttonStyle(SettingsButtonStyle())
-              .disabled(entry.trimmingCharacters(in: .whitespaces).isEmpty)
+              .disabled(isFull || entry.trimmingCharacters(in: .whitespaces).isEmpty)
+            // The count is the readout, the way the HUD size row reads out its
+            // percentage. Monospaced and fixed width so it does not shift the
+            // button as the digits grow.
+            Text("\(settings.vocabularyTerms.count)/\(Vocabulary.maximumTermCount)")
+              .font(.system(size: 12, weight: .medium))
+              .monospacedDigit()
+              .foregroundStyle(.white.opacity(isFull ? 0.85 : 0.62))
+              .frame(width: 54, alignment: .trailing)
+              .accessibilityLabel(
+                "\(settings.vocabularyTerms.count) of \(Vocabulary.maximumTermCount) words used"
+              )
           }
         }
 
@@ -46,15 +61,10 @@ struct VocabularySettingsView: View {
     }
   }
 
-  /// Says which rule refused a term, rather than letting the field look broken.
-  private var description: String {
-    let remaining = Vocabulary.maximumTermCount - settings.vocabularyTerms.count
-    guard remaining > 0 else {
-      return "The list is full at \(Vocabulary.maximumTermCount) words, which "
-        + "is Apple's limit. Remove one to add another"
-    }
-    return "\(remaining) of \(Vocabulary.maximumTermCount) left. "
-      + "Up to \(Vocabulary.maximumTermLength) characters each"
+  /// Apple's ceiling, reached. The field and the button go dead rather than
+  /// refusing silently, which reads as broken.
+  private var isFull: Bool {
+    settings.vocabularyTerms.count >= Vocabulary.maximumTermCount
   }
 
   private func add() {
