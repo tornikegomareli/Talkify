@@ -82,7 +82,7 @@ struct HUDNotchGeometryTests {
       visualBandHeight: HUDMetrics.standard.waveBandHeight,
       includesTextBand: false
     )
-    let window = HUDNotchGeometry.windowFrame(for: notched)
+    let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     #expect(content.height <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
@@ -97,7 +97,7 @@ struct HUDNotchGeometryTests {
   }
 
   @Test func windowFrameIsTopCenterWithShadowSlack() {
-    let frame = HUDNotchGeometry.windowFrame(for: notched)
+    let frame = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     let expectedWidth: CGFloat = 540 + 44 * 2
     let tallestBands = max(
       HUDMetrics.standard.waveBandHeight,
@@ -112,8 +112,24 @@ struct HUDNotchGeometryTests {
   /// Issue #83: a real notch already sits in its own housing, clear of
   /// wherever the system draws status items, so there is nothing for the
   /// shape to hide there — it keeps hugging the true top edge.
+  /// The preference only governs a display with no housing. A notched one
+  /// hugs its own notch either way.
+  @Test func aNotchedDisplayIgnoresTheMenuBarPreference() {
+    #expect(HUDNotchGeometry.topInset(for: notched, clearsMenuBar: true) == 0)
+    #expect(HUDNotchGeometry.topInset(for: notched, clearsMenuBar: false) == 0)
+  }
+
+  /// Off, the shape sits where the notch would be, which is what it imitates.
+  @Test func aDisplayWithNoNotchSitsOverTheMenuBarByDefault() {
+    #expect(HUDNotchGeometry.topInset(for: external, clearsMenuBar: false) == 0)
+    #expect(
+      HUDNotchGeometry.windowFrame(for: external, clearsMenuBar: false).maxY
+        == external.frame.maxY
+    )
+  }
+
   @Test func topInsetIsZeroOnANotchedDisplay() {
-    #expect(HUDNotchGeometry.topInset(for: notched) == 0)
+    #expect(HUDNotchGeometry.topInset(for: notched, clearsMenuBar: true) == 0)
   }
 
   /// Issue #83: with no real notch to hug, a shape pinned flush to the
@@ -121,11 +137,11 @@ struct HUDNotchGeometryTests {
   /// status item sits under it, including Talkify's own. Clearing the menu
   /// bar's own height keeps the shape below it instead.
   @Test func topInsetMatchesTheMenuBarOnADisplayWithNoNotch() {
-    #expect(HUDNotchGeometry.topInset(for: external) == external.menuBarHeight)
+    #expect(HUDNotchGeometry.topInset(for: external, clearsMenuBar: true) == external.menuBarHeight)
   }
 
   @Test func windowFrameHangsBelowTheMenuBarWithNoNotch() {
-    let frame = HUDNotchGeometry.windowFrame(for: external)
+    let frame = HUDNotchGeometry.windowFrame(for: external, clearsMenuBar: true)
     #expect(frame.maxY == external.frame.maxY - external.menuBarHeight)
   }
 
@@ -167,7 +183,7 @@ struct HUDNotchGeometryTests {
   /// whatever the user's HUD size, so a smaller shape centers inside it
   /// instead of resizing the window mid-session.
   @Test func windowFrameIgnoresHUDSize() {
-    let frame = HUDNotchGeometry.windowFrame(for: external)
+    let frame = HUDNotchGeometry.windowFrame(for: external, clearsMenuBar: true)
     let smallest = HUDMetrics(scale: HUDMetrics.minimumScale)
     let content = HUDNotchGeometry.contentSize(
       for: external,
@@ -191,7 +207,7 @@ struct HUDNotchGeometryTests {
       auxiliaryTopRightArea: nil,
       menuBarHeight: 24
     )
-    let frame = HUDNotchGeometry.windowFrame(for: narrow)
+    let frame = HUDNotchGeometry.windowFrame(for: narrow, clearsMenuBar: false)
     #expect(frame.width == 600)
     #expect(frame.midX == 300)
   }

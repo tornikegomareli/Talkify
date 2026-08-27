@@ -106,6 +106,7 @@ _Avoid_: Transcript history, cloud analytics
 - The HUD always descends from the top center of its display and is never placed at the bottom
 - Displays without a physical notch show a simulated notch: the same surface with a stand-in footprint
 - The simulated notch omits the corner fillets that hug a physical housing
+- The simulated notch sits where a physical one would, over the menu bar, because that is what it imitates; an off-by-default **Clear the menu bar on other displays** setting hangs it below instead, for a menu bar crowded enough that a centred shape reaches a status item
 - The HUD behaves identically on every display; only the notch measurement differs
 - **HUD size** scales the whole HUD shape — width, bands, corner radius, draft text, and each voice visual together — so a smaller HUD keeps its voice visual instead of trading it away
 - **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch

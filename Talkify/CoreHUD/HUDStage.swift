@@ -234,7 +234,13 @@ final class HUDStage {
         self?.onCardEvent?(event)
       }
     )
-    panel.setFrame(HUDNotchGeometry.windowFrame(for: screen), display: true)
+    panel.setFrame(
+      HUDNotchGeometry.windowFrame(
+        for: screen,
+        clearsMenuBar: settings.hudClearsMenuBar
+      ),
+      display: true
+    )
     panel.orderFrontRegardless()
   }
 

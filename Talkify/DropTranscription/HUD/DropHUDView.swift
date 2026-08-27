@@ -38,7 +38,7 @@ struct DropHUDView: View {
   /// the full shape. Growing rather than appearing is what makes the gesture
   /// read as one movement.
   private var size: CGSize {
-    let windowWidth = HUDNotchGeometry.windowFrame(for: screen).width
+    let windowWidth = HUDNotchGeometry.windowSize(for: screen).width
     let width = min(metrics.contentWidth, windowWidth)
     switch drop.mode {
     case .none:
