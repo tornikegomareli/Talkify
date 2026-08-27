@@ -331,7 +331,8 @@ final class TextInsertionService {
     }
     guard let insertedChangeCount = stageClipboardText(
       text,
-      ifUnchangedSince: acceptedChangeCount
+      ifUnchangedSince: acceptedChangeCount,
+      isTransient: true
     ) else { return .unavailable }
 
     guard dependencies.postPasteShortcut() else {
