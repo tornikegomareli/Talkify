@@ -36,6 +36,7 @@ final class AppSettings {
     static let transcriptDestination = "transcriptDestination"
     static let transcriptFolder = "transcriptFolder"
     static let insertionDestination = "dictationInsertionDestination"
+    static let hudClearsMenuBar = "hudClearsMenuBar"
     static let historyEnabled = "dictationHistoryEnabled"
     static let historyFolder = "dictationHistoryFolder"
   }
@@ -142,6 +143,16 @@ final class AppSettings {
   /// someone already uses does.
   var readAloudTranslates: Bool {
     didSet { defaults.set(readAloudTranslates, forKey: Keys.readAloudTranslates) }
+  }
+
+  /// Whether the shape hangs below the menu bar on a display with no notch.
+  ///
+  /// Off, so it sits where the notch would be and looks like the housing it
+  /// imitates. On for a crowded menu bar, where a centred 540-point shape can
+  /// reach far enough right to cover a status item — including Talkify's own,
+  /// which is how a session is stopped without the key (issue #83).
+  var hudClearsMenuBar: Bool {
+    didSet { defaults.set(hudClearsMenuBar, forKey: Keys.hudClearsMenuBar) }
   }
 
   var readAloudVoiceID: String {
@@ -272,6 +283,7 @@ final class AppSettings {
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
       ?? Double(HUDMetrics.maximumScale)
+    hudClearsMenuBar = defaults.bool(forKey: Keys.hudClearsMenuBar)
     readAloudVoiceID = defaults.string(forKey: Keys.readAloudVoice) ?? ""
     readAloudTranslates = defaults.bool(forKey: Keys.readAloudTranslates)
     dictationTriggerBinding = Self.storedBinding(

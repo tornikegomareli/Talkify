@@ -62,7 +62,7 @@ enum HUDNotchGeometry {
     includesTextBand: Bool
   ) -> CGSize {
     CGSize(
-      width: min(metrics.contentWidth, windowFrame(for: screen).width),
+      width: min(metrics.contentWidth, windowSize(for: screen).width),
       height: closedSize(for: screen).height
         + visualBandHeight
         + (includesTextBand ? metrics.textBandHeight : 0)
@@ -113,8 +113,13 @@ enum HUDNotchGeometry {
   /// bar, hiding whatever status item sits under it — including Talkify's
   /// own (issue #83). So there the shape hangs just below the menu bar
   /// instead of over it.
-  static func topInset(for screen: HUDScreenSnapshot) -> CGFloat {
-    hasMeasuredNotch(for: screen) ? 0 : screen.menuBarHeight
+  /// - Parameter clearsMenuBar: Whether a display with no housing hangs the
+  ///   shape below the menu bar instead of over it. Over it looks like the
+  ///   notch it imitates; below it keeps the status items reachable, which is
+  ///   what someone with a crowded menu bar needs (issue #83).
+  static func topInset(for screen: HUDScreenSnapshot, clearsMenuBar: Bool) -> CGFloat {
+    guard !hasMeasuredNotch(for: screen) else { return 0 }
+    return clearsMenuBar ? screen.menuBarHeight : 0
   }
 
   /// The host window's frame: content size plus shadow slack, centered and
@@ -125,18 +130,29 @@ enum HUDNotchGeometry {
   /// window stays fixed per display (ADR-0001) and a smaller shape simply
   /// centers itself inside it. The window is invisible and click-through, so
   /// the unused slack costs nothing.
-  static func windowFrame(for screen: HUDScreenSnapshot) -> CGRect {
-    let metrics = HUDMetrics.standard
-    let width = min(metrics.contentWidth + shadowPadding * 2, screen.frame.width)
-    let height = closedSize(for: screen).height
-      + max(metrics.waveBandHeight, metrics.visualBandHeight + metrics.maxTextBandHeight)
-      + shadowPadding
-
+  static func windowFrame(
+    for screen: HUDScreenSnapshot,
+    clearsMenuBar: Bool
+  ) -> CGRect {
+    let size = windowSize(for: screen)
     return CGRect(
-      x: screen.frame.midX - width / 2,
-      y: screen.frame.maxY - height - topInset(for: screen),
-      width: width,
-      height: height
+      x: screen.frame.midX - size.width / 2,
+      y: screen.frame.maxY - size.height - topInset(for: screen, clearsMenuBar: clearsMenuBar),
+      width: size.width,
+      height: size.height
+    )
+  }
+
+  /// The window's size, which does not depend on where it is pinned. Separate
+  /// so the callers that only want its width need know nothing about the menu
+  /// bar.
+  static func windowSize(for screen: HUDScreenSnapshot) -> CGSize {
+    let metrics = HUDMetrics.standard
+    return CGSize(
+      width: min(metrics.contentWidth + shadowPadding * 2, screen.frame.width),
+      height: closedSize(for: screen).height
+        + max(metrics.waveBandHeight, metrics.visualBandHeight + metrics.maxTextBandHeight)
+        + shadowPadding
     )
   }
 }

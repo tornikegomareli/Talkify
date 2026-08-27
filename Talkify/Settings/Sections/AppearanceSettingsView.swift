@@ -71,6 +71,17 @@ struct AppearanceSettingsView: View {
           valueLabel: { "\(Int(($0 * 100).rounded()))%" }
         )
 
+        SettingsRow(
+          title: "Clear the menu bar on other displays",
+          description: "A display with no notch has nothing to hug, so the "
+            + "shape sits where a notch would be. Turn this on if it covers "
+            + "your menu bar icons."
+        ) {
+          Toggle("Clear the menu bar on other displays", isOn: $settings.hudClearsMenuBar)
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+
         SettingsPickerRow(
           title: "Reveal style",
           description: "How the HUD appears when Direct Dictation starts",
