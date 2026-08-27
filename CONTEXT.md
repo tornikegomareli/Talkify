@@ -215,6 +215,7 @@ _Avoid_: Transcript history, cloud analytics
 - If a clipboard read is already active, remains blocked at the deadline, or changes during both permitted reads, Talkify leaves the clipboard and target untouched and reports that insertion failed
 - If a completed clipboard snapshot fails or omits an advertised representation, Talkify places finalized text on the clipboard for manual paste
 - After a successful paste, Talkify restores the accepted snapshot after a short delay only if the pasteboard change count still matches Talkify's write
+- The paste-and-restore write carries nspasteboard.com's transient and auto-generated types, so a clipboard manager honouring them keeps dictated text out of its history; the destinations that mean to leave text behind write an ordinary copy
 - If the original text target disappears, Talkify places finalized text on the clipboard without showing a message
 - Early versions persist no audio, recognized text, captions, or transcript history
 - An off-by-default **Save transcription history** setting exists; turning it on is the one explicit exception to the no-persistence line above
