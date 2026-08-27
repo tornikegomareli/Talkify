@@ -79,6 +79,7 @@ struct DirectDictationControllerTests {
     translationPrepareHangs: Bool = false,
     translateBody: (@Sendable (String) async throws -> String)? = nil,
     retainedPairs: OSAllocatedUnfairLock<[TranslationPair?]> = .init(initialState: []),
+    appliedVocabulary: OSAllocatedUnfairLock<[String]> = .init(initialState: []),
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -86,6 +87,7 @@ struct DirectDictationControllerTests {
       resolveLocale: { _ in Locale(identifier: "en_US") },
       supportedLocale: { _ in nil },
       retainOnly: { _ in },
+      setVocabulary: { terms in appliedVocabulary.withLock { $0 = terms } },
       prewarm: { _ in prewarmed.withLock { $0 = true } },
       startRecognition: { locale, _, _, _ in
         startEntries.withLock { $0 += 1 }
@@ -819,6 +821,29 @@ struct DirectDictationControllerTests {
     #expect(bindings.trigger == settings.dictationTriggerBinding)
     #expect(bindings.secondary == nil)
     #expect(bindings.translate == nil)
+  }
+
+  /// The words are handed over before anything warms, so the analyzer that is
+  /// left warm already knows them rather than being rebuilt a moment later.
+  @Test func theVocabularyReachesTheRecognizerBeforePrewarming() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let applied = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.vocabularyTerms = ["Talkify", "Ada Lovelace"]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        appliedVocabulary: applied
+      )
+    )
+
+    await prepare(controller, prewarmed: prewarmed)
+
+    #expect(applied.withLock { $0 } == ["Talkify", "Ada Lovelace"])
+    controller.stop()
   }
 
   /// The clipboard rescue can be refused too, while a read holds its lease.

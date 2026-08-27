@@ -14,6 +14,8 @@ extension DirectDictationController {
     let resolveLocale: @Sendable (String?) async throws -> Locale
     let supportedLocale: @Sendable (String) async -> Locale?
     let retainOnly: @Sendable ([Locale]) async -> Void
+    /// The words Apple Speech should expect, applied before anything warms.
+    let setVocabulary: @Sendable ([String]) async -> Void
     let prewarm: @Sendable (Locale) async throws -> Void
     let startRecognition: @Sendable (
       Locale,
@@ -89,6 +91,7 @@ extension DirectDictationController {
         resolveLocale: { try await speechService.resolveLocale(identifier: $0) },
         supportedLocale: { await speechService.supportedLocale(identifier: $0) },
         retainOnly: { await speechService.retainOnly(locales: $0) },
+        setVocabulary: { await speechService.setVocabulary($0) },
         prewarm: { try await speechService.prewarm(locale: $0) },
         startRecognition: { locale, updateHandler, failureHandler, levelHandler in
           try await speechService.start(

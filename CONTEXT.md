@@ -190,7 +190,12 @@ _Avoid_: Transcript history, cloud analytics
 - The HUD shows a language tag only while a second **Dictation Language** is configured
 - Speech models use Apple's `lingering` retention policy
 - Talkify prepares the selected speech model shortly after launch
-- Talkify does not bundle or train speech models
+- Talkify biases recognition with a user-authored **Vocabulary**; it does not bundle, train, or modify speech models
+- A **Vocabulary Term** is a word or short phrase the user typed in Settings, at most 100 of them, which is Apple's ceiling for contextual strings
+- The Vocabulary is applied when an analyzer is prepared, never on the keypress; editing it rebuilds the warm analyzers so the next session carries the change
+- Failing to bias never fails a session: it is a hint, and an analyzer that refused it transcribes as an empty Vocabulary does
+- The Vocabulary holds only what the user typed; nothing is derived from what was dictated, so no recognized text is persisted by it
+- One Vocabulary serves both dictation languages, because a name is spelled the same way whichever language surrounds it
 - Onboarding installs the Apple-managed language asset only when it is missing and waits for completion
 - Talkify uses Apple Speech exclusively and has no Whisper fallback
 - Language selectors show only locales supported by Apple Speech

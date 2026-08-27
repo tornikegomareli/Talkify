@@ -217,6 +217,9 @@ final class DirectDictationController {
 
     let bound = [primary, secondaryLocale].compactMap(\.self)
     await dependencies.retainOnly(bound)
+    // Before the prewarm below, so the analyzer it leaves warm already knows
+    // the user's words rather than being rebuilt a moment later.
+    await dependencies.setVocabulary(settings.vocabularyTerms)
     try await dependencies.prewarm(primary)
 
     if let secondaryLocale {

@@ -128,6 +128,18 @@ It works the other way too. Turn on **Translate before speaking** in
 Read Aloud key speaks it in your voice's language. The voice is the target, so
 there is nothing else to set.
 
+## Teach it your words
+
+Apple Speech has never heard your colleague's name, your product's, or your
+codebase's. It guesses, and it guesses the same way every session. Type those
+words into **Settings → Vocabulary** and the recognizer is told to expect them
+before you speak.
+
+This biases recognition rather than editing text afterwards. Nothing is
+rewritten after the fact, so a word on the list can only become more likely,
+never substituted into something you said. Up to 100 words, which is Apple's
+limit, kept on this Mac.
+
 ## Two languages, two triggers
 
 Pick a second language in **Settings → Language** and it gets its own trigger. Hold

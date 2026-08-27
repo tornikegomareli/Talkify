@@ -97,6 +97,8 @@ actor SpeechRecognitionService {
   /// only worth having if it answers as fast as the first, and that means
   /// keeping its analyzer prepared rather than building it on the keypress.
   private var preparedSessions: [Locale: PreparedSession] = [:]
+  /// Words every analyzer built from here on is biased toward.
+  private var vocabulary: [String] = []
   private var activeSession: ActiveSession?
   /// Locales reserved with AssetInventory, oldest first. The system caps how
   /// many an app may hold (`maximumReservedLocales`), so the oldest is
@@ -144,6 +146,19 @@ actor SpeechRecognitionService {
     try await ensureWarm(locale: locale)
   }
 
+  /// The words Apple Speech is told to expect from now on.
+  ///
+  /// Warm sessions carry the list they were built with, so a change drops them
+  /// and the next prewarm rebuilds. Pushing new terms into a live analyzer
+  /// instead would leave a session that is already recording biased two ways.
+  func setVocabulary(_ terms: [String]) async {
+    guard terms != vocabulary else { return }
+    vocabulary = terms
+    for locale in Set(preparedSessions.keys).union(buildTasks.keys) {
+      discard(locale: locale)
+    }
+  }
+
   /// Leaves a warm session for this locale in `preparedSessions`, building
   /// one only if no build is already under way. Exactly one path owns the
   /// cache, so two awaiters of the same build can never end up with the same
@@ -179,6 +194,18 @@ actor SpeechRecognitionService {
   /// cancel one build while a later call installs another under the same
   /// locale; clearing blindly would drop the newer task's entry and let a third
   /// build start, which is exactly the duplicate install this map prevents.
+  /// Points the analyzer at the user's words.
+  ///
+  /// Never throws outward. Biasing is a hint: an analyzer that refused it
+  /// transcribes exactly as it would with an empty list, and failing a session
+  /// over a hint would trade the whole feature for part of one.
+  private func bias(_ analyzer: SpeechAnalyzer, toward terms: [String]) async {
+    guard !terms.isEmpty else { return }
+    var context = await analyzer.context
+    context.contextualStrings[.general] = terms
+    try? await analyzer.setContext(context)
+  }
+
   private func clearBuildTask(_ task: Task<PreparedSession, any Error>, for locale: Locale) {
     if buildTasks[locale] == task {
       buildTasks[locale] = nil
@@ -364,6 +391,7 @@ actor SpeechRecognitionService {
     )
     let analyzer = SpeechAnalyzer(modules: modules, options: options)
     try await analyzer.prepareToAnalyze(in: audioFormat)
+    await bias(analyzer, toward: vocabulary)
 
     return PreparedSession(
       locale: locale,

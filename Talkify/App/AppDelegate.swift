@@ -199,6 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       // pair the trigger will use. Without it a changed target reinstalled a
       // trigger that had nothing to translate into.
       _ = settings.translationTargetIdentifier
+      // The words go on when an analyzer is warmed, so editing them re-runs
+      // the same reload a language change does.
+      _ = settings.vocabularyTerms
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.dictationController?.applyLanguages()
