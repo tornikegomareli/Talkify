@@ -84,6 +84,10 @@ actor SpeechRecognitionService {
     let transcriber: SpeechTranscriber
     let analyzer: SpeechAnalyzer
     let audioFormat: AVAudioFormat
+    /// The words this analyzer was biased toward when it was built. Kept so a
+    /// warm session can be recognized as out of date rather than trusted: an
+    /// analyzer built before a word was added would go on missing it.
+    let vocabulary: [String]
   }
 
   private struct ActiveSession {
@@ -154,6 +158,8 @@ actor SpeechRecognitionService {
   func setVocabulary(_ terms: [String]) async {
     guard terms != vocabulary else { return }
     vocabulary = terms
+    // Builds in flight would finish carrying the old list. Warm sessions are
+    // dropped here too, though `ensureWarm` would notice them anyway.
     for locale in Set(preparedSessions.keys).union(buildTasks.keys) {
       discard(locale: locale)
     }
@@ -164,6 +170,13 @@ actor SpeechRecognitionService {
   /// cache, so two awaiters of the same build can never end up with the same
   /// analyzer, one using it while the other caches it as idle.
   private func ensureWarm(locale: Locale) async throws {
+    // A warm session built before the word list changed is stale. Checked here
+    // rather than relying on something outside to invalidate it: a stale
+    // analyzer would go on missing a word the user has already added, and the
+    // reason would be invisible.
+    if let warm = preparedSessions[locale], warm.vocabulary != vocabulary {
+      discard(locale: locale)
+    }
     if preparedSessions[locale] != nil { return }
 
     let task: Task<PreparedSession, any Error>
@@ -397,7 +410,8 @@ actor SpeechRecognitionService {
       locale: locale,
       transcriber: transcriber,
       analyzer: analyzer,
-      audioFormat: audioFormat
+      audioFormat: audioFormat,
+      vocabulary: vocabulary
     )
   }
 
