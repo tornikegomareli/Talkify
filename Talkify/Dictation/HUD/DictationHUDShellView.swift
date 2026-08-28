@@ -120,10 +120,11 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
-          // The cycling pick gets the language tag's treatment for the same
-          // reason the tag exists: the arrows change something invisible, and
-          // the wrong prompt is only obvious after the text lands.
-          .overlay(alignment: .topTrailing) { shapingChoiceTag }
+          // The cycling pick covers the visualization on purpose: the arrows
+          // change something invisible, the wrong prompt is only obvious
+          // after the text lands, and a caption too small to read from a
+          // glance at the notch defeats the reason it is there.
+          .overlay { shapingChoicePlate }
           .animation(
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
@@ -216,21 +217,36 @@ struct DictationHUDShellView: View {
     }
   }
 
+  /// The cycling pick, at reading size: big chevrons for the keys that move
+  /// it, the prompt name brightest, the whole plate centered in the space
+  /// below the housing on a scrim so it reads over any visual.
   @ViewBuilder
-  private var shapingChoiceTag: some View {
-    if let label = content.shapingChoiceLabel {
-      Text(label)
-        .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))
-        .tracking(0.5)
-        .foregroundStyle(.white.opacity(0.72))
-        .lineLimit(1)
-        .padding(.horizontal, 4 * metrics.scale)
-        .padding(.vertical, 1.5 * metrics.scale)
-        .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
-        .padding(.trailing, 12 * metrics.scale)
-        // Clears the housing, exactly as the language tag does.
-        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
-        .allowsHitTesting(false)
+  private var shapingChoicePlate: some View {
+    if let name = content.shapingChoiceLabel {
+      HStack(spacing: 12 * metrics.scale) {
+        Image(systemName: "chevron.compact.left")
+          .font(.system(size: 24 * metrics.scale, weight: .bold))
+          .foregroundStyle(.white.opacity(0.75))
+        (Text("Shape with: ").foregroundStyle(.white.opacity(0.6))
+          + Text(name).foregroundStyle(.white))
+          .font(.system(size: 17 * metrics.scale, weight: .semibold))
+          .lineLimit(1)
+          // A long prompt name shrinks to fit rather than truncating: a pick
+          // whose name is cut off is a pick the arrows chose blind.
+          .minimumScaleFactor(0.5)
+        Image(systemName: "chevron.compact.right")
+          .font(.system(size: 24 * metrics.scale, weight: .bold))
+          .foregroundStyle(.white.opacity(0.75))
+      }
+      .padding(.horizontal, 14 * metrics.scale)
+      .padding(.vertical, 5 * metrics.scale)
+      .background(Capsule(style: .continuous).fill(.black.opacity(0.5)))
+      .padding(.horizontal, 10 * metrics.scale)
+      // Grows the layout box by the housing's height at the top, so the
+      // centered overlay lands in the middle of the space below it and the
+      // plate never sits beside the camera.
+      .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
+      .allowsHitTesting(false)
     }
   }
 

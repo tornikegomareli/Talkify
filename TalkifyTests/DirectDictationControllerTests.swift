@@ -1317,7 +1317,7 @@ struct DirectDictationControllerTests {
     controller.toggleFromMenu()
     await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
-    #expect(recorder.shapingChoiceLabels.last == "‹ Shape with: None ›")
+    #expect(recorder.shapingChoiceLabels.last == "None")
     #expect(recorder.insertedTexts == ["raw words"])
     #expect(shapeCalls.withLock { $0 } == 0)
     // None hides immediately, exactly as a shaping-off session does.
@@ -1358,12 +1358,12 @@ struct DirectDictationControllerTests {
     await waitUntil("Session never reached recording") {
       controller.sessionStateForTesting == .recording(.latched)
     }
-    #expect(recorder.shapingChoiceLabels.first == "‹ Shape with: Tighten grammar ›")
+    #expect(recorder.shapingChoiceLabels.first == "Tighten grammar")
     controller.handle(.shapingCycleRight)
     controller.toggleFromMenu()
     await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
-    #expect(recorder.shapingChoiceLabels.last == "‹ Shape with: Bullet my lists ›")
+    #expect(recorder.shapingChoiceLabels.last == "Bullet my lists")
     #expect(shapedPromptIDs.withLock { $0 } == ["bullet-lists"])
     #expect(recorder.insertedTexts == ["shaped raw words"])
     controller.stop()

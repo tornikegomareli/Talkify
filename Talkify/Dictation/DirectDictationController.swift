@@ -490,11 +490,12 @@ final class DirectDictationController {
     dependencies.showShapingChoice(shapingChoiceLabel)
   }
 
-  /// The HUD caption naming the session's current pick, or nil when this
-  /// session cannot cycle at all.
+  /// The session's current pick by name, or nil when this session cannot
+  /// cycle at all. The bare name on purpose: the shell owns the arrows and
+  /// the "Shape with" framing, because their size is a layout decision.
   private var shapingChoiceLabel: String? {
     guard currentSessionSettings?.shapingLibrary.isEmpty == false else { return nil }
-    return "‹ Shape with: \(sessionShapingChoice?.name ?? "None") ›"
+    return sessionShapingChoice?.name ?? "None"
   }
 
   private func perform(_ effects: [DictationSessionMachine.Effect]) {
