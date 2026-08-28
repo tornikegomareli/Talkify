@@ -405,7 +405,63 @@ struct AppSettingsTests {
   @Test func promptShapingDefaultsToOffWithTheFirstPrompt() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(!settings.promptShapingEnabled)
-    #expect(settings.promptShapingPromptID == ShapingPrompt.library[0].id)
+    #expect(settings.promptShapingPromptID == ShapingPrompt.defaults[0].id)
+  }
+
+  @Test func freshStoreSeedsTheBuiltInShapingPrompts() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.shapingPrompts == ShapingPrompt.defaults)
+  }
+
+  @Test func editedShapingPromptsPersistAndReadBack() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.shapingPrompts[0].name = "My grammar fixer"
+    settings.shapingPrompts.append(ShapingPrompt(
+      id: "mine",
+      name: "Mine",
+      preInstruction: "Shout it.",
+      postInstruction: "Politely.",
+      exampleInput: "",
+      exampleOutput: ""
+    ))
+    settings.shapingPrompts.removeAll { $0.id == "bullet-lists" }
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.shapingPrompts == settings.shapingPrompts)
+    #expect(reloaded.shapingPrompts[0].name == "My grammar fixer")
+    #expect(reloaded.shapingPrompts.prompt(for: "mine")?.postInstruction == "Politely.")
+    #expect(reloaded.shapingPrompts.prompt(for: "bullet-lists") == nil)
+  }
+
+  @Test func undecodableStoredShapingPromptsReseedFromTheDefaults() {
+    let defaults = freshDefaults()
+    defaults.set(Data("not json".utf8), forKey: "dictationShapingPrompts")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.shapingPrompts == ShapingPrompt.defaults)
+  }
+
+  @Test func restoringDefaultsReseedsTheShapingPrompts() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.promptShapingPromptID = "mine"
+    settings.shapingPrompts = [ShapingPrompt(
+      id: "mine",
+      name: "Mine",
+      preInstruction: "",
+      postInstruction: "",
+      exampleInput: "",
+      exampleOutput: ""
+    )]
+
+    settings.restoreDefaultShapingPrompts()
+
+    #expect(settings.shapingPrompts == ShapingPrompt.defaults)
+    #expect(AppSettings(defaults: defaults).shapingPrompts == ShapingPrompt.defaults)
+    // The selection is left alone: an id the seeds do not carry resolves to
+    // nil, which is passthrough.
+    #expect(settings.promptShapingPromptID == "mine")
   }
 
   @Test func promptShapingRoundTripsUnderItsKeys() {
@@ -423,7 +479,7 @@ struct AppSettingsTests {
   }
 
   /// The snapshot resolves the pick to a prompt: nil while shaping is off,
-  /// and nil again when the stored id names nothing in the library.
+  /// and nil again when the stored id names nothing in the user's list.
   @Test func sessionSnapshotResolvesTheShapingPrompt() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.sessionSettings.shapingPrompt == nil)
@@ -433,6 +489,25 @@ struct AppSettingsTests {
     #expect(settings.sessionSettings.shapingPrompt?.id == "bullet-lists")
 
     settings.promptShapingPromptID = "no-such-prompt"
+    #expect(settings.sessionSettings.shapingPrompt == nil)
+  }
+
+  /// The session runs the user's edit, not the seed the id started as.
+  @Test func sessionSnapshotResolvesTheShapingPromptFromTheEditedList() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    settings.shapingPrompts[0].preInstruction = "Fix everything."
+
+    #expect(settings.sessionSettings.shapingPrompt?.preInstruction == "Fix everything.")
+  }
+
+  @Test func deletingTheSelectedPromptFallsBackToPassthrough() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    settings.shapingPrompts.removeAll { $0.id == "tighten-grammar" }
+
     #expect(settings.sessionSettings.shapingPrompt == nil)
   }
 

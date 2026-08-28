@@ -41,6 +41,7 @@ final class AppSettings {
     static let historyFolder = "dictationHistoryFolder"
     static let promptShapingEnabled = "dictationPromptShapingEnabled"
     static let promptShapingPrompt = "dictationPromptShapingPrompt"
+    static let shapingPrompts = "dictationShapingPrompts"
   }
 
   @ObservationIgnored
@@ -116,6 +117,24 @@ final class AppSettings {
   /// The selected shaping prompt's id, kept even while shaping is off.
   var promptShapingPromptID: String {
     didSet { defaults.set(promptShapingPromptID, forKey: Keys.promptShapingPrompt) }
+  }
+
+  /// The user-editable shaping prompt library, stored whole as JSON. A
+  /// missing or unreadable value reseeds from the built-in defaults rather
+  /// than presenting an empty library.
+  var shapingPrompts: [ShapingPrompt] {
+    didSet {
+      if let data = try? JSONEncoder().encode(shapingPrompts) {
+        defaults.set(data, forKey: Keys.shapingPrompts)
+      }
+    }
+  }
+
+  /// Puts the seed prompts back. The selection is left alone on purpose: a
+  /// selected id the seeds do not carry resolves to nil, which already
+  /// inserts the raw words unchanged.
+  func restoreDefaultShapingPrompts() {
+    shapingPrompts = ShapingPrompt.defaults
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -289,7 +308,8 @@ final class AppSettings {
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
     promptShapingEnabled = defaults.object(forKey: Keys.promptShapingEnabled) as? Bool ?? false
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
-      ?? ShapingPrompt.library[0].id
+      ?? ShapingPrompt.defaults[0].id
+    shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -349,6 +369,13 @@ final class AppSettings {
        allowsMouseButton || !binding.isMouseButton
     else { return nil }
     return binding
+  }
+
+  private static func storedShapingPrompts(in defaults: UserDefaults) -> [ShapingPrompt]? {
+    guard let data = defaults.data(forKey: Keys.shapingPrompts),
+       let prompts = try? JSONDecoder().decode([ShapingPrompt].self, from: data)
+    else { return nil }
+    return prompts
   }
 
   private static func store(_ binding: KeyBinding, in defaults: UserDefaults, key: String) {
@@ -428,7 +455,7 @@ struct DictationSessionSettings: Equatable {
   /// on has to restore the volume even if the toggle flips mid-session.
   let ducksOtherAudio: Bool
   /// The shaping prompt this session applies, or nil while shaping is off
-  /// or the stored id names nothing in the library.
+  /// or the stored id names nothing in the user's prompt list.
   let shapingPrompt: ShapingPrompt?
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
@@ -459,7 +486,7 @@ struct DictationSessionSettings: Equatable {
     historyFolder = settings.resolvedHistoryFolder
     ducksOtherAudio = settings.duckOtherAudioWhileDictating
     shapingPrompt = settings.promptShapingEnabled
-      ? ShapingPrompt.prompt(for: settings.promptShapingPromptID)
+      ? settings.shapingPrompts.prompt(for: settings.promptShapingPromptID)
       : nil
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle

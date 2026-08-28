@@ -9,6 +9,7 @@ struct DictationSettingsView: View {
 
   private let historyStore = DictationHistoryStore()
   @State private var isConfirmingClear = false
+  @State private var isManagingPrompts = false
   @Environment(\.colorSchemeContrast) private var contrast
 
   private var shapingUnavailability: String? {
@@ -85,12 +86,24 @@ struct DictationSettingsView: View {
 
         SettingsPickerRow(
           title: "Prompt",
-          options: ShapingPrompt.library.map(\.id),
-          optionLabel: { id in ShapingPrompt.prompt(for: id)?.name ?? id },
+          options: settings.shapingPrompts.map(\.id),
+          optionLabel: { id in settings.shapingPrompts.prompt(for: id)?.name ?? id },
           selection: $settings.promptShapingPromptID
         )
         .disabled(!settings.promptShapingEnabled)
+
+        SettingsRow(
+          title: "Manage prompts",
+          description: "Edit the prompt library: rewrite the instructions, "
+            + "add your own prompts, or restore the built-in set."
+        ) {
+          Button("Manage Prompts…") { isManagingPrompts = true }
+            .buttonStyle(SettingsButtonStyle())
+        }
       }
+    }
+    .sheet(isPresented: $isManagingPrompts) {
+      ShapingPromptEditorView(settings: settings)
     }
     .confirmationDialog(
       "Clear transcription history?",

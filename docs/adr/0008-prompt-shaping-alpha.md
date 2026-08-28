@@ -20,6 +20,16 @@ The library is fixed rather than free-form. An alpha exists to test the
 feel of shaped insertion at all; user-authored prompts are a later
 decision, taken only if the feel test earns it.
 
+That later decision has since been taken on the fork: the fixed library
+gave way to user-tunable prompts, seeded with the original three and
+editable in Settings — name, pre-instruction, post-instruction, and the
+one-shot example. The invariant framing stays out of the user's hands on
+purpose: it is the fix for the answered-question failure below, and an
+editable framing could delete the never-answer rule and bring that bug
+back. A prompt's own wording lives in the user turn, where editing it
+cannot weaken the framing, and a selected prompt that no longer exists
+resolves to passthrough.
+
 The transcript is framed as data, never as the conversational prompt. An
 instruction-tuned model handed a bare transcript as its user turn answers
 a question-shaped one — "what time does the meeting start tomorrow" comes

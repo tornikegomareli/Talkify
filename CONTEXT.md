@@ -187,6 +187,9 @@ _Avoid_: Transcript history, cloud analytics
 - Prompt shaping is that later cleanup feature, shipped as an explicit alpha and off by default, so the default session still inserts raw finalized text
 - While prompt shaping is on, the selected shaping prompt rewrites finished text through the on-device Apple Intelligence model between recognition and insertion, and nothing leaves the Mac
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
+- The shaping prompt library is user-editable in Settings, seeded with three default prompts
+- The transcript-as-data framing around every shaping prompt is fixed and never editable
+- A deleted or unknown selected shaping prompt inserts the raw words unchanged
 - Transcription history keeps the words as spoken, before shaping
 - The shaping choice is captured in the Dictation session settings snapshot
 - A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger, never automatic detection
