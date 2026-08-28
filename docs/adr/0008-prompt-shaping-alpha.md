@@ -46,10 +46,22 @@ that will shape keeps the HUD up through the rewrite, naming the prompt
 over a determinate bar — the model reports no real progress, so the bar
 honestly fills toward the timeout and the HUD leaves early when the
 answer lands. While such a session records, the bare Left and Right
-arrow keys cycle a session-scoped pick through the library and None,
-shown as a caption in the HUD; the arrows are swallowed only then, a
-modified arrow always passes through, and the cycled pick never writes
-the persisted selection.
+arrow keys cycle a session-scoped pick through the library and None;
+the arrows are swallowed only then, a modified arrow always passes
+through, and the cycled pick never writes the persisted selection.
+
+Both the cycling pick and the shaping-phase caption live in the shaping
+band, a band the shape grows downward to include below the visuals and
+the draft, the way it grows for a long draft. A detached pill under the
+island stays rejected by feel (CONTEXT.md: a second detached surface
+does not fit the single-shape design), and a centered overlay plate was
+tried and withdrawn: composited over the Metal-backed visuals it
+degraded them — Edge Glow's motes lost their antialiasing under it —
+and it sat on the waveform and on Compact's live draft. The band is
+present from the reveal for any session that carries it and holds
+through the retract, so the shape never resizes mid-session, and the
+fixed host window is sized for the band (HUDNotchGeometry, pinned in
+its tests).
 
 Ordering is deliberate: transcription history writes before shaping runs,
 so history is always the words as spoken, never the model's rewrite.

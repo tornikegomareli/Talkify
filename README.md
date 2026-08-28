@@ -139,10 +139,11 @@ write your own: your wording sits before and after the transcript, and the
 framing that keeps the model rewriting your words instead of answering them is
 fixed and not editable.
 
-While you dictate, the island names the prompt the session will shape with, and
-the bare arrow keys cycle through your prompts — or **None**, to insert the
-words exactly as spoken. After you release, the island stays up with a progress
-bar while the rewrite runs. Shaping is an alpha and fails safe: any error, or
+While you dictate, a band below the voice visual and the live draft names the
+prompt the session will shape with, and the bare arrow keys cycle through your
+prompts — or **None**, to insert the words exactly as spoken. After you
+release, the island stays up and the same band shows a progress bar while the
+rewrite runs. Shaping is an alpha and fails safe: any error, or
 an answer slower than ten seconds, inserts your raw words unchanged, history
 keeps what you actually said, and nothing leaves your Mac.
 

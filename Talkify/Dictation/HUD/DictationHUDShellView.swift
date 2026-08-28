@@ -48,8 +48,17 @@ struct DictationHUDShellView: View {
       for: screen,
       metrics: metrics,
       visualBandHeight: visualBandHeight,
-      includesTextBand: showsTextBand
+      includesTextBand: showsTextBand,
+      shapingBandHeight: showsShapingBand ? metrics.shapingBandHeight : 0
     )
+  }
+
+  /// Whether the shape carries its shaping band. Derived from the content
+  /// rather than latched: the cycling label is set before the reveal and
+  /// neither field is cleared until the next session claims the shape, so the
+  /// band never appears mid-flight and never leaves under a retracting shape.
+  private var showsShapingBand: Bool {
+    content.shapingName != nil || content.shapingChoiceLabel != nil
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band;
@@ -120,11 +129,6 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
-          // The cycling pick covers the visualization on purpose: the arrows
-          // change something invisible, the wrong prompt is only obvious
-          // after the text lands, and a caption too small to read from a
-          // glance at the notch defeats the reason it is there.
-          .overlay { shapingChoicePlate }
           .animation(
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
@@ -162,6 +166,9 @@ struct DictationHUDShellView: View {
       if showsTextBand {
         textBand
       }
+      if showsShapingBand {
+        shapingBand
+      }
     }
   }
 
@@ -171,9 +178,7 @@ struct DictationHUDShellView: View {
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if let shapingName = content.shapingName {
-        shapingBand(name: shapingName)
-      } else if showsCompactBand {
+      if showsCompactBand {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
@@ -203,51 +208,50 @@ struct DictationHUDShellView: View {
     return 46 + CGFloat(max(0, tag.count - 2)) * 6
   }
 
-  /// The shaping phase in the text band area: what the finished words are
-  /// being shaped with, over a bar that says how far toward the timeout the
+  /// The shaping band: a band of the shape itself, grown downward below the
+  /// visuals and the draft the way the shape grows for a long draft — a
+  /// detached pill under the island is rejected by feel (CONTEXT.md), and the
+  /// centered plate this replaces sat over the visuals and Compact's live
+  /// draft. While recording it names the pick the arrows would land, at
+  /// reading size: the arrows change something invisible, and a caption too
+  /// small to read from a glance at the notch defeats the reason it is
+  /// there. Through the shaping phase it names the prompt the finished words
+  /// are shaped with, over a bar that says how far toward the timeout the
   /// wait has run.
-  private func shapingBand(name: String) -> some View {
-    VStack(spacing: 6 * metrics.scale) {
-      Text("Shaping with \(name)")
-        .font(.system(size: 12 * metrics.scale, weight: .medium))
-        .foregroundStyle(.white.opacity(0.85))
-        .lineLimit(1)
-      HUDShapingProgressBar(scale: metrics.scale, reduceMotion: reduceMotion)
-        .frame(maxWidth: 150 * metrics.scale)
-    }
-  }
-
-  /// The cycling pick, at reading size: big chevrons for the keys that move
-  /// it, the prompt name brightest, the whole plate centered in the space
-  /// below the housing on a scrim so it reads over any visual.
   @ViewBuilder
-  private var shapingChoicePlate: some View {
-    if let name = content.shapingChoiceLabel {
-      HStack(spacing: 12 * metrics.scale) {
-        Image(systemName: "chevron.compact.left")
-          .font(.system(size: 24 * metrics.scale, weight: .bold))
-          .foregroundStyle(.white.opacity(0.75))
-        (Text("Shape with: ").foregroundStyle(.white.opacity(0.6))
-          + Text(name).foregroundStyle(.white))
-          .font(.system(size: 17 * metrics.scale, weight: .semibold))
-          .lineLimit(1)
-          // A long prompt name shrinks to fit rather than truncating: a pick
-          // whose name is cut off is a pick the arrows chose blind.
-          .minimumScaleFactor(0.5)
-        Image(systemName: "chevron.compact.right")
-          .font(.system(size: 24 * metrics.scale, weight: .bold))
-          .foregroundStyle(.white.opacity(0.75))
+  private var shapingBand: some View {
+    Group {
+      if let name = content.shapingName {
+        VStack(spacing: 6 * metrics.scale) {
+          Text("Shaping with \(name)")
+            .font(.system(size: 12 * metrics.scale, weight: .medium))
+            .foregroundStyle(.white.opacity(0.85))
+            .lineLimit(1)
+          HUDShapingProgressBar(scale: metrics.scale, reduceMotion: reduceMotion)
+            .frame(maxWidth: 150 * metrics.scale)
+        }
+      } else if let name = content.shapingChoiceLabel {
+        HStack(spacing: 12 * metrics.scale) {
+          Image(systemName: "chevron.compact.left")
+            .font(.system(size: 24 * metrics.scale, weight: .bold))
+            .foregroundStyle(.white.opacity(0.75))
+          (Text("Shape with: ").foregroundStyle(.white.opacity(0.6))
+            + Text(name).foregroundStyle(.white))
+            .font(.system(size: 17 * metrics.scale, weight: .semibold))
+            .lineLimit(1)
+            // A long prompt name shrinks to fit rather than truncating: a pick
+            // whose name is cut off is a pick the arrows chose blind.
+            .minimumScaleFactor(0.5)
+          Image(systemName: "chevron.compact.right")
+            .font(.system(size: 24 * metrics.scale, weight: .bold))
+            .foregroundStyle(.white.opacity(0.75))
+        }
+        .padding(.horizontal, 24 * metrics.scale)
       }
-      .padding(.horizontal, 14 * metrics.scale)
-      .padding(.vertical, 5 * metrics.scale)
-      .background(Capsule(style: .continuous).fill(.black.opacity(0.5)))
-      .padding(.horizontal, 10 * metrics.scale)
-      // Grows the layout box by the housing's height at the top, so the
-      // centered overlay lands in the middle of the space below it and the
-      // plate never sits beside the camera.
-      .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
-      .allowsHitTesting(false)
     }
+    .frame(maxWidth: .infinity)
+    .frame(height: metrics.shapingBandHeight)
+    .allowsHitTesting(false)
   }
 
   @ViewBuilder
@@ -421,5 +425,13 @@ private struct HUDShapingProgressBar: View {
 
 #Preview("Message · simulated notch") {
   HUDShellPreviewHarness(screen: HUDPreviewScreen.external, text: "Secure field")
+}
+
+#Preview("Shaping band · glow") {
+  HUDShellPreviewHarness(visual: .glow, shapingChoice: "Remove filler words")
+}
+
+#Preview("Shaping band · compact") {
+  HUDShellPreviewHarness(visual: .compact, shapingChoice: "Remove filler words")
 }
 
