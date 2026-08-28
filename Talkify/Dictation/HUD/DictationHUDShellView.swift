@@ -120,6 +120,10 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
+          // The cycling pick gets the language tag's treatment for the same
+          // reason the tag exists: the arrows change something invisible, and
+          // the wrong prompt is only obvious after the text lands.
+          .overlay(alignment: .topTrailing) { shapingChoiceTag }
           .animation(
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
@@ -166,7 +170,9 @@ struct DictationHUDShellView: View {
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if showsCompactBand {
+      if let shapingName = content.shapingName {
+        shapingBand(name: shapingName)
+      } else if showsCompactBand {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
@@ -194,6 +200,38 @@ struct DictationHUDShellView: View {
   private var tagInset: CGFloat {
     guard let tag = content.languageTag else { return 24 }
     return 46 + CGFloat(max(0, tag.count - 2)) * 6
+  }
+
+  /// The shaping phase in the text band area: what the finished words are
+  /// being shaped with, over a bar that says how far toward the timeout the
+  /// wait has run.
+  private func shapingBand(name: String) -> some View {
+    VStack(spacing: 6 * metrics.scale) {
+      Text("Shaping with \(name)")
+        .font(.system(size: 12 * metrics.scale, weight: .medium))
+        .foregroundStyle(.white.opacity(0.85))
+        .lineLimit(1)
+      HUDShapingProgressBar(scale: metrics.scale, reduceMotion: reduceMotion)
+        .frame(maxWidth: 150 * metrics.scale)
+    }
+  }
+
+  @ViewBuilder
+  private var shapingChoiceTag: some View {
+    if let label = content.shapingChoiceLabel {
+      Text(label)
+        .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))
+        .tracking(0.5)
+        .foregroundStyle(.white.opacity(0.72))
+        .lineLimit(1)
+        .padding(.horizontal, 4 * metrics.scale)
+        .padding(.vertical, 1.5 * metrics.scale)
+        .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
+        .padding(.trailing, 12 * metrics.scale)
+        // Clears the housing, exactly as the language tag does.
+        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
+        .allowsHitTesting(false)
+    }
   }
 
   @ViewBuilder
@@ -306,6 +344,45 @@ struct DictationHUDShellView: View {
 
   /// Sits alongside the body rather than inside it. Absent on a display with
   /// no notch: the flare exists to meet a housing (ADR-0001).
+}
+
+/// The determinate bar under the shaping caption. FoundationModels' respond
+/// offers no real progress signal, so the honest presentation is time toward
+/// the shaping timeout: the fill runs linearly over
+/// `PromptShapingService.defaultTimeout`, and an answer that lands early
+/// completes it early by dismissing the whole HUD. Driven by one SwiftUI
+/// animation on appearance — no timer ticks through the content model.
+private struct HUDShapingProgressBar: View {
+  let scale: CGFloat
+  let reduceMotion: Bool
+  @State private var isFilling = false
+
+  private static let fillSeconds: Double = {
+    let parts = PromptShapingService.defaultTimeout.components
+    return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+  }()
+
+  var body: some View {
+    Capsule(style: .continuous)
+      .fill(.white.opacity(0.18))
+      .frame(height: 3 * scale)
+      .overlay {
+        Capsule(style: .continuous)
+          .fill(.white.opacity(0.85))
+          // Reduce Motion holds the bar still instead of animating the fill.
+          .scaleEffect(
+            x: reduceMotion || isFilling ? 1 : 0.001,
+            anchor: .leading
+          )
+      }
+      .clipShape(Capsule(style: .continuous))
+      .onAppear {
+        guard !reduceMotion else { return }
+        withAnimation(.linear(duration: Self.fillSeconds)) {
+          isFilling = true
+        }
+      }
+  }
 }
 
 // Live previews in-file so edits to the shell re-render in place; the

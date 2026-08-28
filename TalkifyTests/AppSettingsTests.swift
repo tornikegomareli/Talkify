@@ -502,6 +502,20 @@ struct AppSettingsTests {
     #expect(settings.sessionSettings.shapingPrompt?.preInstruction == "Fix everything.")
   }
 
+  /// The snapshot carries the whole library while shaping is on — the
+  /// arrows cycle the session's own list — and an empty one while it is
+  /// off, so an off session has nothing to cycle.
+  @Test func sessionSnapshotCapturesTheShapingLibraryOnlyWhileOn() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.sessionSettings.shapingLibrary.isEmpty)
+
+    settings.promptShapingEnabled = true
+    #expect(settings.sessionSettings.shapingLibrary == settings.shapingPrompts)
+
+    settings.promptShapingEnabled = false
+    #expect(settings.sessionSettings.shapingLibrary.isEmpty)
+  }
+
   @Test func deletingTheSelectedPromptFallsBackToPassthrough() {
     let settings = AppSettings(defaults: freshDefaults())
     settings.promptShapingEnabled = true

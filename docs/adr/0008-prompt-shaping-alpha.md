@@ -41,6 +41,16 @@ example whose input is question-shaped and whose output rewrites it
 unanswered, because the example carries that rule better than any
 sentence stating it.
 
+The fork later made the phase visible and the pick cyclable. A session
+that will shape keeps the HUD up through the rewrite, naming the prompt
+over a determinate bar — the model reports no real progress, so the bar
+honestly fills toward the timeout and the HUD leaves early when the
+answer lands. While such a session records, the bare Left and Right
+arrow keys cycle a session-scoped pick through the library and None,
+shown as a caption in the HUD; the arrows are swallowed only then, a
+modified arrow always passes through, and the cycled pick never writes
+the persisted selection.
+
 Ordering is deliberate: transcription history writes before shaping runs,
 so history is always the words as spoken, never the model's rewrite.
 

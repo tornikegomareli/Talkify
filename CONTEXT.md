@@ -191,7 +191,10 @@ _Avoid_: Transcript history, cloud analytics
 - The transcript-as-data framing around every shaping prompt is fixed and never editable
 - A deleted or unknown selected shaping prompt inserts the raw words unchanged
 - Transcription history keeps the words as spoken, before shaping
-- The shaping choice is captured in the Dictation session settings snapshot
+- The shaping choice is captured in the Dictation session settings snapshot, along with the whole prompt library while shaping is on
+- A session that will shape keeps the HUD up through the shaping phase, saying which prompt it shapes with over a bar that fills toward the shaping timeout — the model reports no real progress, so time toward the timeout is the honest measure — and the HUD leaves early when the answer lands
+- While a shaping-enabled session with a nonempty prompt library is recording, the bare Left and Right arrow keys cycle the session's shaping pick through the library and None, wrapping at the ends; they are swallowed only then, and a modified arrow always passes through
+- The cycled shaping pick is session-scoped: it decides what the ending session shapes with and never changes the persisted selection
 - A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger, never automatic detection
 - Talkify never detects the spoken language: Apple Speech transcribes one language per session, and a wrong guess returns confident nonsense instead of an error
 - Every bound **Dictation Language** stays prewarmed and reserved, so either trigger answers as fast as the other
@@ -258,7 +261,7 @@ _Avoid_: Transcript history, cloud analytics
 - The bound key of a chord is the one that cannot be a required modifier: fn pressed before or after ⌥ still binds fn, because only command, option, control and shift can be required
 - A **Dictation Trigger** fires on exactly the modifiers it was recorded with and no others: fn alone no longer starts a session once the trigger is fn + ⌥, which is the point of binding a combination on a keyboard where every single key is already spoken for
 - A held **Dictation Trigger** ends the moment its combination breaks, whichever key was released first, and starts the moment it completes, whichever key completed it
-- Only the trigger's own key or button is swallowed, and only while its exact binding is pressed: a modifier that merely completes or breaks the combination passes through, and binding ⌥ + Middle Click leaves plain middle click doing what it always did
+- Only the trigger's own key or button is swallowed, and only while its exact binding is pressed: a modifier that merely completes or breaks the combination passes through, and binding ⌥ + Middle Click leaves plain middle click doing what it always did — the one exception is the bare arrow keys, swallowed only while a recording session is cycling its shaping pick
 - The Shortcuts section draws the user's own keyboard above the recorders, with each binding's keys lit in its own color, because which keys are still free is a question about a physical object that a list of labels cannot answer
 - The drawn keyboard takes its shape from the attached keyboard and its legends from the selected input source, so it matches the board in front of the user rather than a US one: an ISO board puts § left of 1, moves the backtick beside left ⇧ and runs Return down two rows, and an AZERTY or Georgian source relabels the same keys
 - The drawn keyboard relabels itself when the input source changes while Settings is open, and carries no title or caption: the drawing says what it is and the lit keys are the label

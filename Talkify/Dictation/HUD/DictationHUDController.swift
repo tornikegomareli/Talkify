@@ -20,6 +20,9 @@ final class DictationHUDController {
   private var lastLevelAt = ContinuousClock.now
   private var micWatchdogTask: Task<Void, Never>?
   private var hasPlayedBeginSound = false
+  /// Mirrors hasPlayedBeginSound: a shaping phase plays End when speech
+  /// ends, and the hide() that follows it must not replay the sound.
+  private var hasPlayedEndSound = false
 
   private var content: DictationHUDContent { stage.dictationContent }
   private var isListening: Bool { stage.occupant == .dictation }
@@ -68,7 +71,10 @@ final class DictationHUDController {
     guard let screen = stage.screen(preferring: displayID) else { return }
     sessionSettings = settings
     hasPlayedBeginSound = false
+    hasPlayedEndSound = false
     content.languageTag = languageTag
+    content.shapingName = nil
+    content.shapingChoiceLabel = nil
     sessionIsLatched = isLatched
     // Dictation outranks a file job for the shape: the user is speaking now,
     // and the transcription keeps running with the status item carrying it.
@@ -123,9 +129,35 @@ final class DictationHUDController {
     content.audioLevel = 0
   }
 
+  /// The shaping phase: recognition is finished and the chosen prompt is
+  /// rewriting the words, so the shape stays up saying so instead of
+  /// dismissing into silence. Speech has ended, so End plays here; the
+  /// hide() that follows the rewrite must not replay it.
+  func showShaping(with promptName: String) {
+    guard isListening else { return }
+    stopVoiceVisual()
+    if !hasPlayedEndSound {
+      hasPlayedEndSound = true
+      stage.sounds.playEnd(using: sessionSettings.sounds)
+    }
+    // The arrows are dead once the session finishes, so the cycling caption
+    // leaves with them.
+    content.shapingChoiceLabel = nil
+    content.shapingName = promptName
+  }
+
+  /// The recording-time caption naming the session's shaping pick; nil
+  /// clears it. Cycling arrives mid-session, so this only speaks while the
+  /// dictation session holds the shape.
+  func showShapingChoice(_ label: String?) {
+    guard isListening else { return }
+    content.shapingChoiceLabel = label
+  }
+
   func hide() {
     stage.cancelMessageDismiss()
-    if isListening {
+    if isListening, !hasPlayedEndSound {
+      hasPlayedEndSound = true
       stage.sounds.playEnd(using: sessionSettings.sounds)
     }
     // The shape retracts exactly as it stands. The visual stops reacting so a

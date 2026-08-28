@@ -32,6 +32,11 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
     /// Option+Escape — the Read Aloud toggle, matching the shortcut
     /// macOS Spoken Content uses for "speak selection".
     case readAloudPressed
+    /// A bare Left arrow while shaping-cycle capture is on: the previous
+    /// shaping pick for the session in flight.
+    case shapingCycleLeft
+    /// A bare Right arrow under the same capture: the next shaping pick.
+    case shapingCycleRight
   }
 
   private let handler: @Sendable (Event) -> Void
@@ -48,6 +53,9 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
   /// leaves the app under the pointer believing the button is still down.
   private var capturedMouseButtons: Set<Int64> = []
   private var captureEscape = false
+  /// True only while a recording session can cycle its shaping pick; the
+  /// bare arrows pass through untouched the rest of the time.
+  private var captureShapingCycle = false
   /// True while a Settings key recorder is armed: every event passes
   /// through untouched so the rebind keystroke cannot start a session.
   private var suspended = false
@@ -132,12 +140,19 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       heldSlot = nil
       capturedMouseButtons.removeAll()
       captureEscape = false
+      captureShapingCycle = false
     }
   }
 
   func setEscapeCaptureEnabled(_ enabled: Bool) {
     stateLock.withLock {
       captureEscape = enabled
+    }
+  }
+
+  func setShapingCycleCaptureEnabled(_ enabled: Bool) {
+    stateLock.withLock {
+      captureShapingCycle = enabled
     }
   }
 
@@ -329,10 +344,11 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
 
     if type == .keyDown {
       let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-      let (readAloud, shouldCapture, plainTrigger) = stateLock.withLock {
+      let (readAloud, shouldCapture, shouldCaptureCycle, plainTrigger) = stateLock.withLock {
         (
           readAloudBinding,
           captureEscape,
+          captureShapingCycle,
           plainKeyTrigger(forKeyCode: keyCode, flags: event.flags)
         )
       }
@@ -364,6 +380,21 @@ final class GlobalKeyEventMonitor: @unchecked Sendable {
       // Plain Escape stays the dictation cancel, captured mid-session.
       if keyCode == 53, shouldCapture {
         handler(.cancelPressed)
+        return nil
+      }
+
+      // The bare arrows cycle the recording session's shaping pick,
+      // captured only while a session that can shape is recording. A
+      // modified arrow always passes through: ⌥→ is someone editing text,
+      // not choosing a prompt. Autorepeat is swallowed without cycling —
+      // the key is captured, so its repeats must not leak — but one press
+      // means one step, not a spin through the library.
+      if shouldCaptureCycle, keyCode == 123 || keyCode == 124,
+       Self.flagsMatch(event.flags, mask: []) {
+        guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else {
+          return nil
+        }
+        handler(keyCode == 123 ? .shapingCycleLeft : .shapingCycleRight)
         return nil
       }
 

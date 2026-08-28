@@ -457,6 +457,10 @@ struct DictationSessionSettings: Equatable {
   /// The shaping prompt this session applies, or nil while shaping is off
   /// or the stored id names nothing in the user's prompt list.
   let shapingPrompt: ShapingPrompt?
+  /// The whole prompt library while shaping is on, empty while it is off, so
+  /// the arrow keys can cycle the session's pick without reading a library
+  /// that may change mid-session.
+  let shapingLibrary: [ShapingPrompt]
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -488,6 +492,7 @@ struct DictationSessionSettings: Equatable {
     shapingPrompt = settings.promptShapingEnabled
       ? settings.shapingPrompts.prompt(for: settings.promptShapingPromptID)
       : nil
+    shapingLibrary = settings.promptShapingEnabled ? settings.shapingPrompts : []
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

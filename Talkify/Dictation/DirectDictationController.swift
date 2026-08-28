@@ -53,6 +53,13 @@ final class DirectDictationController {
   /// The key that slot was bound to when the session began. A rebind while a
   /// gesture is running must not take the key the gesture is still using.
   private var activeBinding: KeyBinding?
+  /// The shaping prompt this session will finish with, cycled by the bare
+  /// arrows while recording; nil is None, which inserts the words as spoken.
+  /// Session-scoped on purpose: cycling never writes the persisted selection.
+  private var sessionShapingChoice: ShapingPrompt?
+  /// Whether the tap is currently swallowing the bare arrows, so the toggle
+  /// fires only on transitions.
+  private var isShapingCycleCaptureEnabled = false
 
   convenience init(
     settings: AppSettings,
@@ -430,6 +437,10 @@ final class DirectDictationController {
       send(.escapePressed)
     case .readAloudPressed:
       send(.readAloudPressed)
+    case .shapingCycleLeft:
+      cycleShapingChoice(by: -1)
+    case .shapingCycleRight:
+      cycleShapingChoice(by: 1)
     }
   }
 
@@ -443,6 +454,47 @@ final class DirectDictationController {
     if wasActive, !machine.isSessionActive {
       applyKeyBindings()
     }
+    updateShapingCycleCapture()
+  }
+
+  /// Arms the bare-arrow capture exactly while the machine is recording a
+  /// session whose snapshot carries a shaping library. Derived from the state
+  /// after every action rather than toggled on named paths, so no exit —
+  /// finish, Escape, failure, timeout — can leave the arrows swallowed.
+  private func updateShapingCycleCapture() {
+    var shouldCapture = false
+    if case .recording = machine.state,
+       currentSessionSettings?.shapingLibrary.isEmpty == false {
+      shouldCapture = true
+    }
+    guard shouldCapture != isShapingCycleCaptureEnabled else { return }
+    isShapingCycleCaptureEnabled = shouldCapture
+    keyEventMonitor?.setShapingCycleCaptureEnabled(shouldCapture)
+    dependencies.setShapingCycleCaptureEnabled(shouldCapture)
+  }
+
+  /// One arrow press: the next or previous entry in [library…, None],
+  /// wrapping at the ends. Guarded on recording rather than on the capture
+  /// flag, because a queued event can arrive after the session moved on.
+  private func cycleShapingChoice(by delta: Int) {
+    guard case .recording = machine.state,
+       let library = currentSessionSettings?.shapingLibrary,
+       !library.isEmpty
+    else { return }
+    let optionCount = library.count + 1
+    let current = sessionShapingChoice
+      .flatMap { choice in library.firstIndex { $0.id == choice.id } }
+      ?? library.count
+    let next = (current + delta + optionCount) % optionCount
+    sessionShapingChoice = next < library.count ? library[next] : nil
+    dependencies.showShapingChoice(shapingChoiceLabel)
+  }
+
+  /// The HUD caption naming the session's current pick, or nil when this
+  /// session cannot cycle at all.
+  private var shapingChoiceLabel: String? {
+    guard currentSessionSettings?.shapingLibrary.isEmpty == false else { return nil }
+    return "‹ Shape with: \(sessionShapingChoice?.name ?? "None") ›"
   }
 
   private func perform(_ effects: [DictationSessionMachine.Effect]) {
@@ -479,12 +531,16 @@ final class DirectDictationController {
         translation: activeSlot == .translate ? translation.pair : nil
       )
       currentSessionSettings = session
+      // The cycled pick starts where the persisted selection points; a
+      // missing or deleted id starts on None.
+      sessionShapingChoice = session.shapingPrompt
       dependencies.showListening(
         focusedTarget?.displayID,
         latched,
         session,
         activeLanguageTag
       )
+      dependencies.showShapingChoice(shapingChoiceLabel)
     case .showLatched:
       dependencies.showLatched()
     case .showLiveText:
@@ -666,12 +722,23 @@ final class DirectDictationController {
   ///
   /// - Parameter speakingDuration: The completed session's measured speech time.
   private func finishRecognition(speakingDuration: TimeInterval) {
+    // The cycled pick at the moment the session ended is what shapes, not
+    // the snapshot's stored selection. Read before the task so the next
+    // session's seeding cannot race the finish still in flight.
+    let chosenPrompt = sessionShapingChoice
     finishTask = Task { [weak self] in
       guard let self else { return }
       defer { finishTask = nil }
       do {
         let spoken = try await dependencies.finishRecognition()
-        dependencies.hideHUD()
+        // A session about to shape keeps the HUD up saying so; every other
+        // session dismisses here exactly as before.
+        let willShape = chosenPrompt != nil && !spoken.isEmpty
+        if let chosenPrompt, willShape {
+          dependencies.showShaping(chosenPrompt.name)
+        } else {
+          dependencies.hideHUD()
+        }
         // Delivery follows the session snapshot, so a Settings change
         // mid-session applies to the next session (ADR-0004).
         let session = currentSessionSettings ?? settings.sessionSettings
@@ -685,6 +752,9 @@ final class DirectDictationController {
           do {
             text = try await translation.translate(spoken, with: pair)
           } catch {
+            // The shaping presentation must not outlive the session it
+            // promised to shape.
+            if willShape { dependencies.hideHUD() }
             await recordHistory(spoken: spoken, delivered: nil, session: session)
             // Clipboard-only whatever the session's destination: nothing is
             // pasted, and the words survive where the user can reach them.
@@ -707,9 +777,12 @@ final class DirectDictationController {
 
         // Shaping runs after the history write on purpose: history keeps the
         // words as spoken, and any shaping failure inserts them unchanged.
-        if let prompt = session.shapingPrompt, !text.isEmpty {
-          text = await dependencies.shapeText(text, prompt)
+        if let chosenPrompt, willShape, !text.isEmpty {
+          text = await dependencies.shapeText(text, chosenPrompt)
         }
+        // Shaped or passthrough, the phase is over; insertion proceeds
+        // exactly as an unshaped session's does.
+        if willShape { dependencies.hideHUD() }
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )
@@ -738,6 +811,9 @@ final class DirectDictationController {
   /// the machine handles the transition, the controller the message.
   private func fail(message: String, wasCancelled: Bool) {
     let effects = machine.reduce(.recognitionFailed(wasCancelled: wasCancelled))
+    // The reduce above bypasses send(), so the capture rule re-derives here:
+    // a failure must not leave the arrows swallowed.
+    updateShapingCycleCapture()
     guard !effects.isEmpty else { return }
 
     if effects.contains(.cancelRecognition) {
