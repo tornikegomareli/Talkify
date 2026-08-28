@@ -66,8 +66,15 @@ its tests).
 Ordering is deliberate: transcription history writes before shaping runs,
 so history is always the words as spoken, never the model's rewrite.
 
+The fork has since promoted the feature's wording from alpha to beta.
+The alpha existed to test the feel of shaped insertion at all; live
+daily use on real hardware — shaped insertion, the cycling, the band,
+and every passthrough path — settled the feature's shape, which is what
+the promotion says. Off by default is unchanged, and this file keeps
+its name and title as the record of where the decision started.
+
 When the model is unavailable, the notice is a persistent line in
-Settings beside the alpha toggle, not a HUD message. The HUD dismisses
+Settings beside the shaping toggle, not a HUD message. The HUD dismisses
 itself after about two seconds and the moment of failure is mid-insertion,
 so a HUD notice would vanish before it could be read; Settings holds the
 explanation for as long as the user needs it.

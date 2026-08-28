@@ -129,7 +129,7 @@ It works the other way too. Turn on **Translate before speaking** in
 Read Aloud key speaks it in your voice's language. The voice is the target, so
 there is nothing else to set.
 
-## Shape what you dictate (alpha)
+## Shape what you dictate (beta)
 
 Turn on **Shape dictation with a prompt** in **Settings → Dictation** and the
 prompt you pick rewrites finished dictation through Apple's on-device model
@@ -143,7 +143,7 @@ While you dictate, a band below the voice visual and the live draft names the
 prompt the session will shape with, and the bare arrow keys cycle through your
 prompts — or **None**, to insert the words exactly as spoken. After you
 release, the island stays up and the same band shows a progress bar while the
-rewrite runs. Shaping is an alpha and fails safe: any error, or
+rewrite runs. Shaping is a beta and fails safe: any error, or
 an answer slower than ten seconds, inserts your raw words unchanged, history
 keeps what you actually said, and nothing leaves your Mac.
 
@@ -172,7 +172,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 ## Roadmap
 
 - **Live Captions & Meeting Transcripts**. Ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
-- **Text cleanup**. Shipping as the prompt shaping alpha above — on-device rewriting of finished dictation, off by default. Per-application profiles and a benchmarked default remain future work; with shaping off, Talkify still inserts exactly what you said.
+- **Text cleanup**. Shipping as the prompt shaping beta above — on-device rewriting of finished dictation, off by default. Per-application profiles and a benchmarked default remain future work; with shaping off, Talkify still inserts exactly what you said.
 - **Snippets**. Saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
 
 ## Contributing

@@ -1,6 +1,6 @@
 import Foundation
 
-/// A named rewrite applied to finished dictation text while the alpha
+/// A named rewrite applied to finished dictation text while the beta
 /// prompt shaping setting is on. The library is user-editable and stored in
 /// settings; these seeds only fill an empty store. The ids are stored in
 /// UserDefaults, so renaming one silently resets the pick.

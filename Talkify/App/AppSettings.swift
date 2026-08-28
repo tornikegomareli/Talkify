@@ -107,7 +107,7 @@ final class AppSettings {
     dictationHistoryFolder ?? DictationHistoryStore.defaultFolderURL
   }
 
-  /// Whether the alpha prompt shaping pass runs on finished dictation text.
+  /// Whether the beta prompt shaping pass runs on finished dictation text.
   /// Off by default: the default session inserts raw finalized text exactly
   /// as it always has.
   var promptShapingEnabled: Bool {

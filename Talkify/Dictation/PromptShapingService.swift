@@ -12,7 +12,7 @@ struct PromptShapingService: Sendable {
   /// tested without Apple Intelligence.
   struct Client: Sendable {
     /// Nil while the model can answer; otherwise one sentence saying why not,
-    /// which Settings shows beside the alpha toggle.
+    /// which Settings shows beside the beta toggle.
     let unavailabilityReason: @Sendable () -> String?
     let respond: @Sendable (
       _ instructions: String, _ prompt: String

@@ -62,11 +62,11 @@ struct DictationSettingsView: View {
         }
       }
 
-      SettingsCard(title: "Prompt Shaping (Alpha)") {
+      SettingsCard(title: "Prompt Shaping (Beta)") {
         SettingsRow(
           title: "Shape dictation with a prompt",
           description: "An on-device Apple Intelligence prompt rewrites "
-            + "finished dictation before it is inserted. This is an alpha: "
+            + "finished dictation before it is inserted. This is a beta: "
             + "any failure or slow answer inserts the raw words unchanged, "
             + "and nothing leaves this Mac."
         ) {

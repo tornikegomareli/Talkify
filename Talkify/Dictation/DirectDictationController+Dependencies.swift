@@ -84,7 +84,7 @@ extension DirectDictationController {
       _ folder: URL
     ) async -> Void
 
-    // The alpha prompt shaping pass; passthrough on any failure.
+    // The beta prompt shaping pass; passthrough on any failure.
     let shapeText: @Sendable (
       _ text: String, _ prompt: ShapingPrompt
     ) async -> String

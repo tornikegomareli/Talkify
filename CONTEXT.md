@@ -184,7 +184,7 @@ _Avoid_: Transcript history, cloud analytics
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
 - Version 1 inserts raw finalized text without filler-word or AI cleanup
 - Text cleanup is a later feature and must not affect the first implementation
-- Prompt shaping is that later cleanup feature, shipped as an explicit alpha and off by default, so the default session still inserts raw finalized text
+- Prompt shaping is that later cleanup feature, shipped as an explicit beta and off by default, so the default session still inserts raw finalized text
 - While prompt shaping is on, the selected shaping prompt rewrites finished text through the on-device Apple Intelligence model between recognition and insertion, and nothing leaves the Mac
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
 - The shaping prompt library is user-editable in Settings, seeded with three default prompts
