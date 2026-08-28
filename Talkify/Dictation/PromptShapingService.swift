@@ -15,7 +15,7 @@ struct PromptShapingService: Sendable {
     /// which Settings shows beside the alpha toggle.
     let unavailabilityReason: @Sendable () -> String?
     let respond: @Sendable (
-      _ instructions: String, _ text: String
+      _ instructions: String, _ prompt: String
     ) async throws -> String
   }
 
@@ -31,6 +31,7 @@ struct PromptShapingService: Sendable {
 
     let respond = client.respond
     let instructions = prompt.instructions
+    let request = prompt.request(wrapping: text)
     let timeout = timeout
     let shaped: String? = await withCheckedContinuation { continuation in
       // First answer wins; the loser's resume is dropped. An abandoned model
@@ -44,7 +45,7 @@ struct PromptShapingService: Sendable {
         }
         if isFirst { continuation.resume(returning: result) }
       }
-      let work = Task { finish(try? await respond(instructions, text)) }
+      let work = Task { finish(try? await respond(instructions, request)) }
       Task {
         try? await Task.sleep(for: timeout)
         work.cancel()

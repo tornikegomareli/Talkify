@@ -20,6 +20,17 @@ The library is fixed rather than free-form. An alpha exists to test the
 feel of shaped insertion at all; user-authored prompts are a later
 decision, taken only if the feel test earns it.
 
+The transcript is framed as data, never as the conversational prompt. An
+instruction-tuned model handed a bare transcript as its user turn answers
+a question-shaped one — "what time does the meeting start tomorrow" comes
+back answered instead of cleaned. So the invariant framing lives in the
+session's instructions, which the model weighs over prompt content: the
+user turn is always a raw transcript to transform, wrapped in explicit
+`<transcript>` markers, and each library prompt carries a one-shot
+example whose input is question-shaped and whose output rewrites it
+unanswered, because the example carries that rule better than any
+sentence stating it.
+
 Ordering is deliberate: transcription history writes before shaping runs,
 so history is always the words as spoken, never the model's rewrite.
 

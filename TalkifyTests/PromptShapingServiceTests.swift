@@ -16,12 +16,12 @@ struct PromptShapingServiceTests {
   }
 
   @Test func successReturnsShapedTextAndPassesPromptAndInput() async {
-    let received = OSAllocatedUnfairLock<(instructions: String, text: String)?>(
+    let received = OSAllocatedUnfairLock<(instructions: String, prompt: String)?>(
       initialState: nil
     )
     let service = PromptShapingService(
-      client: availableClient { instructions, text in
-        received.withLock { $0 = (instructions, text) }
+      client: availableClient { instructions, prompt in
+        received.withLock { $0 = (instructions, prompt) }
         return "shaped"
       }
     )
@@ -31,7 +31,50 @@ struct PromptShapingServiceTests {
     #expect(result == "shaped")
     let call = received.withLock { $0 }
     #expect(call?.instructions == Self.prompt.instructions)
-    #expect(call?.text == "raw words")
+    #expect(call?.prompt == Self.prompt.request(wrapping: "raw words"))
+  }
+
+  /// The framing that keeps the model rewriting: the transcript reaches it
+  /// as marked data, verbatim, never as the conversational request itself.
+  @Test func requestWrapsTheTranscriptVerbatimBetweenMarkers() {
+    let transcript = "what time does the meeting start tomorrow"
+    for prompt in ShapingPrompt.library {
+      let request = prompt.request(wrapping: transcript)
+      #expect(request.contains("<transcript>\(transcript)</transcript>"))
+      #expect(request.contains("Rewrite the transcript"))
+    }
+  }
+
+  /// The instructions hold the whole defence: the data framing, the
+  /// prompt's own directive, and a question-shaped example that stays a
+  /// question — the known mitigations for a model answering the words.
+  @Test func instructionsFrameTheTranscriptAsDataWithAnExample() {
+    for prompt in ShapingPrompt.library {
+      let instructions = prompt.instructions
+      #expect(instructions.contains("never a question for you to answer"))
+      #expect(instructions.contains(prompt.directive))
+      #expect(instructions.contains("<transcript>\(prompt.exampleInput)</transcript>"))
+      #expect(instructions.contains(prompt.exampleOutput))
+    }
+  }
+
+  /// A question-shaped transcript round-trips the pipeline untouched when
+  /// the model echoes the marked data back: nothing between recognition
+  /// and insertion depends on the words not looking like a question.
+  @Test func questionShapedTranscriptRoundTripsThroughAnEchoingClient() async {
+    let transcript = "what time does the meeting start tomorrow"
+    let service = PromptShapingService(
+      client: availableClient { _, prompt in
+        // Echo exactly what sits between the markers, as a faithful
+        // rewrite-nothing model would.
+        let opened = prompt.components(separatedBy: "<transcript>")[1]
+        return opened.components(separatedBy: "</transcript>")[0]
+      }
+    )
+
+    let result = await service.shape(transcript, with: Self.prompt)
+
+    #expect(result == transcript)
   }
 
   @Test func unavailableClientPassesThroughWithoutCallingRespond() async {

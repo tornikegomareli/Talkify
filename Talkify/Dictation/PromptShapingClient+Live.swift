@@ -18,9 +18,13 @@ extension PromptShapingService.Client {
           "Apple Intelligence is not available on this Mac"
         }
       },
-      respond: { instructions, text in
+      respond: { instructions, prompt in
+        // The framing lives in instructions and the transcript arrives inside
+        // the prompt's markers: the model weighs instructions over prompt
+        // content, which is what keeps a question-shaped transcript from
+        // being answered instead of rewritten.
         let session = LanguageModelSession(instructions: instructions)
-        let response = try await session.respond(to: text)
+        let response = try await session.respond(to: prompt)
         return response.content
       }
     )
