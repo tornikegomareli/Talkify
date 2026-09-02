@@ -39,6 +39,9 @@ final class AppSettings {
     static let hudClearsMenuBar = "hudClearsMenuBar"
     static let historyEnabled = "dictationHistoryEnabled"
     static let historyFolder = "dictationHistoryFolder"
+    static let promptShapingEnabled = "dictationPromptShapingEnabled"
+    static let promptShapingPrompt = "dictationPromptShapingPrompt"
+    static let shapingPrompts = "dictationShapingPrompts"
   }
 
   @ObservationIgnored
@@ -102,6 +105,36 @@ final class AppSettings {
   /// The folder history writes to right now: the user's pick, or the default.
   var resolvedHistoryFolder: URL {
     dictationHistoryFolder ?? DictationHistoryStore.defaultFolderURL
+  }
+
+  /// Whether the beta prompt shaping pass runs on finished dictation text.
+  /// Off by default: the default session inserts raw finalized text exactly
+  /// as it always has.
+  var promptShapingEnabled: Bool {
+    didSet { defaults.set(promptShapingEnabled, forKey: Keys.promptShapingEnabled) }
+  }
+
+  /// The selected shaping prompt's id, kept even while shaping is off.
+  var promptShapingPromptID: String {
+    didSet { defaults.set(promptShapingPromptID, forKey: Keys.promptShapingPrompt) }
+  }
+
+  /// The user-editable shaping prompt library, stored whole as JSON. A
+  /// missing or unreadable value reseeds from the built-in defaults rather
+  /// than presenting an empty library.
+  var shapingPrompts: [ShapingPrompt] {
+    didSet {
+      if let data = try? JSONEncoder().encode(shapingPrompts) {
+        defaults.set(data, forKey: Keys.shapingPrompts)
+      }
+    }
+  }
+
+  /// Puts the seed prompts back. The selection is left alone on purpose: a
+  /// selected id the seeds do not carry resolves to nil, which already
+  /// inserts the raw words unchanged.
+  func restoreDefaultShapingPrompts() {
+    shapingPrompts = ShapingPrompt.defaults
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -273,6 +306,10 @@ final class AppSettings {
     insertionDestination = Self.stored(in: defaults, key: Keys.insertionDestination) ?? .insert
     dictationHistoryEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? false
     dictationHistoryFolder = (defaults.string(forKey: Keys.historyFolder)).map { URL(filePath: $0) }
+    promptShapingEnabled = defaults.object(forKey: Keys.promptShapingEnabled) as? Bool ?? false
+    promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
+      ?? ShapingPrompt.defaults[0].id
+    shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -332,6 +369,13 @@ final class AppSettings {
        allowsMouseButton || !binding.isMouseButton
     else { return nil }
     return binding
+  }
+
+  private static func storedShapingPrompts(in defaults: UserDefaults) -> [ShapingPrompt]? {
+    guard let data = defaults.data(forKey: Keys.shapingPrompts),
+       let prompts = try? JSONDecoder().decode([ShapingPrompt].self, from: data)
+    else { return nil }
+    return prompts
   }
 
   private static func store(_ binding: KeyBinding, in defaults: UserDefaults, key: String) {
@@ -410,6 +454,13 @@ struct DictationSessionSettings: Equatable {
   /// Captured with everything else: a session that started while ducking was
   /// on has to restore the volume even if the toggle flips mid-session.
   let ducksOtherAudio: Bool
+  /// The shaping prompt this session applies, or nil while shaping is off
+  /// or the stored id names nothing in the user's prompt list.
+  let shapingPrompt: ShapingPrompt?
+  /// The whole prompt library while shaping is on, empty while it is off, so
+  /// the arrow keys can cycle the session's pick without reading a library
+  /// that may change mid-session.
+  let shapingLibrary: [ShapingPrompt]
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -438,6 +489,10 @@ struct DictationSessionSettings: Equatable {
     historyEnabled = settings.dictationHistoryEnabled
     historyFolder = settings.resolvedHistoryFolder
     ducksOtherAudio = settings.duckOtherAudioWhileDictating
+    shapingPrompt = settings.promptShapingEnabled
+      ? settings.shapingPrompts.prompt(for: settings.promptShapingPromptID)
+      : nil
+    shapingLibrary = settings.promptShapingEnabled ? settings.shapingPrompts : []
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle

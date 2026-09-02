@@ -84,6 +84,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Dictate and translate | Hold **right ⌘** instead |
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
+| Pick the shaping prompt mid-session | **←** / **→** while dictating, with shaping on |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Read it aloud translated | Same key, with **Translate before speaking** on |
 | Everything else | Menu bar ghost → Settings |
@@ -128,6 +129,24 @@ It works the other way too. Turn on **Translate before speaking** in
 Read Aloud key speaks it in your voice's language. The voice is the target, so
 there is nothing else to set.
 
+## Shape what you dictate (beta)
+
+Turn on **Shape dictation with a prompt** in **Settings → Dictation** and the
+prompt you pick rewrites finished dictation through Apple's on-device model
+before it is inserted. Three prompts are built in — tighten grammar, bullet
+lists, remove filler words — and **Manage Prompts…** lets you edit them or
+write your own: your wording sits before and after the transcript, and the
+framing that keeps the model rewriting your words instead of answering them is
+fixed and not editable.
+
+While you dictate, a band below the voice visual and the live draft names the
+prompt the session will shape with, and the bare arrow keys cycle through your
+prompts — or **None**, to insert the words exactly as spoken. After you
+release, the island stays up and the same band shows a progress bar while the
+rewrite runs. Shaping is a beta and fails safe: any error, or
+an answer slower than ten seconds, inserts your raw words unchanged, history
+keeps what you actually said, and nothing leaves your Mac.
+
 ## Two languages, two triggers
 
 Pick a second language in **Settings → Language** and it gets its own trigger. Hold
@@ -153,7 +172,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 ## Roadmap
 
 - **Live Captions & Meeting Transcripts**. Ephemeral captions from a selected app's audio (Chrome, YouTube, meeting apps), and the saved, timestamped transcript as a separate action. The domain design already lives in `CONTEXT.md`; the recognition pipeline is ready for non-microphone audio.
-- **Text cleanup**. Optional on-device polishing of dictated text (fillers, punctuation) once the raw-insertion core is benchmarked. Version 1 deliberately inserts exactly what you said.
+- **Text cleanup**. Shipping as the prompt shaping beta above — on-device rewriting of finished dictation, off by default. Per-application profiles and a benchmarked default remain future work; with shaping off, Talkify still inserts exactly what you said.
 - **Snippets**. Saved text blocks inserted by a spoken trigger word: say your trigger mid-dictation and the whole block lands instead.
 
 ## Contributing

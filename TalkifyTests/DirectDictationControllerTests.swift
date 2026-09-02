@@ -28,6 +28,9 @@ struct DirectDictationControllerTests {
     var insertedDestinations: [InsertionDestination] = []
     var recordedSessions: [(wordCount: Int, speakingDuration: TimeInterval)] = []
     var accessibilityAlerts = 0
+    var shapingNames: [String] = []
+    var shapingChoiceLabels: [String?] = []
+    var cycleCaptureStates: [Bool] = []
 
     func count(of event: String) -> Int {
       events.filter { $0 == event }.count
@@ -79,6 +82,8 @@ struct DirectDictationControllerTests {
     translationPrepareHangs: Bool = false,
     translateBody: (@Sendable (String) async throws -> String)? = nil,
     retainedPairs: OSAllocatedUnfairLock<[TranslationPair?]> = .init(initialState: []),
+    shapeText: @escaping @Sendable (String, ShapingPrompt) async -> String
+      = { text, _ in text },
     insertOutcome: TextInsertionService.InsertionOutcome = .inserted
   ) -> DirectDictationController.Dependencies {
     DirectDictationController.Dependencies(
@@ -139,6 +144,14 @@ struct DirectDictationControllerTests {
       showLatched: { recorder.events.append("showLatched") },
       showLiveText: { _ in recorder.events.append("showLiveText") },
       showFinalizing: { recorder.events.append("showFinalizing") },
+      showShaping: { name in
+        recorder.events.append("showShaping")
+        recorder.shapingNames.append(name)
+      },
+      showShapingChoice: { label in
+        recorder.events.append("showShapingChoice")
+        recorder.shapingChoiceLabels.append(label)
+      },
       showMessage: { message, _ in
         recorder.events.append("showMessage")
         recorder.messages.append(message)
@@ -147,6 +160,10 @@ struct DirectDictationControllerTests {
       showAudioLevel: { _ in },
       hideHUD: { recorder.events.append("hideHUD") },
       playPasteSound: { recorder.events.append("playPasteSound") },
+      setShapingCycleCaptureEnabled: { enabled in
+        recorder.events.append("cycleCapture:\(enabled)")
+        recorder.cycleCaptureStates.append(enabled)
+      },
       recordSession: { wordCount, speakingDuration in
         recorder.events.append("recordSession")
         recorder.recordedSessions.append((wordCount, speakingDuration))
@@ -155,7 +172,8 @@ struct DirectDictationControllerTests {
         historyEntries.withLock {
           $0.append(HistoryEntry(text: text, translation: translation, source: source, folder: folder))
         }
-      }
+      },
+      shapeText: shapeText
     )
   }
 
@@ -1193,6 +1211,308 @@ struct DirectDictationControllerTests {
     await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
     #expect(historyEntries.withLock { $0 }.map(\.source) == ["Clipboard"])
+    controller.stop()
+  }
+
+  /// Shaping runs between finish and insertion, and history keeps the raw
+  /// words: the insert receives the shaped text, history what was spoken.
+  @Test func finishShapesTextAfterHistoryAndBeforeInsertion() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[HistoryEntry]>(
+      initialState: []
+    )
+    let shapedPromptIDs = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        historyEntries: historyEntries,
+        shapeText: { text, prompt in
+          shapedPromptIDs.withLock { $0.append(prompt.id) }
+          return "shaped \(text)"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["shaped raw words"])
+    #expect(historyEntries.withLock { $0 }.map(\.text) == ["raw words"])
+    #expect(shapedPromptIDs.withLock { $0 } == ["tighten-grammar"])
+    controller.stop()
+  }
+
+  /// Shaping off — the default — never touches the text.
+  @Test func finishInsertsRawTextWhileShapingIsOff() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapeCalls = OSAllocatedUnfairLock(initialState: 0)
+    let controller = makeController(
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, _ in
+          shapeCalls.withLock { $0 += 1 }
+          return "shaped"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["raw words"])
+    #expect(shapeCalls.withLock { $0 } == 0)
+    controller.stop()
+  }
+
+  /// The list the arrows cycle is [each prompt in session order…, None],
+  /// wrapping: one step right from the last prompt is None, and None is
+  /// passthrough — raw words, no shape call, no shaping phase.
+  @Test func cyclingRightFromTheLastPromptLandsOnNoneAndInsertsRawWords() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapeCalls = OSAllocatedUnfairLock(initialState: 0)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = ShapingPrompt.defaults.last!.id
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, _ in
+          shapeCalls.withLock { $0 += 1 }
+          return "shaped \(text)"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.shapingCycleRight)
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.shapingChoiceLabels.last == "None")
+    #expect(recorder.insertedTexts == ["raw words"])
+    #expect(shapeCalls.withLock { $0 } == 0)
+    // None hides immediately, exactly as a shaping-off session does.
+    #expect(recorder.count(of: "showShaping") == 0)
+    let hideIndex = recorder.events.firstIndex(of: "hideHUD")
+    let insertIndex = recorder.events.firstIndex(of: "insertText")
+    #expect(hideIndex != nil && insertIndex != nil)
+    if let hideIndex, let insertIndex {
+      #expect(hideIndex < insertIndex)
+    }
+    controller.stop()
+  }
+
+  /// The cycle seeds from the snapshot's selection, so one step right from
+  /// the selected first prompt shapes with the second.
+  @Test func cyclingSeedsFromTheSelectionAndFinishShapesWithTheCycledPrompt() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapedPromptIDs = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, prompt in
+          shapedPromptIDs.withLock { $0.append(prompt.id) }
+          return "shaped \(text)"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    #expect(recorder.shapingChoiceLabels.first == "Tighten grammar")
+    controller.handle(.shapingCycleRight)
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.shapingChoiceLabels.last == "Bullet my lists")
+    #expect(shapedPromptIDs.withLock { $0 } == ["bullet-lists"])
+    #expect(recorder.insertedTexts == ["shaped raw words"])
+    controller.stop()
+  }
+
+  /// The bare arrows are swallowed exactly while a session that can shape is
+  /// recording: capture arms when recording begins and disarms on the finish
+  /// and on Escape alike.
+  @Test func arrowCaptureFollowsRecordingThroughEndAndCancel() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    #expect(recorder.cycleCaptureStates == [true])
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+    #expect(recorder.cycleCaptureStates == [true, false])
+
+    controller.toggleFromMenu()
+    await waitUntil("Second session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    #expect(recorder.cycleCaptureStates == [true, false, true])
+    controller.handle(.cancelPressed)
+    await waitUntil("Cancelled session never reset to idle") {
+      controller.sessionStateForTesting == .idle
+    }
+    #expect(recorder.cycleCaptureStates == [true, false, true, false])
+    controller.stop()
+  }
+
+  /// With shaping off, or on over an empty library, there is nothing to
+  /// cycle, so the arrows are never captured and no pick is shown.
+  @Test func arrowCaptureNeverArmsWithShapingOffOrAnEmptyLibrary() async {
+    for enableWithEmptyLibrary in [false, true] {
+      let recorder = Recorder()
+      let prewarmed = OSAllocatedUnfairLock(initialState: false)
+      let settings = AppSettings(defaults: freshDefaults())
+      if enableWithEmptyLibrary {
+        settings.promptShapingEnabled = true
+        settings.shapingPrompts = []
+      }
+      let controller = makeController(
+        settings: settings,
+        dependencies: makeDependencies(recorder: recorder, prewarmed: prewarmed)
+      )
+      await prepare(controller, prewarmed: prewarmed)
+
+      controller.toggleFromMenu()
+      await waitUntil("Session never reached recording") {
+        controller.sessionStateForTesting == .recording(.latched)
+      }
+      controller.toggleFromMenu()
+      await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+      #expect(recorder.cycleCaptureStates.isEmpty)
+      #expect(recorder.shapingChoiceLabels == [nil])
+      controller.stop()
+    }
+  }
+
+  /// The visible shaping phase: a session that will shape says which prompt
+  /// it is shaping with, before the insertion, instead of hiding the HUD.
+  @Test func aShapingSessionShowsShapingWithTheChosenNameBeforeInsertion() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, _ in "shaped \(text)" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.shapingNames == ["Tighten grammar"])
+    let shapingIndex = recorder.events.firstIndex(of: "showShaping")
+    let hideIndex = recorder.events.firstIndex(of: "hideHUD")
+    let insertIndex = recorder.events.firstIndex(of: "insertText")
+    #expect(shapingIndex != nil && hideIndex != nil && insertIndex != nil)
+    if let shapingIndex, let hideIndex, let insertIndex {
+      // Shaping shows first, the HUD leaves when the answer lands, and only
+      // then does the insertion run — exactly the unshaped order from there.
+      #expect(shapingIndex < hideIndex)
+      #expect(hideIndex < insertIndex)
+    }
+    controller.stop()
+  }
+
+  /// A queued arrow event landing outside recording is dead: the finish
+  /// still shapes with the seeded selection.
+  @Test func cyclingWhileNotRecordingChangesNothing() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapedPromptIDs = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "raw words" },
+        shapeText: { text, prompt in
+          shapedPromptIDs.withLock { $0.append(prompt.id) }
+          return "shaped \(text)"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.handle(.shapingCycleRight)
+    #expect(recorder.shapingChoiceLabels.isEmpty)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(shapedPromptIDs.withLock { $0 } == ["tighten-grammar"])
     controller.stop()
   }
 }

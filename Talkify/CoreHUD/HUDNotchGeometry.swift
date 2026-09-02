@@ -53,19 +53,22 @@ enum HUDNotchGeometry {
   }
 
   /// The HUD shape's size: the housing band, whatever voice-visual band the
-  /// selected visual uses, and the text band unless the visual replaces it,
-  /// clamped so a narrow display never gets a shape wider than its window.
+  /// selected visual uses, the text band unless the visual replaces it, and
+  /// the shaping band while a session carries one, clamped so a narrow
+  /// display never gets a shape wider than its window.
   static func contentSize(
     for screen: HUDScreenSnapshot,
     metrics: HUDMetrics,
     visualBandHeight: CGFloat,
-    includesTextBand: Bool
+    includesTextBand: Bool,
+    shapingBandHeight: CGFloat
   ) -> CGSize {
     CGSize(
       width: min(metrics.contentWidth, windowSize(for: screen).width),
       height: closedSize(for: screen).height
         + visualBandHeight
         + (includesTextBand ? metrics.textBandHeight : 0)
+        + shapingBandHeight
     )
   }
 
@@ -148,10 +151,13 @@ enum HUDNotchGeometry {
   /// bar.
   static func windowSize(for screen: HUDScreenSnapshot) -> CGSize {
     let metrics = HUDMetrics.standard
+    // The shaping band rides outside the max: it can sit under either
+    // alternative, so the tallest layout is whichever band stack wins plus it.
     return CGSize(
       width: min(metrics.contentWidth + shadowPadding * 2, screen.frame.width),
       height: closedSize(for: screen).height
         + max(metrics.waveBandHeight, metrics.visualBandHeight + metrics.maxTextBandHeight)
+        + metrics.shapingBandHeight
         + shadowPadding
     )
   }

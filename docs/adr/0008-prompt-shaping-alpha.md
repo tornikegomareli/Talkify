@@ -1,0 +1,90 @@
+# Prompt shaping alpha
+
+Direct Dictation gains an alpha prompt shaping pass: while the setting is
+on, the selected prompt from a fixed library rewrites finished dictation
+text between recognition finish and insertion, through FoundationModels'
+`LanguageModelSession` with a fresh session per rewrite. The feature is
+alpha-gated and off by default, so the default session still inserts raw
+finalized text. Passthrough is the rule on every failure path: model
+unavailability, an error, a refusal, an empty answer, or a slow answer all
+insert the raw words unchanged. The slow-answer path is a 10 second
+timeout of our own, because on macOS 26 the framework offers no request
+timeout of its own.
+
+Shaping stays on-device only. That is consistent with the app's standing
+Apple-frameworks, no-network story: FoundationModels is an Apple system
+framework, not a dependency, so the one-third-party-dependency rule and
+the nothing-leaves-the-Mac promise both hold.
+
+The library is fixed rather than free-form. An alpha exists to test the
+feel of shaped insertion at all; user-authored prompts are a later
+decision, taken only if the feel test earns it.
+
+That later decision has since been taken on the fork: the fixed library
+gave way to user-tunable prompts, seeded with the original three and
+editable in Settings — name, pre-instruction, post-instruction, and the
+one-shot example. The invariant framing stays out of the user's hands on
+purpose: it is the fix for the answered-question failure below, and an
+editable framing could delete the never-answer rule and bring that bug
+back. A prompt's own wording lives in the user turn, where editing it
+cannot weaken the framing, and a selected prompt that no longer exists
+resolves to passthrough.
+
+The transcript is framed as data, never as the conversational prompt. An
+instruction-tuned model handed a bare transcript as its user turn answers
+a question-shaped one — "what time does the meeting start tomorrow" comes
+back answered instead of cleaned. So the invariant framing lives in the
+session's instructions, which the model weighs over prompt content: the
+user turn is always a raw transcript to transform, wrapped in explicit
+`<transcript>` markers, and each library prompt carries a one-shot
+example whose input is question-shaped and whose output rewrites it
+unanswered, because the example carries that rule better than any
+sentence stating it.
+
+The fork later made the phase visible and the pick cyclable. A session
+that will shape keeps the HUD up through the rewrite, naming the prompt
+over a determinate bar — the model reports no real progress, so the bar
+honestly fills toward the timeout and the HUD leaves early when the
+answer lands. While such a session records, the bare Left and Right
+arrow keys cycle a session-scoped pick through the library and None;
+the arrows are swallowed only then, a modified arrow always passes
+through, and the cycled pick never writes the persisted selection.
+
+Both the cycling pick and the shaping-phase caption live in the shaping
+band, a band the shape grows downward to include below the visuals and
+the draft, the way it grows for a long draft. A detached pill under the
+island stays rejected by feel (CONTEXT.md: a second detached surface
+does not fit the single-shape design), and a centered overlay plate was
+tried and withdrawn: composited over the Metal-backed visuals it
+degraded them — Edge Glow's motes lost their antialiasing under it —
+and it sat on the waveform and on Compact's live draft. The band is
+present from the reveal for any session that carries it and holds
+through the retract, so the shape never resizes mid-session, and the
+fixed host window is sized for the band (HUDNotchGeometry, pinned in
+its tests).
+
+Ordering is deliberate: transcription history writes before shaping runs,
+so history is always the words as spoken, never the model's rewrite.
+
+The fork has since promoted the feature's wording from alpha to beta.
+The alpha existed to test the feel of shaped insertion at all; live
+daily use on real hardware — shaped insertion, the cycling, the band,
+and every passthrough path — settled the feature's shape, which is what
+the promotion says. Off by default is unchanged, and this file keeps
+its name and title as the record of where the decision started.
+
+When the model is unavailable, the notice is a persistent line in
+Settings beside the shaping toggle, not a HUD message. The HUD dismisses
+itself after about two seconds and the moment of failure is mid-insertion,
+so a HUD notice would vanish before it could be read; Settings holds the
+explanation for as long as the user needs it.
+
+## Consequences
+
+- A hung model request is abandoned, not awaited: its answer may arrive
+  after the session ended and is dropped.
+- Guardrail refusals insert the raw words, so profanity the model
+  declines to touch still lands in the target app.
+- The 4096-token context bounds a session, so very long dictations may
+  fail shaping and pass through unshaped.
+- This ADR ships fork-first and is offered upstream as a draft.
