@@ -283,7 +283,9 @@ final class DirectDictationController {
   /// it writes history or reaches the clipboard, and killing the process in
   /// that window loses the words with nothing to recover them from. No longer
   /// than that: a wedged insertion must not hold the quit open forever.
-  static let finishGrace = TranslationService.defaultTimeout + .seconds(2)
+  static let finishGrace = TranslationService.defaultTimeout
+    + PromptShapingService.defaultTimeout
+    + .seconds(2)
 
   /// Waits for an in-flight finish to insert its text, giving up after
   /// `timeout` so a stuck insertion cannot hold the quit forever. Giving up
@@ -749,13 +751,22 @@ final class DirectDictationController {
         // promised a translation, and pasting the untranslated words instead
         // lands the wrong language in someone else's document.
         var text = spoken
-        if let pair = session.translation, !spoken.isEmpty {
+        // Shaping first, then translation. A prompt is written in one language,
+        // with a one-shot example in it, so handing it a translation of the
+        // words asks it to work in a language it was not written for; and a
+        // translator given cleaned-up words has less to get wrong.
+        if let chosenPrompt, willShape {
+          text = await dependencies.shapeText(text, chosenPrompt)
+        }
+        // Shaped or passed through, the phase is over.
+        if willShape { dependencies.hideHUD() }
+
+        if let pair = session.translation, !text.isEmpty {
           do {
-            text = try await translation.translate(spoken, with: pair)
+            text = try await translation.translate(text, with: pair)
           } catch {
-            // The shaping presentation must not outlive the session it
-            // promised to shape.
-            if willShape { dependencies.hideHUD() }
+            // The rescue is the words as spoken, not as shaped: shaping is a
+            // convenience and the raw words are what must survive.
             await recordHistory(spoken: spoken, delivered: nil, session: session)
             // Clipboard-only whatever the session's destination: nothing is
             // pasted, and the words survive where the user can reach them.
@@ -774,16 +785,12 @@ final class DirectDictationController {
           }
         }
 
+        // Last before insertion, so the delivered line is what actually
+        // lands: written earlier it recorded a translation nobody received,
+        // because shaping had not run yet. Still before insertion, so a
+        // failed paste cannot lose the words (ADR-0007).
         await recordHistory(spoken: spoken, delivered: text, session: session)
 
-        // Shaping runs after the history write on purpose: history keeps the
-        // words as spoken, and any shaping failure inserts them unchanged.
-        if let chosenPrompt, willShape, !text.isEmpty {
-          text = await dependencies.shapeText(text, chosenPrompt)
-        }
-        // Shaped or passthrough, the phase is over; insertion proceeds
-        // exactly as an unshaped session's does.
-        if willShape { dependencies.hideHUD() }
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )

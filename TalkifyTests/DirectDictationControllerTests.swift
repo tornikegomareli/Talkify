@@ -839,6 +839,91 @@ struct DirectDictationControllerTests {
     #expect(bindings.translate == nil)
   }
 
+  /// Shaping runs before translation. A prompt is written in one language,
+  /// with its one-shot example in that language, so handing it a translation
+  /// of the words asks it to work in a language it was not written for.
+  @Test func shapingSeesTheSpokenWordsAndTranslationSeesTheShapedOnes() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapedInput = OSAllocatedUnfairLock<String?>(initialState: nil)
+    let translatedInput = OSAllocatedUnfairLock<String?>(initialState: nil)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = settings.shapingPrompts[0].id
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "um so ship it thursday" },
+        translateBody: { text in
+          translatedInput.withLock { $0 = text }
+          return "envíalo el jueves"
+        },
+        shapeText: { text, _ in
+          shapedInput.withLock { $0 = text }
+          return "Ship it on Thursday"
+        }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(shapedInput.withLock { $0 } == "um so ship it thursday")
+    #expect(translatedInput.withLock { $0 } == "Ship it on Thursday")
+    #expect(recorder.insertedTexts == ["envíalo el jueves"])
+    controller.stop()
+  }
+
+  /// History's delivered line is what landed. Written before shaping it
+  /// recorded a translation nobody received, which only shows with both
+  /// features on, because that line exists only for a translated session.
+  @Test func historyRecordsTheTextThatWasActuallyInserted() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[HistoryEntry]>(initialState: [])
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.translationTargetIdentifier = "es"
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = settings.shapingPrompts[0].id
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "um so ship it thursday" },
+        historyEntries: historyEntries,
+        translateBody: { _ in "envíalo el jueves" },
+        shapeText: { _, _ in "Ship it on Thursday" }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    let entries = historyEntries.withLock { $0 }
+    // The spoken half is still the words as spoken, and the delivered half is
+    // what the document received.
+    #expect(entries.map(\.text) == ["um so ship it thursday"])
+    #expect(entries.first?.translation?.text == recorder.insertedTexts.first)
+    controller.stop()
+  }
+
   /// The clipboard rescue can be refused too, while a read holds its lease.
   /// Saying only that the translation failed would promise words that are not
   /// anywhere the user can reach.
