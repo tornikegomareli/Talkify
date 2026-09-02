@@ -190,7 +190,8 @@ _Avoid_: Transcript history, cloud analytics
 - The shaping prompt library is user-editable in Settings, seeded with three default prompts
 - The transcript-as-data framing around every shaping prompt is fixed and never editable
 - A deleted or unknown selected shaping prompt inserts the raw words unchanged
-- Transcription history keeps the words as spoken, before shaping
+- Transcription history keeps the words as spoken; a translated session's second line is what actually landed, so it is written after shaping and before insertion
+- Shaping runs before translation: a prompt carries its own language and its one-shot example in that language, and a translator handed cleaned-up words has less to get wrong
 - The shaping choice is captured in the Dictation session settings snapshot, along with the whole prompt library while shaping is on
 - A session that will shape keeps the HUD up through the shaping phase, saying which prompt it shapes with over a bar that fills toward the shaping timeout — the model reports no real progress, so time toward the timeout is the honest measure — and the HUD leaves early when the answer lands
 - While a shaping-enabled session with a nonempty prompt library is recording, the bare Left and Right arrow keys cycle the session's shaping pick through the library and None, wrapping at the ends; they are swallowed only then, and a modified arrow always passes through
