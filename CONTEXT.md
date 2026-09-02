@@ -6,7 +6,9 @@ Talkify targets macOS 26 on Apple Silicon. It does not ship an Intel executable.
 Talkify is a menu-bar-only app with no persistent Dock icon.
 Talkify offers a disabled-by-default “Launch at Login” setting through `SMAppService`.
 
-The first implementation milestone contains only **Direct Dictation**. Other features remain deferred until its latency benchmark passes.
+**Direct Dictation** was the first implementation milestone and remains the centre of the app. **Drop Transcription**, **Read Aloud**, **Dictate and Translate**, and **Prompt Shaping** have shipped since, each off by default where it changes what lands in the document.
+
+Two things in Talkify are on-device models, and they are not the same thing. A **Speech Model** turns speech into text and is the only one the default session touches. The **On-device model** rewrites text that already exists, and only ever with the user's explicit opt-in.
 
 ## Architecture
 
@@ -16,6 +18,8 @@ The first implementation milestone contains only **Direct Dictation**. Other fea
 - Talkify uses Swift 6 with complete strict concurrency
 - Talkify uses Apple frameworks only, with one exception: Sparkle, for updating itself
 - Sparkle is the single third-party dependency and is confined to `Talkify/Updates/`; nothing else imports it, and speech, insertion, and the HUD stay pure Apple frameworks
+- Apple's `FoundationModels` is where **Prompt Shaping** runs. It is a system framework holding a system model, so the one-dependency rule and the nothing-leaves-the-Mac promise both hold with a language model in the app: there is no key, no account, and no request
+- `Translation` and `NaturalLanguage` are the other two frameworks that read the user's words rather than carry them: the first for **Dictate and Translate**, the second to name the language of a **Read Aloud** selection
 
 ## Language
 
@@ -50,6 +54,18 @@ _Avoid_: Live Captions
 **Speech Model**:
 An Apple-managed, on-device language asset used by the Speech framework.
 _Avoid_: Bundled model, Talkify model, Whisper model
+
+**Prompt Shaping**:
+An opt-in pass that rewrites finished **Direct Dictation** text through the **On-device model** before insertion, using the session's **Shaping Prompt**.
+_Avoid_: AI cleanup, post-processing, autocorrect
+
+**Shaping Prompt**:
+One named entry in the user's editable library, holding the wording that tells the **On-device model** what to do with the words. The framing that keeps it rewriting rather than answering is not part of it and is never editable.
+_Avoid_: System prompt, preset, template
+
+**On-device model**:
+Apple's system language model, reached through `FoundationModels`, which rewrites text that already exists. Distinct from a **Speech Model**, which produces text from speech.
+_Avoid_: AI, the LLM, cloud model, our model
 
 **Read Aloud**:
 Speaking the focused application's selected text out loud with an Apple system voice.
@@ -182,10 +198,9 @@ _Avoid_: Transcript history, cloud analytics
 - Settings preserves its selected section and window frame while the app runs, and opens on Appearance after a fresh launch
 - The voice-reactive visual must make silence and a dead microphone look different
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
-- Version 1 inserts raw finalized text without filler-word or AI cleanup
-- Text cleanup is a later feature and must not affect the first implementation
-- Prompt shaping is that later cleanup feature, shipped as an explicit beta and off by default, so the default session still inserts raw finalized text
-- While prompt shaping is on, the selected shaping prompt rewrites finished text through the on-device Apple Intelligence model between recognition and insertion, and nothing leaves the Mac
+- A session inserts raw finalized text unless the user turned **Prompt Shaping** on: no filler-word list, no autocorrect, and no rewriting anybody did not ask for
+- **Prompt Shaping** is the text cleanup the roadmap deferred, shipped as an explicit beta and off by default, so the default session still inserts exactly what was said
+- While **Prompt Shaping** is on, the session's **Shaping Prompt** rewrites finished text through the **On-device model** between recognition and insertion, and nothing leaves the Mac: the model is Apple's, it runs here, and Talkify makes no request on its behalf
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
 - The shaping prompt library is user-editable in Settings, seeded with three default prompts
 - The transcript-as-data framing around every shaping prompt is fixed and never editable
@@ -205,7 +220,7 @@ _Avoid_: Transcript history, cloud analytics
 - The HUD shows a language tag only while a second **Dictation Language** is configured
 - Speech models use Apple's `lingering` retention policy
 - Talkify prepares the selected speech model shortly after launch
-- Talkify does not bundle or train speech models
+- Talkify does not bundle or train speech models, and does not bundle, train, or fine-tune the **On-device model** either: both belong to macOS, which is why the whole app is a few megabytes
 - Onboarding installs the Apple-managed language asset only when it is missing and waits for completion
 - Talkify uses Apple Speech exclusively and has no Whisper fallback
 - Language selectors show only locales supported by Apple Speech
