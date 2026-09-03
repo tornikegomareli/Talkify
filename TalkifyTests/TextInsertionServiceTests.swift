@@ -249,7 +249,7 @@ struct TextInsertionServiceTests {
         waitForPasteRead: {
           pastedText.withLock { $0 = observedPasteboard.string(forType: .string) }
         },
-        clock: clock.insertionClock
+        clock: clock.deadlineClock
       ))
     }
 
@@ -600,7 +600,7 @@ struct TextInsertionServiceTests {
           return true
         },
         waitForPasteRead: {},
-        clock: clock.insertionClock
+        clock: clock.deadlineClock
       ))
     }
     let clipboardReaderQueue = await MainActor.run {
@@ -627,7 +627,7 @@ struct TextInsertionServiceTests {
     // Drive the injected clock past the snapshot budget instead of sleeping
     // it away: the timeout is forced by the test, not raced against the
     // runner (#82).
-    await waitForSleeper(on: clock)
+    await clock.waitForSleeper()
     clock.advance(by: snapshotTimeout)
 
     allowReaderToFinish.signal()
@@ -721,7 +721,7 @@ struct TextInsertionServiceTests {
             pastedTexts.withLock { $0.append(text) }
           }
         },
-        clock: clock.insertionClock
+        clock: clock.deadlineClock
       ))
     }
     let insert: @MainActor @Sendable (String) async
@@ -753,7 +753,7 @@ struct TextInsertionServiceTests {
     // The held-open read is meant to outlive its budget: arm the deadline and
     // drive the clock past it, so the first insertion's timeout is forced
     // rather than waited for.
-    await waitForSleeper(on: clock)
+    await clock.waitForSleeper()
     clock.advance(by: .milliseconds(100))
     let firstOutcome = await firstInsertion.value
     #expect(firstOutcome == .unavailable)
@@ -822,7 +822,7 @@ struct TextInsertionServiceTests {
           return true
         },
         waitForPasteRead: {},
-        clock: clock.insertionClock
+        clock: clock.deadlineClock
       ))
     }
 
@@ -830,7 +830,7 @@ struct TextInsertionServiceTests {
       await service.insert("dictated text", into: makeTarget())
     }
     #expect(wait(for: readerStarted, timeout: .now() + 10) == .success)
-    await waitForSleeper(on: clock)
+    await clock.waitForSleeper()
     clock.advance(by: .milliseconds(100))
 
     let outcome = await insertion.value
@@ -1242,7 +1242,7 @@ struct TextInsertionServiceTests {
         return true
       },
       copyTimeout: .milliseconds(60),
-      clock: clock.insertionClock
+      clock: clock.deadlineClock
     ))
 
     // The copy deadline is driven, not waited out. Advancing only once Copy
@@ -1252,9 +1252,7 @@ struct TextInsertionServiceTests {
       while !copyFired.withLock({ $0 }) {
         await Task.yield()
       }
-      while !clock.hasSleeper {
-        await Task.yield()
-      }
+      await clock.waitForSleeper()
       clock.advance(by: .milliseconds(60))
     }
     let copied = await service.copySelection()
@@ -1319,18 +1317,8 @@ struct TextInsertionServiceTests {
   /// A clock nothing advances. Deadlines armed on it can never elapse, so a
   /// test that expects no timeout cannot lose one to a starved runner, which
   /// is exactly how this family flaked on CI (#82).
-  private nonisolated func makeHeldClock() -> InsertionClock {
-    DrivenClock().insertionClock
-  }
-
-  /// Yields until the driven clock has a sleeper armed, so an advance lands
-  /// on the deadline timer rather than into empty air before it starts
-  /// waiting. An event wait, not a time bound: it costs nothing on a healthy
-  /// run and hangs visibly on a broken one.
-  private nonisolated func waitForSleeper(on clock: DrivenClock) async {
-    while !clock.hasSleeper {
-      await Task.yield()
-    }
+  private nonisolated func makeHeldClock() -> DeadlineClock {
+    DrivenClock().deadlineClock
   }
 
   /// Builds the same optional all-or-nothing snapshot closure used in production.
@@ -1365,78 +1353,6 @@ struct TextInsertionServiceTests {
 /// A clock the tests advance by hand, following the precedent #82 named: a
 /// timeout test drives time rather than waiting for it, so the assertion is
 /// that the deadline was honoured, not that the machine was fast enough.
-private final class DrivenClock: Sendable {
-  private struct Sleeper {
-    let id: UUID
-    let wakeAt: Duration
-    let continuation: CheckedContinuation<Void, any Error>
-  }
-
-  private struct State {
-    var now: Duration = .zero
-    var sleepers: [Sleeper] = []
-  }
-
-  private let state = OSAllocatedUnfairLock(initialState: State())
-
-  /// Whether any sleep is currently suspended on this clock.
-  var hasSleeper: Bool {
-    state.withLock { !$0.sleepers.isEmpty }
-  }
-
-  /// Moves the clock forward and wakes every sleep the move satisfies.
-  func advance(by duration: Duration) {
-    let woken = state.withLock { state -> [Sleeper] in
-      state.now += duration
-      let now = state.now
-      let due = state.sleepers.filter { $0.wakeAt <= now }
-      state.sleepers.removeAll { $0.wakeAt <= now }
-      return due
-    }
-    for sleeper in woken {
-      sleeper.continuation.resume()
-    }
-  }
-
-  /// The injectable boundary handed to the service under test.
-  var insertionClock: InsertionClock {
-    InsertionClock(
-      now: { [self] in state.withLock { $0.now } },
-      sleep: { [self] in try await sleep(for: $0) }
-    )
-  }
-
-  private func sleep(for duration: Duration) async throws {
-    let id = UUID()
-    try await withTaskCancellationHandler {
-      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-        // The cancellation check shares the lock with the handler below, so
-        // a cancel can never slip between checking and registering and leave
-        // the sleep suspended forever.
-        let cancelledBeforeRegistering = state.withLock { state -> Bool in
-          guard !Task.isCancelled else { return true }
-          state.sleepers.append(Sleeper(
-            id: id,
-            wakeAt: state.now + duration,
-            continuation: continuation
-          ))
-          return false
-        }
-        if cancelledBeforeRegistering {
-          continuation.resume(throwing: CancellationError())
-        }
-      }
-    } onCancel: {
-      let cancelled = state.withLock { state -> Sleeper? in
-        guard let index = state.sleepers.firstIndex(where: { $0.id == id }) else {
-          return nil
-        }
-        return state.sleepers.remove(at: index)
-      }
-      cancelled?.continuation.resume(throwing: CancellationError())
-    }
-  }
-}
 
 /// Advertises a type while withholding its data to model a partial AppKit read.
 private final class MissingPasteboardDataProvider:

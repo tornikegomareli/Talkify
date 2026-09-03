@@ -25,6 +25,10 @@ struct PromptShapingService: Sendable {
 
   let client: Client
   var timeout = Self.defaultTimeout
+  /// The time source the timeout races on. A seam for the same reason the
+  /// insertion deadlines have one: driven by hand, a test asserts the timeout
+  /// was honoured rather than that the runner kept up (#116).
+  var clock = DeadlineClock.continuous
 
   func shape(_ text: String, with prompt: ShapingPrompt) async -> String {
     guard client.unavailabilityReason() == nil else { return text }
@@ -33,6 +37,7 @@ struct PromptShapingService: Sendable {
     let instructions = prompt.instructions
     let request = prompt.request(wrapping: text)
     let timeout = timeout
+    let clock = clock
     let shaped: String? = await withCheckedContinuation { continuation in
       // First answer wins; the loser's resume is dropped. An abandoned model
       // request may keep running, which is the cost of returning on time.
@@ -47,7 +52,7 @@ struct PromptShapingService: Sendable {
       }
       let work = Task { finish(try? await respond(instructions, request)) }
       Task {
-        try? await Task.sleep(for: timeout)
+        try? await clock.sleep(timeout)
         work.cancel()
         finish(nil)
       }
