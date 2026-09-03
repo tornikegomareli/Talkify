@@ -58,7 +58,20 @@ struct DictationHUDShellView: View {
   /// cleared until the shaping phase or the next session, so the strip never
   /// appears mid-flight and never leaves under a retracting shape.
   private var showsShapingLabel: Bool {
-    content.shapingChoiceLabel != nil
+    shapingLabel != nil
+  }
+
+  /// The caption and what its color follows: the pick while speaking, then the
+  /// prompt the finished words are going through. One strip for both, so the
+  /// shape neither grows nor loses it at the handover.
+  private var shapingLabel: (text: String, activity: HUDShapingLabel.Activity)? {
+    if let name = content.shapingName {
+      return ("Shaping with \(name)", .working)
+    }
+    if let pick = content.shapingChoiceLabel {
+      return ("Shaping: \(pick)", .voice(content.audioLevel))
+    }
+    return nil
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band;
@@ -166,12 +179,12 @@ struct DictationHUDShellView: View {
       if showsTextBand {
         textBand
       }
-      if let pick = content.shapingChoiceLabel {
+      if let label = shapingLabel {
         HUDShapingLabel(
-          text: "Shaping: \(pick)",
+          text: label.text,
           palette: settings.glowPalette,
           scale: metrics.scale,
-          level: content.audioLevel,
+          activity: label.activity,
           reduceMotion: reduceMotion
         )
         .frame(height: metrics.shapingBandHeight)
@@ -189,11 +202,11 @@ struct DictationHUDShellView: View {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           HUDCompactIndicatorView(content: content, scale: metrics.scale)
             .padding(.top, 3 * metrics.scale)
-          compactBandText
+          compactDraftText
             .frame(maxWidth: .infinity, alignment: .leading)
         }
       } else {
-        bandText
+        draftText
       }
     }
     .font(.system(size: 15 * metrics.scale, weight: .medium))
@@ -203,39 +216,6 @@ struct DictationHUDShellView: View {
     .padding(.horizontal, tagInset * metrics.scale)
     .padding(.vertical, 9 * metrics.scale)
     .frame(minHeight: metrics.textBandHeight)
-  }
-
-  /// What the band says: the shaping caption once that phase starts, the
-  /// draft until then.
-  ///
-  /// The caption takes the draft's place rather than a band of its own. A band
-  /// appearing at release would grow the shape exactly as it is about to
-  /// retract, and the draft it sat under still read "Listening…" while
-  /// nothing was listening any more.
-  @ViewBuilder
-  private var bandText: some View {
-    if let name = content.shapingName {
-      shapingCaption(name)
-    } else {
-      draftText
-    }
-  }
-
-  @ViewBuilder
-  private var compactBandText: some View {
-    if let name = content.shapingName {
-      shapingCaption(name)
-    } else {
-      compactDraftText
-    }
-  }
-
-  private func shapingCaption(_ name: String) -> some View {
-    HUDShapingCaption(
-      text: "Shaping with \(name)",
-      scale: metrics.scale,
-      reduceMotion: reduceMotion
-    )
   }
 
   /// The room the language tag needs on each side.
@@ -390,75 +370,6 @@ struct DictationHUDShellView: View {
 
   /// Sits alongside the body rather than inside it. Absent on a display with
   /// no notch: the flare exists to meet a housing (ADR-0001).
-}
-
-/// The shaping-phase caption, with a highlight sweeping through its letters.
-///
-/// It takes the live draft's place in the text band rather than a band of its
-/// own, so the shape does not grow at the moment it is about to retract and
-/// the phase never sits under a draft still reading "Listening…".
-///
-/// The sweep replaced a determinate bar that filled toward the shaping
-/// timeout. `FoundationModels` reports no progress at all, so a bar could only
-/// ever time the wait rather than measure it, and a bar that reaches the end
-/// on a request about to succeed reads as a failure. A sweep claims nothing
-/// except that something is still running, which is the whole truth here, and
-/// it is the visual language of the framework doing the work.
-///
-/// Reduce Motion drops the sweep and holds the caption at full strength, so
-/// the phase still reads as active without anything moving.
-private struct HUDShapingCaption: View {
-  let text: String
-  let scale: CGFloat
-  let reduceMotion: Bool
-
-  @State private var isSweeping = false
-
-  private var font: Font { .system(size: 15 * scale, weight: .medium) }
-
-  var body: some View {
-    Text(text)
-      .font(font)
-      .foregroundStyle(.white.opacity(reduceMotion ? 0.85 : 0.6))
-      .lineLimit(1)
-      .minimumScaleFactor(0.6)
-      .overlay { sweep }
-      .onAppear { isSweeping = true }
-  }
-
-  @ViewBuilder
-  private var sweep: some View {
-    if !reduceMotion {
-      GeometryReader { proxy in
-        let band = max(proxy.size.width * 0.45, 1)
-        LinearGradient(
-          stops: [
-            .init(color: .white.opacity(0), location: 0),
-            .init(color: .white, location: 0.5),
-            .init(color: .white.opacity(0), location: 1),
-          ],
-          startPoint: .leading,
-          endPoint: .trailing
-        )
-        .frame(width: band)
-        // Starts fully off the leading edge and ends fully off the trailing
-        // one, so the highlight enters and leaves rather than fading in place.
-        .offset(x: isSweeping ? proxy.size.width : -band)
-        .animation(
-          .linear(duration: 1.4).repeatForever(autoreverses: false),
-          value: isSweeping
-        )
-      }
-      // The glyphs are the window: the highlight only ever shows inside the
-      // letters, never as a bar crossing the shape.
-      .mask {
-        Text(text)
-          .font(font)
-          .lineLimit(1)
-          .minimumScaleFactor(0.6)
-      }
-    }
-  }
 }
 
 // Live previews in-file so edits to the shell re-render in place; the

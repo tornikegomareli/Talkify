@@ -140,10 +140,16 @@ final class DictationHUDController {
       hasPlayedEndSound = true
       stage.sounds.playEnd(using: sessionSettings.sounds)
     }
-    // The arrows are dead once the session finishes, so the cycling caption
-    // leaves with them.
+    // The arrows are dead once the session finishes, so the pick leaves with
+    // them and the caption names the prompt instead.
     content.shapingChoiceLabel = nil
     content.shapingName = promptName
+    // The placeholder outlived its phase: nothing is listening any more, and
+    // the caption below it says what is actually happening. A draft the user
+    // really spoke stays, because those are the words being rewritten.
+    if content.text == Self.listeningText || content.text == Self.latchedText {
+      content.text = ""
+    }
   }
 
   /// The session's shaping pick by name; nil clears its tag. Cycling arrives

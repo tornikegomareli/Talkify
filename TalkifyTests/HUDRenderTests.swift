@@ -62,10 +62,10 @@ struct HUDRenderTests {
     #expect(size == CGSize(width: 1280, height: 520))
   }
 
-  /// Both shaping states. The label has to sit centered under the draft
-  /// without crowding it, carrying the palette's colors, and the sweep
-  /// caption has to sit where the draft was rather than under a stale
-  /// "Listening…" — neither is provable from a diff.
+  /// Both shaping states, which share one strip: the pick while speaking and
+  /// the prompt once the rewrite starts. Each has to sit centered under the
+  /// draft without crowding it and carry the palette's colors, neither of
+  /// which is provable from a diff.
   @Test func theShapingStatesRender() throws {
     let cycling = DictationHUDContent()
     cycling.isRevealed = true
@@ -85,7 +85,9 @@ struct HUDRenderTests {
 
     let shaping = DictationHUDContent()
     shaping.isRevealed = true
-    shaping.text = "Listening…"
+    // The words being rewritten stay above the caption; only the listening
+    // placeholder is cleared, and the controller does that.
+    shaping.text = "the words it is rewriting"
     shaping.shapingName = ShapingPrompt.defaults[0].name
 
     _ = try render(

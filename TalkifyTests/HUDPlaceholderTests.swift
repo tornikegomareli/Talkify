@@ -61,6 +61,37 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting == "Listening (latched)")
   }
 
+  /// The shaping phase is the fourth path, and the one that clears rather
+  /// than writes: the caption under it says what is happening, so a
+  /// placeholder above it claims a session is still listening when it has
+  /// already stopped.
+  @Test(arguments: [true, false])
+  func theShapingPhaseClearsTheListeningPlaceholder(isLatched: Bool) {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveform
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: isLatched, settings: session(store))
+    if isLatched { hud.showLatched() }
+    #expect(!hud.textForTesting.isEmpty)
+
+    hud.showShaping(with: "Tighten grammar")
+    #expect(hud.textForTesting.isEmpty)
+  }
+
+  /// The words being rewritten are not a placeholder, so the shaping phase
+  /// leaves them where they are.
+  @Test func theShapingPhaseKeepsARealDraft() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveform
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("the words it is rewriting")
+    hud.showShaping(with: "Tighten grammar")
+    #expect(hud.textForTesting == "the words it is rewriting")
+  }
+
   /// A real draft always shows, whichever visual is selected.
   @Test func aLiveDraftIsNeverSuppressed() {
     let store = AppSettings.previewStore()

@@ -1,22 +1,35 @@
 import SwiftUI
 
-/// The line under everything naming the prompt this session will shape with.
+/// The line under everything naming the prompt this session shapes with:
+/// the pick while speaking, and what the finished words are going through
+/// once they are.
 ///
 /// It sits centered at the bottom of the shape, small and tracked wide, so it
 /// reads as a caption on the session rather than as something to look at. A
 /// band carrying it at reading size was tried and withdrawn: it took the
 /// glance the voice visual and the draft are there for.
 ///
-/// The color comes from the Edge Glow palette and moves with the voice
+/// The color comes from the Edge Glow palette and moves
 /// (`ShapingSheen.metal`), which is what makes a static line worth having on
 /// screen: it says shaping is armed for as long as the shape is up, and it
 /// says it in the palette the user already picked. The arrows change the name
 /// in place while it runs.
 struct HUDShapingLabel: View {
+  /// What the color follows.
+  enum Activity: Equatable {
+    /// The live microphone, while the user is still speaking.
+    case voice(Double)
+    /// The shaping phase, which has no voice left to follow. It pulses on its
+    /// own rather than settling to its quietest, because the words are being
+    /// rewritten right then and a line at rest would say the opposite. It
+    /// claims no progress: `FoundationModels` reports none.
+    case working
+  }
+
   let text: String
   let palette: HUDGlowPalette
   let scale: CGFloat
-  let level: Double
+  let activity: Activity
   let reduceMotion: Bool
 
   @State private var start = Date()
@@ -46,6 +59,7 @@ struct HUDShapingLabel: View {
         .foregroundStyle(Color(palette.statusAccent).opacity(0.85))
     } else {
       TimelineView(.animation) { context in
+        let elapsed = context.date.timeIntervalSince(start)
         Text(text)
           .font(font)
           .tracking(1.4 * scale)
@@ -57,8 +71,8 @@ struct HUDShapingLabel: View {
           .layerEffect(
             ShaderLibrary.shapingSheen(
               .float2(size),
-              .float(Float(context.date.timeIntervalSince(start))),
-              .float(Float(min(max(level, 0), 1))),
+              .float(Float(elapsed)),
+              .float(Float(level(at: elapsed))),
               .color(palette.sheenColors.0),
               .color(palette.sheenColors.1),
               .color(palette.sheenColors.2)
@@ -71,4 +85,15 @@ struct HUDShapingLabel: View {
   }
 
   @State private var size: CGSize = .zero
+
+  private func level(at elapsed: TimeInterval) -> Double {
+    switch activity {
+    case let .voice(level):
+      min(max(level, 0), 1)
+    case .working:
+      // A slow breath either side of the middle, so the line is never at
+      // either extreme while it waits.
+      0.6 + 0.25 * sin(elapsed * 2.4)
+    }
+  }
 }
