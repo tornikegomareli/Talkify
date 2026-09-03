@@ -24,7 +24,8 @@ struct TextInsertionServiceTests {
       postPasteShortcut: { true },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -64,7 +65,8 @@ struct TextInsertionServiceTests {
       },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -100,7 +102,8 @@ struct TextInsertionServiceTests {
       },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -133,7 +136,8 @@ struct TextInsertionServiceTests {
       },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -168,7 +172,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      clock: makeHeldClock()
     ))
 
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -196,7 +201,8 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         pasteboard.clearContents()
         pasteboard.setString("new clipboard", forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -205,35 +211,58 @@ struct TextInsertionServiceTests {
   }
 
   /// Verifies a healthy delayed read still pastes and restores within its budget.
-  @Test func delayedSnapshotWithinDeadlinePastesAndRestores() async {
-    let pasteboard = makePasteboard()
+  ///
+  /// The delay is in driven-clock time: the read is held open across a 100ms
+  /// advance of a 150ms budget, so what is asserted is that a slow but
+  /// in-budget read pastes, not that this machine got there in time.
+  @Test nonisolated func delayedSnapshotWithinDeadlinePastesAndRestores() async {
+    let pasteboard = NSPasteboard(
+      name: NSPasteboard.Name(
+        "TextInsertionServiceTests-\(UUID().uuidString)"
+      )
+    )
     pasteboard.clearContents()
     pasteboard.setString("previous clipboard", forType: .string)
-    let delay = DispatchSemaphore(value: 0)
-    var pastedText: String?
+    let clock = DrivenClock()
+    let readerStarted = DispatchSemaphore(value: 0)
+    let allowReadToFinish = DispatchSemaphore(value: 0)
+    let pastedText = OSAllocatedUnfairLock<String?>(initialState: nil)
+    defer {
+      allowReadToFinish.signal()
+    }
 
-    nonisolated(unsafe) let backgroundPasteboard = pasteboard
-    let service = TextInsertionService(dependencies: .init(
-      pasteboard: pasteboard,
-      readClipboardItems: {
-        _ = delay.wait(timeout: .now() + .milliseconds(40))
-        return TextInsertionService.snapshot(of: backgroundPasteboard)
-      },
-      snapshotTimeout: .milliseconds(150),
-      focusedElement: { nil },
-      frontmostApplication: { nil },
-      isProcessRunning: { _ in true },
-      isTargetFocused: { _ in true },
-      postPasteShortcut: { true },
-      waitForPasteRead: {
-        pastedText = pasteboard.string(forType: .string)
-      }
-    ))
+    nonisolated(unsafe) let observedPasteboard = pasteboard
+    let service = await MainActor.run {
+      TextInsertionService(dependencies: .init(
+        pasteboard: observedPasteboard,
+        readClipboardItems: {
+          readerStarted.signal()
+          _ = allowReadToFinish.wait(timeout: .now() + 10)
+          return TextInsertionService.snapshot(of: observedPasteboard)
+        },
+        snapshotTimeout: .milliseconds(150),
+        focusedElement: { nil },
+        frontmostApplication: { nil },
+        isProcessRunning: { _ in true },
+        isTargetFocused: { _ in true },
+        postPasteShortcut: { true },
+        waitForPasteRead: {
+          pastedText.withLock { $0 = observedPasteboard.string(forType: .string) }
+        },
+        clock: clock.insertionClock
+      ))
+    }
 
-    let outcome = await service.insert("dictated text", into: makeTarget())
+    let insertion = Task { @MainActor in
+      await service.insert("dictated text", into: makeTarget())
+    }
+    #expect(wait(for: readerStarted, timeout: .now() + 10) == .success)
+    clock.advance(by: .milliseconds(100))
+    allowReadToFinish.signal()
 
+    let outcome = await insertion.value
     #expect(outcome == .inserted)
-    #expect(pastedText == "dictated text")
+    #expect(pastedText.withLock { $0 } == "dictated text")
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
@@ -268,7 +297,8 @@ struct TextInsertionServiceTests {
       postPasteShortcut: { true },
       waitForPasteRead: {
         pastedText = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
 
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -312,7 +342,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      clock: makeHeldClock()
     ))
 
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -350,7 +381,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      clock: makeHeldClock()
     ))
 
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -385,7 +417,8 @@ struct TextInsertionServiceTests {
       },
       waitForPasteRead: {
         waitedForPasteRead = true
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -441,7 +474,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -488,9 +522,13 @@ struct TextInsertionServiceTests {
     pasteboard.clearContents()
     pasteboard.setString("previous clipboard", forType: .string)
 
-    let eventWaitBudget = DispatchTimeInterval.seconds(2)
+    // An event wait, not a time bound: the budget is only spent when the run
+    // is already broken, so it can be generous instead of measuring how fast
+    // a loaded runner schedules the reader (#82).
+    let eventWaitBudget = DispatchTimeInterval.seconds(10)
     let blockingWaitBudget = DispatchTimeInterval.seconds(10)
     let snapshotTimeout = Duration.milliseconds(25)
+    let clock = DrivenClock()
     let readerStartedForBlocker = DispatchSemaphore(value: 0)
     let readerStartedForTest = DispatchSemaphore(value: 0)
     let allowReaderToFinish = DispatchSemaphore(value: 0)
@@ -561,7 +599,8 @@ struct TextInsertionServiceTests {
           postedPaste.withLock { $0 = true }
           return true
         },
-        waitForPasteRead: {}
+        waitForPasteRead: {},
+        clock: clock.insertionClock
       ))
     }
     let clipboardReaderQueue = await MainActor.run {
@@ -585,18 +624,11 @@ struct TextInsertionServiceTests {
     #expect(blockerObservedReaderStart.withLock { $0 })
     #expect(!insertionCompleted.withLock { $0 })
 
-    let snapshotDeadlineElapsed = DispatchSemaphore(value: 0)
-    DispatchQueue.global(qos: .userInitiated).asyncAfter(
-      deadline: .now() + .milliseconds(30)
-    ) {
-      snapshotDeadlineElapsed.signal()
-    }
-    #expect(
-      wait(
-        for: snapshotDeadlineElapsed,
-        timeout: .now() + eventWaitBudget
-      ) == .success
-    )
+    // Drive the injected clock past the snapshot budget instead of sleeping
+    // it away: the timeout is forced by the test, not raced against the
+    // runner (#82).
+    await waitForSleeper(on: clock)
+    clock.advance(by: snapshotTimeout)
 
     allowReaderToFinish.signal()
     let readerQueueDrained = DispatchSemaphore(value: 0)
@@ -632,6 +664,7 @@ struct TextInsertionServiceTests {
     pasteboard.clearContents()
     pasteboard.setString("previous clipboard", forType: .string)
 
+    let clock = DrivenClock()
     let readerStarted = DispatchSemaphore(value: 0)
     let allowFirstReadToFinish = DispatchSemaphore(value: 0)
     let readerReturned = DispatchSemaphore(value: 0)
@@ -687,7 +720,8 @@ struct TextInsertionServiceTests {
           if let text = observedPasteboard.string(forType: .string) {
             pastedTexts.withLock { $0.append(text) }
           }
-        }
+        },
+        clock: clock.insertionClock
       ))
     }
     let insert: @MainActor @Sendable (String) async
@@ -698,24 +732,29 @@ struct TextInsertionServiceTests {
     let firstInsertion = Task {
       await insert("first dictated text")
     }
-    #expect(wait(for: readerStarted, timeout: .now() + 1) == .success)
+    // An event wait, not a time bound: the budget is only spent when the run
+    // is already broken, so it can be generous instead of measuring how fast
+    // a loaded runner schedules the reader (#82).
+    #expect(wait(for: readerStarted, timeout: .now() + 10) == .success)
 
-    let busySkipStarted = ContinuousClock.now
     let secondOutcome = await insert("second dictated text")
-    let busySkipDuration = busySkipStarted.duration(to: .now)
 
     #expect(secondOutcome == .unavailable)
-    // A generous ceiling on purpose. What proves the busy path did not queue
-    // behind the stuck read is that it returned at all: the first read is held
-    // open until `releaseReader()`, so an implementation that waited for it
-    // would hang here rather than come back slowly. A tight bound measures the
-    // runner's load instead, which failed this test on CI at 50ms.
-    #expect(busySkipDuration < .seconds(2))
+    // The busy skip never consults the clock, and only this test advances it,
+    // so coming back at all proves the skip did not queue behind the held-open
+    // read: an implementation that waited for it would hang here forever. The
+    // wall-clock ceiling this replaces measured the runner's load instead,
+    // which failed this test on CI at 50ms.
     #expect(readCount.withLock { $0 } == 1)
     #expect(postedPasteCount.withLock { $0 } == 0)
     #expect(pastedTexts.withLock { $0 }.isEmpty)
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
 
+    // The held-open read is meant to outlive its budget: arm the deadline and
+    // drive the clock past it, so the first insertion's timeout is forced
+    // rather than waited for.
+    await waitForSleeper(on: clock)
+    clock.advance(by: .milliseconds(100))
     let firstOutcome = await firstInsertion.value
     #expect(firstOutcome == .unavailable)
     #expect(readCount.withLock { $0 } == 1)
@@ -723,7 +762,7 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
 
     releaseReader()
-    #expect(wait(for: readerReturned, timeout: .now() + 1) == .success)
+    #expect(wait(for: readerReturned, timeout: .now() + 10) == .success)
     // The reader signals from inside the read closure, so the lease is still
     // held for a moment after it. Retrying rather than sleeping a fixed 10ms
     // keeps this from depending on how fast the machine gets there; a refused
@@ -741,6 +780,62 @@ struct TextInsertionServiceTests {
     #expect(readCount.withLock { $0 } == 2)
     #expect(postedPasteCount.withLock { $0 } == 1)
     #expect(pastedTexts.withLock { $0 } == ["third dictated text"])
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  /// The deadline is honoured, not raced: with the read held open, driving
+  /// the clock past the snapshot budget is the only thing that times the
+  /// acquisition out. No real time passes here, so a starved runner cannot
+  /// change the answer either way.
+  @Test nonisolated func drivingTheClockPastTheSnapshotBudgetTimesTheReadOut() async {
+    let pasteboard = NSPasteboard(
+      name: NSPasteboard.Name(
+        "TextInsertionServiceTests-\(UUID().uuidString)"
+      )
+    )
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    let clock = DrivenClock()
+    let readerStarted = DispatchSemaphore(value: 0)
+    let allowReadToFinish = DispatchSemaphore(value: 0)
+    let postedPaste = OSAllocatedUnfairLock(initialState: false)
+    defer {
+      allowReadToFinish.signal()
+    }
+
+    nonisolated(unsafe) let observedPasteboard = pasteboard
+    let service = await MainActor.run {
+      TextInsertionService(dependencies: .init(
+        pasteboard: observedPasteboard,
+        readClipboardItems: {
+          readerStarted.signal()
+          _ = allowReadToFinish.wait(timeout: .now() + 10)
+          return TextInsertionService.snapshot(of: observedPasteboard)
+        },
+        snapshotTimeout: .milliseconds(100),
+        focusedElement: { nil },
+        frontmostApplication: { nil },
+        isProcessRunning: { _ in true },
+        isTargetFocused: { _ in true },
+        postPasteShortcut: {
+          postedPaste.withLock { $0 = true }
+          return true
+        },
+        waitForPasteRead: {},
+        clock: clock.insertionClock
+      ))
+    }
+
+    let insertion = Task { @MainActor in
+      await service.insert("dictated text", into: makeTarget())
+    }
+    #expect(wait(for: readerStarted, timeout: .now() + 10) == .success)
+    await waitForSleeper(on: clock)
+    clock.advance(by: .milliseconds(100))
+
+    let outcome = await insertion.value
+    #expect(outcome == .unavailable)
+    #expect(!postedPaste.withLock { $0 })
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
@@ -978,7 +1073,8 @@ struct TextInsertionServiceTests {
       postPasteShortcut: { true },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      clock: makeHeldClock()
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -1041,7 +1137,8 @@ struct TextInsertionServiceTests {
         typesWhileStaged = pasteboard.types?.map(\.rawValue) ?? []
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      clock: makeHeldClock()
     ))
 
     let outcome = await service.insert(
@@ -1109,7 +1206,8 @@ struct TextInsertionServiceTests {
         pasteboard.clearContents()
         pasteboard.setString("the selected sentence", forType: .string)
         return true
-      }
+      },
+      clock: makeHeldClock()
     ))
 
     let copied = await service.copySelection()
@@ -1125,6 +1223,8 @@ struct TextInsertionServiceTests {
     let pasteboard = makePasteboard()
     pasteboard.clearContents()
     pasteboard.setString("previous clipboard", forType: .string)
+    let clock = DrivenClock()
+    let copyFired = OSAllocatedUnfairLock(initialState: false)
 
     let service = TextInsertionService(dependencies: .init(
       pasteboard: pasteboard,
@@ -1137,11 +1237,28 @@ struct TextInsertionServiceTests {
       postPasteShortcut: { true },
       waitForPasteRead: {},
       // Copy fired and nothing came of it, exactly as an empty selection does.
-      postCopyShortcut: { true },
-      copyTimeout: .milliseconds(60)
+      postCopyShortcut: {
+        copyFired.withLock { $0 = true }
+        return true
+      },
+      copyTimeout: .milliseconds(60),
+      clock: clock.insertionClock
     ))
 
+    // The copy deadline is driven, not waited out. Advancing only once Copy
+    // has fired keeps the snapshot's own timer out of it: by then that timer
+    // is cancelled, so the sleeper this wakes is the copy poll's.
+    let driver = Task.detached {
+      while !copyFired.withLock({ $0 }) {
+        await Task.yield()
+      }
+      while !clock.hasSleeper {
+        await Task.yield()
+      }
+      clock.advance(by: .milliseconds(60))
+    }
     let copied = await service.copySelection()
+    await driver.value
 
     #expect(copied == nil)
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
@@ -1168,7 +1285,8 @@ struct TextInsertionServiceTests {
       postCopyShortcut: {
         didCopy.withLock { $0 = true }
         return true
-      }
+      },
+      clock: makeHeldClock()
     ))
 
     let copied = await service.copySelection()
@@ -1198,6 +1316,23 @@ struct TextInsertionServiceTests {
     semaphore.wait(timeout: timeout)
   }
 
+  /// A clock nothing advances. Deadlines armed on it can never elapse, so a
+  /// test that expects no timeout cannot lose one to a starved runner, which
+  /// is exactly how this family flaked on CI (#82).
+  private nonisolated func makeHeldClock() -> InsertionClock {
+    DrivenClock().insertionClock
+  }
+
+  /// Yields until the driven clock has a sleeper armed, so an advance lands
+  /// on the deadline timer rather than into empty air before it starts
+  /// waiting. An event wait, not a time bound: it costs nothing on a healthy
+  /// run and hangs visibly on a broken one.
+  private nonisolated func waitForSleeper(on clock: DrivenClock) async {
+    while !clock.hasSleeper {
+      await Task.yield()
+    }
+  }
+
   /// Builds the same optional all-or-nothing snapshot closure used in production.
   ///
   /// The closure retains the named pasteboard for background use so tests keep
@@ -1224,6 +1359,82 @@ struct TextInsertionServiceTests {
       isSecure: false,
       displayID: nil
     )
+  }
+}
+
+/// A clock the tests advance by hand, following the precedent #82 named: a
+/// timeout test drives time rather than waiting for it, so the assertion is
+/// that the deadline was honoured, not that the machine was fast enough.
+private final class DrivenClock: Sendable {
+  private struct Sleeper {
+    let id: UUID
+    let wakeAt: Duration
+    let continuation: CheckedContinuation<Void, any Error>
+  }
+
+  private struct State {
+    var now: Duration = .zero
+    var sleepers: [Sleeper] = []
+  }
+
+  private let state = OSAllocatedUnfairLock(initialState: State())
+
+  /// Whether any sleep is currently suspended on this clock.
+  var hasSleeper: Bool {
+    state.withLock { !$0.sleepers.isEmpty }
+  }
+
+  /// Moves the clock forward and wakes every sleep the move satisfies.
+  func advance(by duration: Duration) {
+    let woken = state.withLock { state -> [Sleeper] in
+      state.now += duration
+      let now = state.now
+      let due = state.sleepers.filter { $0.wakeAt <= now }
+      state.sleepers.removeAll { $0.wakeAt <= now }
+      return due
+    }
+    for sleeper in woken {
+      sleeper.continuation.resume()
+    }
+  }
+
+  /// The injectable boundary handed to the service under test.
+  var insertionClock: InsertionClock {
+    InsertionClock(
+      now: { [self] in state.withLock { $0.now } },
+      sleep: { [self] in try await sleep(for: $0) }
+    )
+  }
+
+  private func sleep(for duration: Duration) async throws {
+    let id = UUID()
+    try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        // The cancellation check shares the lock with the handler below, so
+        // a cancel can never slip between checking and registering and leave
+        // the sleep suspended forever.
+        let cancelledBeforeRegistering = state.withLock { state -> Bool in
+          guard !Task.isCancelled else { return true }
+          state.sleepers.append(Sleeper(
+            id: id,
+            wakeAt: state.now + duration,
+            continuation: continuation
+          ))
+          return false
+        }
+        if cancelledBeforeRegistering {
+          continuation.resume(throwing: CancellationError())
+        }
+      }
+    } onCancel: {
+      let cancelled = state.withLock { state -> Sleeper? in
+        guard let index = state.sleepers.firstIndex(where: { $0.id == id }) else {
+          return nil
+        }
+        return state.sleepers.remove(at: index)
+      }
+      cancelled?.continuation.resume(throwing: CancellationError())
+    }
   }
 }
 
