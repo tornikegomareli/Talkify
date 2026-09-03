@@ -30,11 +30,25 @@ struct SettingsWindowTests {
 
   @Test func settingsSectionsStayFocusedOnImplementedFeatures() {
     let expected: [SettingsSection] = [
-      .general, .appearance, .sounds, .dictation, .dropTranscription, .readAloud,
-      .language, .shortcuts, .updates, .insights,
+      .general, .appearance, .sounds, .dictation, .promptShaping,
+      .dropTranscription, .readAloud, .language, .shortcuts, .updates, .insights,
     ]
     #expect(SettingsSection.allCases == expected)
     #expect(SettingsSectionGroup.settings.sections == expected)
+  }
+
+  @Test func deletingThePickedShapingPromptFallsBackToTheFirst() {
+    let prompts = ShapingPrompt.defaults
+    let picked = prompts[1].id
+    #expect(
+      PromptShapingSettingsView.resolvedSelection(picked: picked, in: prompts) == picked
+    )
+    let remaining = prompts.filter { $0.id != picked }
+    #expect(
+      PromptShapingSettingsView.resolvedSelection(picked: picked, in: remaining)
+        == remaining[0].id
+    )
+    #expect(PromptShapingSettingsView.resolvedSelection(picked: picked, in: []) == "")
   }
 
   @Test func appearanceOptionsFollowTheSelectedVisual() {

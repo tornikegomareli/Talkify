@@ -49,16 +49,29 @@ struct DictationHUDShellView: View {
       metrics: metrics,
       visualBandHeight: visualBandHeight,
       includesTextBand: showsTextBand,
-      shapingBandHeight: showsShapingBand ? metrics.shapingBandHeight : 0
+      shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
   }
 
-  /// Whether the shape carries its shaping band. Derived from the content
-  /// rather than latched: the cycling label is set before the reveal and
-  /// neither field is cleared until the next session claims the shape, so the
-  /// band never appears mid-flight and never leaves under a retracting shape.
-  private var showsShapingBand: Bool {
-    content.shapingName != nil || content.shapingChoiceLabel != nil
+  /// Whether the shape carries the shaping label's strip. Derived from the
+  /// content rather than latched: the pick is set before the reveal and is not
+  /// cleared until the shaping phase or the next session, so the strip never
+  /// appears mid-flight and never leaves under a retracting shape.
+  private var showsShapingLabel: Bool {
+    shapingLabel != nil
+  }
+
+  /// The caption and what its color follows: the pick while speaking, then the
+  /// prompt the finished words are going through. One strip for both, so the
+  /// shape neither grows nor loses it at the handover.
+  private var shapingLabel: (text: String, activity: HUDShapingLabel.Activity)? {
+    if let name = content.shapingName {
+      return ("Shaping with \(name)", .working)
+    }
+    if let pick = content.shapingChoiceLabel {
+      return ("Shaping: \(pick)", .voice(content.audioLevel))
+    }
+    return nil
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band;
@@ -166,8 +179,15 @@ struct DictationHUDShellView: View {
       if showsTextBand {
         textBand
       }
-      if showsShapingBand {
-        shapingBand
+      if let label = shapingLabel {
+        HUDShapingLabel(
+          text: label.text,
+          palette: settings.glowPalette,
+          scale: metrics.scale,
+          activity: label.activity,
+          reduceMotion: reduceMotion
+        )
+        .frame(height: metrics.shapingBandHeight)
       }
     }
   }
@@ -198,77 +218,63 @@ struct DictationHUDShellView: View {
     .frame(minHeight: metrics.textBandHeight)
   }
 
-  /// The room the tag needs on each side.
+  /// The room the language tag needs on each side.
   ///
-  /// 46 was measured for a two-letter tag. A translate session's tag is a pair
-  /// ("EN → ES"), and reserving two letters' room would let a centered draft
-  /// run under it, so each further character adds its own width at this size.
+  /// Symmetric, so a centered draft stays centered. It replaced a
+  /// per-character estimate that overshot a language pair by 40%.
   private var tagInset: CGFloat {
-    guard let tag = content.languageTag else { return 24 }
-    return 46 + CGFloat(max(0, tag.count - 2)) * 6
+    max(24, tagReserve(content.languageTag))
   }
 
-  /// The shaping band: a band of the shape itself, grown downward below the
-  /// visuals and the draft the way the shape grows for a long draft — a
-  /// detached pill under the island is rejected by feel (CONTEXT.md), and the
-  /// centered plate this replaces sat over the visuals and Compact's live
-  /// draft. While recording it names the pick the arrows would land, at
-  /// reading size: the arrows change something invisible, and a caption too
-  /// small to read from a glance at the notch defeats the reason it is
-  /// there. Through the shaping phase it names the prompt the finished words
-  /// are shaped with, over a bar that says how far toward the timeout the
-  /// wait has run.
-  @ViewBuilder
-  private var shapingBand: some View {
-    Group {
-      if let name = content.shapingName {
-        VStack(spacing: 6 * metrics.scale) {
-          Text("Shaping with \(name)")
-            .font(.system(size: 12 * metrics.scale, weight: .medium))
-            .foregroundStyle(.white.opacity(0.85))
-            .lineLimit(1)
-          HUDShapingProgressBar(scale: metrics.scale, reduceMotion: reduceMotion)
-            .frame(maxWidth: 150 * metrics.scale)
-        }
-      } else if let name = content.shapingChoiceLabel {
-        HStack(spacing: 12 * metrics.scale) {
-          Image(systemName: "chevron.compact.left")
-            .font(.system(size: 24 * metrics.scale, weight: .bold))
-            .foregroundStyle(.white.opacity(0.75))
-          (Text("Shape with: ").foregroundStyle(.white.opacity(0.6))
-            + Text(name).foregroundStyle(.white))
-            .font(.system(size: 17 * metrics.scale, weight: .semibold))
-            .lineLimit(1)
-            // A long prompt name shrinks to fit rather than truncating: a pick
-            // whose name is cut off is a pick the arrows chose blind.
-            .minimumScaleFactor(0.5)
-          Image(systemName: "chevron.compact.right")
-            .font(.system(size: 24 * metrics.scale, weight: .bold))
-            .foregroundStyle(.white.opacity(0.75))
-        }
-        .padding(.horizontal, 24 * metrics.scale)
-      }
-    }
-    .frame(maxWidth: .infinity)
-    .frame(height: metrics.shapingBandHeight)
-    .allowsHitTesting(false)
+  private func tagReserve(_ tag: String?) -> CGFloat {
+    guard let tag, !tag.isEmpty else { return 0 }
+    // The capsule's own padding, its inset from the shape's edge, and air
+    // before the draft may start.
+    return tagTextWidth(tag) + 4 * 2 + 12 + 8
   }
+
+  /// A tag's text width, measured rather than estimated: a prompt name is
+  /// typed by the user, so no per-character guess covers both "EN → ES" and
+  /// whatever somebody calls their prompt. Unscaled, like every other number
+  /// here; the caller applies the scale.
+  private func tagTextWidth(_ tag: String) -> CGFloat {
+    let width = (tag as NSString)
+      .size(withAttributes: [.font: NSFont.systemFont(ofSize: 9, weight: .semibold)])
+      .width
+      // The tracking the label draws with, which the measurement does not
+      // know about.
+      + 0.5 * CGFloat(tag.count)
+    // Capped: past this a name truncates rather than pushing the draft off
+    // the shape entirely.
+    return min(width.rounded(.up), Self.maximumTagTextWidth)
+  }
+
+  private static let maximumTagTextWidth: CGFloat = 150
 
   @ViewBuilder
   private var languageTag: some View {
     if let tag = content.languageTag {
-      Text(tag)
-        .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))
-        .tracking(0.5)
-        .foregroundStyle(.white.opacity(0.72))
-        .padding(.horizontal, 4 * metrics.scale)
-        .padding(.vertical, 1.5 * metrics.scale)
-        .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
+      tagCapsule(tag)
         .padding(.leading, 12 * metrics.scale)
-        // Clears the housing, so the tag never sits beside the camera.
-        .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
-        .allowsHitTesting(false)
     }
+  }
+
+  private func tagCapsule(_ text: String) -> some View {
+    Text(text)
+      .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))
+      .tracking(0.5)
+      .foregroundStyle(.white.opacity(0.72))
+      .lineLimit(1)
+      // A long prompt name shrinks rather than truncating: a pick whose name
+      // is cut off is a pick the arrows chose blind.
+      .truncationMode(.tail)
+      .frame(width: tagTextWidth(text) * metrics.scale)
+      .padding(.horizontal, 4 * metrics.scale)
+      .padding(.vertical, 1.5 * metrics.scale)
+      .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
+      // Clears the housing, so a tag never sits beside the camera.
+      .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
+      .allowsHitTesting(false)
   }
 
   /// The Compact draft: the same long-draft semantics, leading-aligned so
@@ -364,45 +370,6 @@ struct DictationHUDShellView: View {
 
   /// Sits alongside the body rather than inside it. Absent on a display with
   /// no notch: the flare exists to meet a housing (ADR-0001).
-}
-
-/// The determinate bar under the shaping caption. FoundationModels' respond
-/// offers no real progress signal, so the honest presentation is time toward
-/// the shaping timeout: the fill runs linearly over
-/// `PromptShapingService.defaultTimeout`, and an answer that lands early
-/// completes it early by dismissing the whole HUD. Driven by one SwiftUI
-/// animation on appearance — no timer ticks through the content model.
-private struct HUDShapingProgressBar: View {
-  let scale: CGFloat
-  let reduceMotion: Bool
-  @State private var isFilling = false
-
-  private static let fillSeconds: Double = {
-    let parts = PromptShapingService.defaultTimeout.components
-    return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
-  }()
-
-  var body: some View {
-    Capsule(style: .continuous)
-      .fill(.white.opacity(0.18))
-      .frame(height: 3 * scale)
-      .overlay {
-        Capsule(style: .continuous)
-          .fill(.white.opacity(0.85))
-          // Reduce Motion holds the bar still instead of animating the fill.
-          .scaleEffect(
-            x: reduceMotion || isFilling ? 1 : 0.001,
-            anchor: .leading
-          )
-      }
-      .clipShape(Capsule(style: .continuous))
-      .onAppear {
-        guard !reduceMotion else { return }
-        withAnimation(.linear(duration: Self.fillSeconds)) {
-          isFilling = true
-        }
-      }
-  }
 }
 
 // Live previews in-file so edits to the shell re-render in place; the

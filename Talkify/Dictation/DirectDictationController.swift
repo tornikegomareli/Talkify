@@ -493,8 +493,8 @@ final class DirectDictationController {
   }
 
   /// The session's current pick by name, or nil when this session cannot
-  /// cycle at all. The bare name on purpose: the shell owns the arrows and
-  /// the "Shape with" framing, because their size is a layout decision.
+  /// cycle at all. The bare name on purpose: the shell owns the tag's
+  /// wording, because its width is a layout decision.
   private var shapingChoiceLabel: String? {
     guard currentSessionSettings?.shapingLibrary.isEmpty == false else { return nil }
     return sessionShapingChoice?.name ?? "None"

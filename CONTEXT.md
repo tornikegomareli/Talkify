@@ -202,16 +202,27 @@ _Avoid_: Transcript history, cloud analytics
 - **Prompt Shaping** is the text cleanup the roadmap deferred, shipped as an explicit beta and off by default, so the default session still inserts exactly what was said
 - While **Prompt Shaping** is on, the session's **Shaping Prompt** rewrites finished text through the **On-device model** between recognition and insertion, and nothing leaves the Mac: the model is Apple's, it runs here, and Talkify makes no request on its behalf
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
-- The shaping prompt library is user-editable in Settings, seeded with three default prompts
+- **Prompt Shaping** has its own Settings section, and its library is user-editable there, seeded with three default prompts
 - The transcript-as-data framing around every shaping prompt is fixed and never editable
-- A deleted or unknown selected shaping prompt inserts the raw words unchanged
+- Deleting the selected shaping prompt, or restoring the defaults over it, moves the selection to the first prompt in the library
+- A selected shaping prompt that still resolves to nothing inserts the raw words unchanged
+- A shaping prompt can be run against a sample sentence in Settings, through the same service a session uses, so a prompt is written by reading what it does rather than by guessing
 - Transcription history keeps the words as spoken; a translated session's second line is what actually landed, so it is written after shaping and before insertion
 - Shaping runs before translation: a prompt carries its own language and its one-shot example in that language, and a translator handed cleaned-up words has less to get wrong
 - The shaping choice is captured in the Dictation session settings snapshot, along with the whole prompt library while shaping is on
-- A session that will shape keeps the HUD up through the shaping phase, saying which prompt it shapes with over a bar that fills toward the shaping timeout — the model reports no real progress, so time toward the timeout is the honest measure — and the HUD leaves early when the answer lands
+- A session that will shape keeps the HUD up through the shaping phase, naming the prompt in the same caption the pick rode in, and the HUD leaves early when the answer lands
+- Both phases share one strip, so the shape neither grows nor loses it at the handover, and the phase is a change of words rather than of layout
+- The phase's caption has no live level to follow, so its color pulses on its own: a line at rest would say nothing is happening while the words are being rewritten. It claims no progress, because the model reports none
+- That replaced a bar filling toward the shaping timeout: the model reports no progress at all, so a bar could only time the wait rather than measure it, and a full bar on a request about to succeed reads as a failure
+- The shaping phase clears the listening placeholder, because the caption under it already says what is happening and a placeholder above it claims a session is still listening after it stopped; a draft the user really spoke stays, since those are the words being rewritten
 - While a shaping-enabled session with a nonempty prompt library is recording, the bare Left and Right arrow keys cycle the session's shaping pick through the library and None, wrapping at the ends; they are swallowed only then, and a modified arrow always passes through
-- The shaping caption and the cycling pick live in the shaping band, a band of the shape below the voice visual and the draft; the shape grows downward to include it the way it grows for a long draft, so the caption never covers the visual or the words and no second detached surface appears — an overlay plate centered over the visuals was tried and withdrawn because it degraded the Metal-backed visuals under it and sat on Compact's live draft
-- The shaping band is present from the reveal for any session that can cycle or will shape, and holds through the retract, so the shape never grows or loses the band mid-session
+- The cycling pick is a caption centered in a slim strip at the bottom of the shape, at 11 points and tracked wide: the pick is context, so it is sized to be glanced at rather than read first
+- The caption's glyphs carry the **Edge Glow** palette's colors, moving through them and breathing with the live audio level (`ShapingSheen.metal`): the ramp travels about six times faster at full voice than at silence, and the line lifts out of a resting dim rather than going dark, because a caption that vanishes between words reads as a glitch
+- It follows the **Edge Glow** palette whichever voice visual is showing, because that pick is the only palette the app has; Mono has one color, so the ramp has nothing to walk and the specular sweep carries it alone
+- Reduce Motion holds the caption still in one palette color, with nothing travelling and nothing breathing
+- Two earlier placements were withdrawn: a reading-size band with the pick between its neighbours dominated a session it was only annotating, and a shoulder tag opposite the language pair put it where nothing was looking
+- The language tag reserves its room from a measured text width rather than a per-character estimate, symmetrically, so a centered draft stays centered and never touches it
+- `Aurora` was considered for the caption's color effect and not adopted: it is iOS-only (`platforms: [.iOS(.v17)]`), its palettes are presets rather than the **Edge Glow** pick, and its technique — a stitchable Metal shader through `ShaderLibrary` — is already how every HUD visual works here (ADR-0002). The one-dependency rule holds
 - The cycled shaping pick is session-scoped: it decides what the ending session shapes with and never changes the persisted selection
 - A **Dictation Language** is bound to a **Dictation Trigger**; a second language means a second trigger, never automatic detection
 - Talkify never detects the spoken language: Apple Speech transcribes one language per session, and a wrong guess returns confident nonsense instead of an error

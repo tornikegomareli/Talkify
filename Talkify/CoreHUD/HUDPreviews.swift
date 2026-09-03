@@ -49,7 +49,7 @@ struct HUDShellPreviewHarness: View {
   var hudScale = 1.0
   /// false previews the dead-microphone state.
   var micAlive = true
-  /// Non-nil renders the shaping band carrying this cycling pick.
+  /// Non-nil renders the shaping pick's shoulder tag.
   var shapingChoice: String?
   /// true toggles the session on and off every ~3 seconds so the canvas
   /// exercises the bloom-in/drain-out ramps and the text band's return.

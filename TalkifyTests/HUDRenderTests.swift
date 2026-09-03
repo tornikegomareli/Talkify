@@ -62,6 +62,44 @@ struct HUDRenderTests {
     #expect(size == CGSize(width: 1280, height: 520))
   }
 
+  /// Both shaping states, which share one strip: the pick while speaking and
+  /// the prompt once the rewrite starts. Each has to sit centered under the
+  /// draft without crowding it and carry the palette's colors, neither of
+  /// which is provable from a diff.
+  @Test func theShapingStatesRender() throws {
+    let cycling = DictationHUDContent()
+    cycling.isRevealed = true
+    cycling.text = "the draft the label sits under"
+    cycling.languageTag = "EN → ES"
+    cycling.audioLevel = 0.7
+    cycling.shapingChoiceLabel = ShapingPrompt.defaults[0].name
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: settings,
+        content: cycling
+      ),
+      named: "11-shaping-label"
+    )
+
+    let shaping = DictationHUDContent()
+    shaping.isRevealed = true
+    // The words being rewritten stay above the caption; only the listening
+    // placeholder is cleared, and the controller does that.
+    shaping.text = "the words it is rewriting"
+    shaping.shapingName = ShapingPrompt.defaults[0].name
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: settings,
+        content: shaping
+      ),
+      named: "12-shaping-caption"
+    )
+  }
+
   @Test func theDropTargetRendersArmedAndOpen() throws {
     for (isOpen, name) in [(false, "02-drop-peek"), (true, "03-drop-open")] {
       let drop = DropHUDContent()

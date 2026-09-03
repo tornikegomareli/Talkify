@@ -20,6 +20,17 @@ enum HUDShaderWarmUp {
       .layerEffect
     ),
     (
+      ShaderLibrary.shapingSheen(
+        .float2(CGSize(width: 1, height: 1)),
+        .float(0),
+        .float(0),
+        .color(.white),
+        .color(.white),
+        .color(.white)
+      ),
+      .layerEffect
+    ),
+    (
       ShaderLibrary.ripple(
         .float2(CGPoint.zero), .float(0), .float(3), .float(6), .float(6), .float(1200)
       ),

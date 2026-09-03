@@ -115,7 +115,7 @@ struct HUDNotchGeometryTests {
     #expect(frame.maxY == notched.frame.maxY)
   }
 
-  @Test func contentSizeAddsTheShapingBandBelowTheOtherBands() {
+  @Test func contentSizeAddsTheShapingLabelBelowTheOtherBands() {
     let size = HUDNotchGeometry.contentSize(
       for: notched,
       metrics: .standard,
@@ -131,7 +131,7 @@ struct HUDNotchGeometryTests {
   }
 
   /// The tallest layout a shaping session can show — the quiet visual band, a
-  /// four-line draft, and the shaping band under both — must fit the fixed
+  /// four-line draft, and the shaping label under both — must fit the fixed
   /// window, which never resizes (ADR-0001).
   @Test func tallestShapingLayoutFitsTheFixedWindow() {
     let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
