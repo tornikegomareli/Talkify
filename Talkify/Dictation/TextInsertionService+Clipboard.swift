@@ -139,7 +139,7 @@ extension TextInsertionService {
     of pasteboard: NSPasteboard,
     using readClipboardItems: @Sendable () -> [ClipboardItemSnapshot]?,
     before deadline: Duration,
-    on clock: InsertionClock
+    on clock: DeadlineClock
   ) -> SnapshotAcquisitionResult {
     let startCount = pasteboard.changeCount
     let firstSnapshot = readClipboardItems()
@@ -173,7 +173,7 @@ extension TextInsertionService {
   /// - Returns: A task the actual reader must cancel when it completes.
   private nonisolated static func makeSnapshotTimeoutTask(
     after timeout: Duration,
-    on clock: InsertionClock,
+    on clock: DeadlineClock,
     onTimeout: @escaping @Sendable () -> Void
   ) -> Task<Void, Never> {
     Task {

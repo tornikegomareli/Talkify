@@ -184,25 +184,30 @@ struct PromptShapingServiceTests {
     #expect(result == "shaped")
   }
 
+  /// The timeout returns the words untouched. Driving the clock past the
+  /// deadline is what proves it: the old version asserted the runner got
+  /// through a 50ms timeout inside two seconds, which a starved CI machine
+  /// fails and a re-run passes (#116).
   @Test func timeoutPassesThroughPromptly() async {
+    let clock = DrivenClock()
     let service = PromptShapingService(
       client: availableClient { _, _ in
         try await Task.sleep(for: .seconds(5))
         return "too late"
       },
-      timeout: .milliseconds(50)
+      timeout: .milliseconds(50),
+      clock: clock.deadlineClock
     )
 
-    let clock = ContinuousClock()
-    let start = clock.now
-    let result = await service.shape("raw words", with: Self.prompt)
-    let elapsed = clock.now - start
+    let shaping = Task { await service.shape("raw words", with: Self.prompt) }
+    await clock.waitForSleeper()
+    clock.advance(by: .milliseconds(50))
 
-    #expect(result == "raw words")
-    #expect(elapsed < .seconds(2))
+    #expect(await shaping.value == "raw words")
   }
 
   @Test func timedOutRespondTaskIsCancelled() async throws {
+    let clock = DrivenClock()
     let cancelled = OSAllocatedUnfairLock(initialState: false)
     let service = PromptShapingService(
       client: availableClient { _, _ in
@@ -214,11 +219,15 @@ struct PromptShapingServiceTests {
         }
         return "too late"
       },
-      timeout: .milliseconds(50)
+      timeout: .milliseconds(50),
+      clock: clock.deadlineClock
     )
 
-    let result = await service.shape("raw words", with: Self.prompt)
-    #expect(result == "raw words")
+    let shaping = Task { await service.shape("raw words", with: Self.prompt) }
+    await clock.waitForSleeper()
+    clock.advance(by: .milliseconds(50))
+
+    #expect(await shaping.value == "raw words")
 
     // The timeout path cancels the work task; the sleep's cancellation error
     // lands moments after shape returns, so poll briefly for the flag.

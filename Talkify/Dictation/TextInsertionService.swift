@@ -85,7 +85,7 @@ final class TextInsertionService {
     /// The time source behind the snapshot and copy deadlines. Injectable so
     /// a test drives time instead of betting the runner beats a real
     /// deadline, which is the bet that flaked on loaded CI machines (#82).
-    var clock: InsertionClock = .continuous
+    var clock: DeadlineClock = .continuous
 
     /// Builds the production boundaries around the shared general pasteboard.
     static var live: Self {

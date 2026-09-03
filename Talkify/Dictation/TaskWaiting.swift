@@ -31,9 +31,14 @@ private final class FirstPastThePost: Sendable {
 /// The two waiters are unstructured on purpose. `await task.value` ignores the
 /// cancellation of whoever is awaiting it, so a task group would refuse to
 /// return until the task itself ended and the timeout would never release.
+///
+/// The clock is a seam so a test can drive the giving up rather than wait for
+/// it: against real time, asserting this returns promptly asserts the runner
+/// was fast enough (#116).
 func awaitValue<Success: Sendable>(
   of task: Task<Success, Never>,
-  orGiveUpAfter timeout: Duration
+  orGiveUpAfter timeout: Duration,
+  on clock: DeadlineClock = .continuous
 ) async {
   await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
     let post = FirstPastThePost(continuation)
@@ -42,7 +47,7 @@ func awaitValue<Success: Sendable>(
       post.resume()
     }
     Task {
-      try? await Task.sleep(for: timeout)
+      try? await clock.sleep(timeout)
       post.resume()
     }
   }
