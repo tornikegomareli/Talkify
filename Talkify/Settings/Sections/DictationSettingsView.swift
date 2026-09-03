@@ -9,12 +9,6 @@ struct DictationSettingsView: View {
 
   private let historyStore = DictationHistoryStore()
   @State private var isConfirmingClear = false
-  @State private var isManagingPrompts = false
-  @Environment(\.colorSchemeContrast) private var contrast
-
-  private var shapingUnavailability: String? {
-    PromptShapingService.Client.live.unavailabilityReason()
-  }
 
   var body: some View {
     VStack(spacing: 16) {
@@ -62,48 +56,6 @@ struct DictationSettingsView: View {
         }
       }
 
-      SettingsCard(title: "Prompt Shaping (Beta)") {
-        SettingsRow(
-          title: "Shape dictation with a prompt",
-          description: "An on-device Apple Intelligence prompt rewrites "
-            + "finished dictation before it is inserted. This is a beta: "
-            + "any failure or slow answer inserts the raw words unchanged, "
-            + "and nothing leaves this Mac."
-        ) {
-          Toggle("Shape dictation with a prompt", isOn: $settings.promptShapingEnabled)
-            .labelsHidden()
-            .toggleStyle(.switch)
-        }
-
-        if let reason = shapingUnavailability {
-          Text(reason)
-            .font(.caption)
-            .foregroundStyle(.white.opacity(contrast == .increased ? 0.72 : 0.48))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
-        }
-
-        SettingsPickerRow(
-          title: "Prompt",
-          options: settings.shapingPrompts.map(\.id),
-          optionLabel: { id in settings.shapingPrompts.prompt(for: id)?.name ?? id },
-          selection: $settings.promptShapingPromptID
-        )
-        .disabled(!settings.promptShapingEnabled)
-
-        SettingsRow(
-          title: "Manage prompts",
-          description: "Edit the prompt library: rewrite the instructions, "
-            + "add your own prompts, or restore the built-in set."
-        ) {
-          Button("Manage Prompts…") { isManagingPrompts = true }
-            .buttonStyle(SettingsButtonStyle())
-        }
-      }
-    }
-    .sheet(isPresented: $isManagingPrompts) {
-      ShapingPromptEditorView(settings: settings)
     }
     .confirmationDialog(
       "Clear transcription history?",

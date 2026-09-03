@@ -202,9 +202,11 @@ _Avoid_: Transcript history, cloud analytics
 - **Prompt Shaping** is the text cleanup the roadmap deferred, shipped as an explicit beta and off by default, so the default session still inserts exactly what was said
 - While **Prompt Shaping** is on, the session's **Shaping Prompt** rewrites finished text through the **On-device model** between recognition and insertion, and nothing leaves the Mac: the model is Apple's, it runs here, and Talkify makes no request on its behalf
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
-- The shaping prompt library is user-editable in Settings, seeded with three default prompts
+- **Prompt Shaping** has its own Settings section, and its library is user-editable there, seeded with three default prompts
 - The transcript-as-data framing around every shaping prompt is fixed and never editable
-- A deleted or unknown selected shaping prompt inserts the raw words unchanged
+- Deleting the selected shaping prompt, or restoring the defaults over it, moves the selection to the first prompt in the library
+- A selected shaping prompt that still resolves to nothing inserts the raw words unchanged
+- A shaping prompt can be run against a sample sentence in Settings, through the same service a session uses, so a prompt is written by reading what it does rather than by guessing
 - Transcription history keeps the words as spoken; a translated session's second line is what actually landed, so it is written after shaping and before insertion
 - Shaping runs before translation: a prompt carries its own language and its one-shot example in that language, and a translator handed cleaned-up words has less to get wrong
 - The shaping choice is captured in the Dictation session settings snapshot, along with the whole prompt library while shaping is on
