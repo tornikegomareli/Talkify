@@ -26,7 +26,7 @@
 
 ## Privacy
 
-Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
+Everything is on-device: Apple's `SpeechAnalyzer`/`SpeechTranscriber` for recognition, `AVSpeechSynthesizer` for Read Aloud, `Translation` for translation, and `FoundationModels` for prompt shaping. That last one is a language model, and it is Apple's, running here: there is no key, no account, and no request. Talkify makes no network requests, stores no audio, and keeps no history beyond the local usage metrics you can see in Insights.
 
 Two caveats. Read Aloud reads a selection through Accessibility where it can,
 and by copying it where it cannot, which is any web page: the selection passes
@@ -84,6 +84,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Dictate and translate | Hold **right ⌘** instead |
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
+| Shape what you dictate | Turn it on in **Settings → Prompt Shaping** |
 | Pick the shaping prompt mid-session | **←** / **→** while dictating, with shaping on |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Read it aloud translated | Same key, with **Translate before speaking** on |
@@ -131,21 +132,27 @@ there is nothing else to set.
 
 ## Shape what you dictate (beta)
 
-Turn on **Shape dictation with a prompt** in **Settings → Dictation** and the
-prompt you pick rewrites finished dictation through Apple's on-device model
-before it is inserted. Three prompts are built in — tighten grammar, bullet
-lists, remove filler words — and **Manage Prompts…** lets you edit them or
-write your own: your wording sits before and after the transcript, and the
-framing that keeps the model rewriting your words instead of answering them is
-fixed and not editable.
+Turn on **Shape dictation with a prompt** in **Settings → Prompt Shaping** and
+the prompt you pick rewrites finished dictation through Apple's on-device model
+before it is inserted. Three prompts are built in, tighten grammar, bullet
+lists and remove filler words, and the library shows each one's instruction
+under its name so you pick by reading rather than by remembering.
 
-While you dictate, a band below the voice visual and the live draft names the
-prompt the session will shape with, and the bare arrow keys cycle through your
-prompts — or **None**, to insert the words exactly as spoken. After you
-release, the island stays up and the same band shows a progress bar while the
-rewrite runs. Shaping is a beta and fails safe: any error, or
-an answer slower than ten seconds, inserts your raw words unchanged, history
-keeps what you actually said, and nothing leaves your Mac.
+Edit any of them, or write your own. The instruction is the whole prompt for
+most of them; a closing instruction and a worked example are there under
+**Advanced** when you want them. You can also try a prompt before you use it:
+type a sample sentence, press **Try**, and see what the model does with it. It
+runs the same on-device model a real session runs, so what you see is what you
+will get. The framing that keeps the model rewriting your words instead of
+answering them is fixed and not editable.
+
+While you dictate, a caption under the notch names the prompt the session will
+shape with, colored from your Edge Glow palette and moving with your voice, and
+the bare arrow keys cycle through your prompts — or **None**, to insert the
+words exactly as spoken. After you release, the island stays up and the same
+caption names the prompt while the rewrite runs. Shaping is a beta and fails
+safe: any error, or an answer slower than ten seconds, inserts your raw words
+unchanged, history keeps what you actually said, and nothing leaves your Mac.
 
 ## Two languages, two triggers
 
@@ -162,6 +169,7 @@ Code is organized into folders, callbacks only flow one way from the main wiring
 - `Input/`: the global key event tap and recorded bindings
 - `Dictation/`: the session machine (`DictationSessionMachine`, a pure tested reducer), the speech/insertion services, and the HUD surface and voice visuals only dictation draws
 - `Translation/`: the coordinator both callers talk to, the rules, and the two files that import Apple's Translation framework
+- Prompt shaping lives in `Dictation/`: the prompt model, the service that races the on-device model against a timeout, and the caption the HUD draws
 - `DropTranscription/`: the drag gesture, the file transcription service, where a transcript is staged and lands, and its own HUD surfaces
 - `CoreHUD/`: what both features share: `HUDStage` owns the single panel and decides who holds the shape, plus the geometry seams and Metal shaders
 - `ReadAloud/`, `Settings/`, `Insights/`
