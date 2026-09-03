@@ -83,7 +83,8 @@ extension TextInsertionService {
 
     let readClipboardItems = dependencies.readClipboardItems
     let timeout = dependencies.snapshotTimeout
-    let deadline = ContinuousClock.now.advanced(by: timeout)
+    let clock = dependencies.clock
+    let deadline = clock.now() + timeout
     let completionLock = OSAllocatedUnfairLock(initialState: false)
     let readLease = clipboardReadLease
     let pasteboard = dependencies.pasteboard
@@ -103,14 +104,15 @@ extension TextInsertionService {
         }
       }
 
-      let timeoutTask = Self.makeSnapshotTimeoutTask(after: timeout) {
+      let timeoutTask = Self.makeSnapshotTimeoutTask(after: timeout, on: clock) {
         complete(.timedOut)
       }
       let executeRead: @Sendable () -> Void = {
         let result = Self.readStableSnapshot(
           of: backgroundPasteboard,
           using: readClipboardItems,
-          before: deadline
+          before: deadline,
+          on: clock
         )
         readLease.withLock { $0 = false }
         timeoutTask.cancel()
@@ -128,29 +130,32 @@ extension TextInsertionService {
   /// - Parameters:
   ///   - pasteboard: The pasteboard whose change count bounds each read.
   ///   - readClipboardItems: The all-or-nothing snapshot operation.
-  ///   - deadline: The total deadline shared by both permitted reads.
+  ///   - deadline: The total deadline shared by both permitted reads, in the
+  ///     injected clock's time.
+  ///   - clock: The time source the deadline was built from.
   /// - Returns: A stable snapshot, a completed failure, an unstable result, or
   ///   a timeout when the second read cannot start or finish within the budget.
   private nonisolated static func readStableSnapshot(
     of pasteboard: NSPasteboard,
     using readClipboardItems: @Sendable () -> [ClipboardItemSnapshot]?,
-    before deadline: ContinuousClock.Instant
+    before deadline: Duration,
+    on clock: InsertionClock
   ) -> SnapshotAcquisitionResult {
     let startCount = pasteboard.changeCount
     let firstSnapshot = readClipboardItems()
     let firstEndCount = pasteboard.changeCount
-    guard ContinuousClock.now < deadline else { return .timedOut }
+    guard clock.now() < deadline else { return .timedOut }
 
     if firstEndCount == startCount {
       guard let firstSnapshot else { return .failed }
       return .accepted(items: firstSnapshot, changeCount: firstEndCount)
     }
 
-    guard ContinuousClock.now < deadline else { return .timedOut }
+    guard clock.now() < deadline else { return .timedOut }
     let secondStartCount = pasteboard.changeCount
     let secondSnapshot = readClipboardItems()
     let secondEndCount = pasteboard.changeCount
-    guard ContinuousClock.now < deadline else { return .timedOut }
+    guard clock.now() < deadline else { return .timedOut }
     guard secondEndCount == secondStartCount else { return .unstable }
     guard let secondSnapshot else { return .failed }
     return .accepted(items: secondSnapshot, changeCount: secondEndCount)
@@ -163,15 +168,17 @@ extension TextInsertionService {
   ///
   /// - Parameters:
   ///   - timeout: The total duration allowed for snapshot acquisition.
+  ///   - clock: The time source the timer elapses against.
   ///   - onTimeout: The single-resume contender invoked when the budget elapses.
   /// - Returns: A task the actual reader must cancel when it completes.
   private nonisolated static func makeSnapshotTimeoutTask(
     after timeout: Duration,
+    on clock: InsertionClock,
     onTimeout: @escaping @Sendable () -> Void
   ) -> Task<Void, Never> {
     Task {
       do {
-        try await Task.sleep(for: timeout)
+        try await clock.sleep(timeout)
       } catch {
         return
       }

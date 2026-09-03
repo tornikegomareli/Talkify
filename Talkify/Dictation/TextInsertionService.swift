@@ -82,6 +82,10 @@ final class TextInsertionService {
     /// How long a copy is given to reach the pasteboard. Long enough for a
     /// browser to answer, short enough that a key press does not feel stuck.
     var copyTimeout: Duration = .milliseconds(400)
+    /// The time source behind the snapshot and copy deadlines. Injectable so
+    /// a test drives time instead of betting the runner beats a real
+    /// deadline, which is the bet that flaked on loaded CI machines (#82).
+    var clock: InsertionClock = .continuous
 
     /// Builds the production boundaries around the shared general pasteboard.
     static var live: Self {
@@ -115,7 +119,8 @@ final class TextInsertionService {
           try? await Task.sleep(for: .milliseconds(500))
         },
         postCopyShortcut: TextInsertionService.postCopyShortcut,
-        copyTimeout: .milliseconds(400)
+        copyTimeout: .milliseconds(400),
+        clock: .continuous
       )
     }
   }
@@ -377,12 +382,13 @@ final class TextInsertionService {
   /// - Returns: the new change count, or nil if the count never moved, which
   ///   is what nothing being selected looks like.
   private func waitForCopy(after changeCount: Int) async -> Int? {
-    let deadline = ContinuousClock.now.advanced(by: dependencies.copyTimeout)
-    while ContinuousClock.now < deadline {
+    let clock = dependencies.clock
+    let deadline = clock.now() + dependencies.copyTimeout
+    while clock.now() < deadline {
       let current = dependencies.pasteboard.changeCount
       if current != changeCount { return current }
       do {
-        try await Task.sleep(for: .milliseconds(10))
+        try await clock.sleep(.milliseconds(10))
       } catch {
         return nil
       }
