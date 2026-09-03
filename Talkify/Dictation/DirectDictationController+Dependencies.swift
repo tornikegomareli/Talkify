@@ -59,7 +59,7 @@ extension DirectDictationController {
     let showShaping: @MainActor (_ promptName: String) -> Void
     /// The recording-time caption naming the session's current shaping pick;
     /// nil clears it.
-    let showShapingChoice: @MainActor (_ choice: ShapingChoice?) -> Void
+    let showShapingChoice: @MainActor (_ label: String?) -> Void
     let showMessage: @MainActor (String, CGDirectDisplayID?) -> Void
     let showModelDownload: @MainActor (String?) -> Void
     let showAudioLevel: @MainActor (Float) -> Void

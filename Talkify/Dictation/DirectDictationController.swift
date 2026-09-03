@@ -489,20 +489,15 @@ final class DirectDictationController {
       ?? library.count
     let next = (current + delta + optionCount) % optionCount
     sessionShapingChoice = next < library.count ? library[next] : nil
-    // The direction rides along so the band can slide the names the way the
-    // press moved them.
-    dependencies.showShapingChoice(shapingChoice(direction: delta))
+    dependencies.showShapingChoice(shapingChoiceLabel)
   }
 
-  /// The session's pick and the picks either side of it, or nil when this
-  /// session cannot cycle at all.
-  private func shapingChoice(direction: Int = 0) -> ShapingChoice? {
-    guard let library = currentSessionSettings?.shapingLibrary else { return nil }
-    return ShapingChoice(
-      library: library,
-      selected: sessionShapingChoice,
-      direction: direction
-    )
+  /// The session's current pick by name, or nil when this session cannot
+  /// cycle at all. The bare name on purpose: the shell owns the tag's
+  /// wording, because its width is a layout decision.
+  private var shapingChoiceLabel: String? {
+    guard currentSessionSettings?.shapingLibrary.isEmpty == false else { return nil }
+    return sessionShapingChoice?.name ?? "None"
   }
 
   private func perform(_ effects: [DictationSessionMachine.Effect]) {
@@ -548,7 +543,7 @@ final class DirectDictationController {
         session,
         activeLanguageTag
       )
-      dependencies.showShapingChoice(shapingChoice())
+      dependencies.showShapingChoice(shapingChoiceLabel)
     case .showLatched:
       dependencies.showLatched()
     case .showLiveText:

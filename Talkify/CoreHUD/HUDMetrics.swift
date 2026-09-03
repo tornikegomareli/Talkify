@@ -68,11 +68,5 @@ struct HUDMetrics: Equatable {
   /// text entirely, so it gets room to breathe.
   var waveBandHeight: CGFloat { 64 * scale }
 
-  /// Height of the shaping band, the shape's bottom band while a session can
-  /// cycle its shaping pick or is shaping. Sized for the 17-point prompt name
-  /// between its full-height chevrons — the pick has to read from a glance at
-  /// the notch.
-  var shapingBandHeight: CGFloat { 40 * scale }
-
   var bottomCornerRadius: CGFloat { 20 * scale }
 }

@@ -74,7 +74,7 @@ final class DictationHUDController {
     hasPlayedEndSound = false
     content.languageTag = languageTag
     content.shapingName = nil
-    content.shapingChoice = nil
+    content.shapingChoiceLabel = nil
     sessionIsLatched = isLatched
     // Dictation outranks a file job for the shape: the user is speaking now,
     // and the transcription keeps running with the status item carrying it.
@@ -142,16 +142,16 @@ final class DictationHUDController {
     }
     // The arrows are dead once the session finishes, so the cycling caption
     // leaves with them.
-    content.shapingChoice = nil
+    content.shapingChoiceLabel = nil
     content.shapingName = promptName
   }
 
-  /// The session's shaping pick and the picks either side of it; nil clears
-  /// the carousel. Cycling arrives mid-session, so this only speaks while the
-  /// dictation session holds the shape.
-  func showShapingChoice(_ choice: ShapingChoice?) {
+  /// The session's shaping pick by name; nil clears its tag. Cycling arrives
+  /// mid-session, so this only speaks while the dictation session holds the
+  /// shape.
+  func showShapingChoice(_ label: String?) {
     guard isListening else { return }
-    content.shapingChoice = choice
+    content.shapingChoiceLabel = label
   }
 
   func hide() {

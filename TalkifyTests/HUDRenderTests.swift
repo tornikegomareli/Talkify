@@ -62,16 +62,16 @@ struct HUDRenderTests {
     #expect(size == CGSize(width: 1280, height: 520))
   }
 
-  /// The shaping band in both states. The cycling carousel has to show the
-  /// pick between its neighbours without the neighbours crowding it, and the
-  /// sweep caption has to sit on one line — neither is provable from a diff.
-  @Test func theShapingBandRendersBothStates() throws {
+  /// Both shaping states. The pick's tag has to clear the housing and leave
+  /// the draft room beside it, and the sweep caption has to sit where the
+  /// draft was rather than under a stale "Listening…" — neither is provable
+  /// from a diff.
+  @Test func theShapingStatesRender() throws {
     let cycling = DictationHUDContent()
     cycling.isRevealed = true
-    cycling.shapingChoice = ShapingChoice(
-      library: ShapingPrompt.defaults,
-      selected: ShapingPrompt.defaults[0]
-    )
+    cycling.text = "the draft it has to share the band with"
+    cycling.languageTag = "EN → ES"
+    cycling.shapingChoiceLabel = ShapingPrompt.defaults[0].name
 
     _ = try render(
       DictationHUDShellView(
@@ -79,11 +79,12 @@ struct HUDRenderTests {
         settings: settings,
         content: cycling
       ),
-      named: "11-shaping-carousel"
+      named: "11-shaping-tag"
     )
 
     let shaping = DictationHUDContent()
     shaping.isRevealed = true
+    shaping.text = "Listening…"
     shaping.shapingName = ShapingPrompt.defaults[0].name
 
     _ = try render(

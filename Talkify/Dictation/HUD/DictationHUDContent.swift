@@ -36,7 +36,7 @@ final class DictationHUDContent {
   /// no shaping phase is running. Non-nil swaps the band's cycling carousel
   /// for the shaping caption.
   var shapingName: String?
-  /// The recording-time pick and its two neighbours, or nil when this session
-  /// cannot cycle.
-  var shapingChoice: ShapingChoice?
+  /// The session's shaping pick by name, drawn as a shoulder tag, or nil when
+  /// this session cannot cycle.
+  var shapingChoiceLabel: String?
 }
