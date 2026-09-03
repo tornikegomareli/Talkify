@@ -33,11 +33,10 @@ final class DictationHUDContent {
   /// re-fire mid-session.
   var sessionEpoch = 0
   /// The prompt name the finished words are being shaped with, or nil while
-  /// no shaping phase is running. Non-nil swaps the text band for the
-  /// shaping presentation: the caption and its progress bar.
+  /// no shaping phase is running. Non-nil swaps the band's cycling carousel
+  /// for the shaping caption.
   var shapingName: String?
-  /// The recording-time caption naming the shaping pick the bare arrows
-  /// would land: "‹ Shape with: Tighten grammar ›", or nil when this session
+  /// The recording-time pick and its two neighbours, or nil when this session
   /// cannot cycle.
-  var shapingChoiceLabel: String?
+  var shapingChoice: ShapingChoice?
 }

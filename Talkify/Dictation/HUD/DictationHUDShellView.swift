@@ -58,7 +58,7 @@ struct DictationHUDShellView: View {
   /// neither field is cleared until the next session claims the shape, so the
   /// band never appears mid-flight and never leaves under a retracting shape.
   private var showsShapingBand: Bool {
-    content.shapingName != nil || content.shapingChoiceLabel != nil
+    content.shapingName != nil || content.shapingChoice != nil
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band;
@@ -212,46 +212,81 @@ struct DictationHUDShellView: View {
   /// visuals and the draft the way the shape grows for a long draft — a
   /// detached pill under the island is rejected by feel (CONTEXT.md), and the
   /// centered plate this replaces sat over the visuals and Compact's live
-  /// draft. While recording it names the pick the arrows would land, at
-  /// reading size: the arrows change something invisible, and a caption too
-  /// small to read from a glance at the notch defeats the reason it is
-  /// there. Through the shaping phase it names the prompt the finished words
-  /// are shaped with, over a bar that says how far toward the timeout the
-  /// wait has run.
+  /// draft. While recording it carries the cycling carousel; through the
+  /// shaping phase it names the prompt the finished words are shaped with.
   @ViewBuilder
   private var shapingBand: some View {
     Group {
       if let name = content.shapingName {
-        VStack(spacing: 6 * metrics.scale) {
-          Text("Shaping with \(name)")
-            .font(.system(size: 12 * metrics.scale, weight: .medium))
-            .foregroundStyle(.white.opacity(0.85))
-            .lineLimit(1)
-          HUDShapingProgressBar(scale: metrics.scale, reduceMotion: reduceMotion)
-            .frame(maxWidth: 150 * metrics.scale)
-        }
-      } else if let name = content.shapingChoiceLabel {
-        HStack(spacing: 12 * metrics.scale) {
-          Image(systemName: "chevron.compact.left")
-            .font(.system(size: 24 * metrics.scale, weight: .bold))
-            .foregroundStyle(.white.opacity(0.75))
-          (Text("Shape with: ").foregroundStyle(.white.opacity(0.6))
-            + Text(name).foregroundStyle(.white))
-            .font(.system(size: 17 * metrics.scale, weight: .semibold))
-            .lineLimit(1)
-            // A long prompt name shrinks to fit rather than truncating: a pick
-            // whose name is cut off is a pick the arrows chose blind.
-            .minimumScaleFactor(0.5)
-          Image(systemName: "chevron.compact.right")
-            .font(.system(size: 24 * metrics.scale, weight: .bold))
-            .foregroundStyle(.white.opacity(0.75))
-        }
-        .padding(.horizontal, 24 * metrics.scale)
+        HUDShapingCaption(
+          text: "Shaping with \(name)",
+          scale: metrics.scale,
+          reduceMotion: reduceMotion
+        )
+      } else if let choice = content.shapingChoice {
+        shapingCarousel(choice)
       }
     }
     .frame(maxWidth: .infinity)
     .frame(height: metrics.shapingBandHeight)
     .allowsHitTesting(false)
+  }
+
+  /// The cycling pick between the two picks the arrows would land on.
+  ///
+  /// No arrow glyphs: what Left lands on is drawn on the left, which says the
+  /// same thing and says it about something the user can read. The pick is at
+  /// reading size because the arrows change something otherwise invisible,
+  /// and a caption too small to read from a glance at the notch defeats the
+  /// reason the band is there.
+  ///
+  /// The slots are fixed width so the row never reflows as names change
+  /// length, which is also what lets each slot clip its own slide.
+  private func shapingCarousel(_ choice: ShapingChoice) -> some View {
+    HStack(spacing: 0) {
+      shapingSlot(choice.previous, choice: choice, isCurrent: false)
+      shapingSlot(choice.current, choice: choice, isCurrent: true)
+      shapingSlot(choice.next, choice: choice, isCurrent: false)
+    }
+    .animation(
+      reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86),
+      value: choice.index
+    )
+  }
+
+  private func shapingSlot(
+    _ name: String,
+    choice: ShapingChoice,
+    isCurrent: Bool
+  ) -> some View {
+    Text(name)
+      .font(
+        .system(
+          size: (isCurrent ? 17 : 13) * metrics.scale,
+          weight: isCurrent ? .semibold : .regular
+        )
+      )
+      .foregroundStyle(.white.opacity(isCurrent ? 1 : 0.3))
+      .lineLimit(1)
+      // A long prompt name shrinks to fit rather than truncating: a pick
+      // whose name is cut off is a pick the arrows chose blind.
+      .minimumScaleFactor(0.5)
+      .id(name)
+      .transition(slide(choice.direction))
+      .frame(width: (isCurrent ? 190 : 150) * metrics.scale)
+      .clipped()
+  }
+
+  /// Moves a name the way the press moved it: pressing Right carries the row
+  /// leftward, so the arriving name enters from the trailing edge.
+  private func slide(_ direction: Int) -> AnyTransition {
+    guard !reduceMotion, direction != 0 else { return .opacity }
+    let arriving: Edge = direction > 0 ? .trailing : .leading
+    let leaving: Edge = direction > 0 ? .leading : .trailing
+    return .asymmetric(
+      insertion: .move(edge: arriving).combined(with: .opacity),
+      removal: .move(edge: leaving).combined(with: .opacity)
+    )
   }
 
   @ViewBuilder
@@ -366,42 +401,68 @@ struct DictationHUDShellView: View {
   /// no notch: the flare exists to meet a housing (ADR-0001).
 }
 
-/// The determinate bar under the shaping caption. FoundationModels' respond
-/// offers no real progress signal, so the honest presentation is time toward
-/// the shaping timeout: the fill runs linearly over
-/// `PromptShapingService.defaultTimeout`, and an answer that lands early
-/// completes it early by dismissing the whole HUD. Driven by one SwiftUI
-/// animation on appearance — no timer ticks through the content model.
-private struct HUDShapingProgressBar: View {
+/// The shaping-phase caption, with a highlight sweeping through its letters.
+///
+/// The sweep replaced a determinate bar that filled toward the shaping
+/// timeout. `FoundationModels` reports no progress at all, so a bar could only
+/// ever time the wait rather than measure it, and a bar that reaches the end
+/// on a request about to succeed reads as a failure. A sweep claims nothing
+/// except that something is still running, which is the whole truth here, and
+/// it is the visual language of the framework doing the work.
+///
+/// Reduce Motion drops the sweep and holds the caption at full strength, so
+/// the phase still reads as active without anything moving.
+private struct HUDShapingCaption: View {
+  let text: String
   let scale: CGFloat
   let reduceMotion: Bool
-  @State private var isFilling = false
 
-  private static let fillSeconds: Double = {
-    let parts = PromptShapingService.defaultTimeout.components
-    return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
-  }()
+  @State private var isSweeping = false
+
+  private var font: Font { .system(size: 13 * scale, weight: .medium) }
 
   var body: some View {
-    Capsule(style: .continuous)
-      .fill(.white.opacity(0.18))
-      .frame(height: 3 * scale)
-      .overlay {
-        Capsule(style: .continuous)
-          .fill(.white.opacity(0.85))
-          // Reduce Motion holds the bar still instead of animating the fill.
-          .scaleEffect(
-            x: reduceMotion || isFilling ? 1 : 0.001,
-            anchor: .leading
-          )
+    Text(text)
+      .font(font)
+      .foregroundStyle(.white.opacity(reduceMotion ? 0.85 : 0.6))
+      .lineLimit(1)
+      .minimumScaleFactor(0.6)
+      .overlay { sweep }
+      .onAppear { isSweeping = true }
+  }
+
+  @ViewBuilder
+  private var sweep: some View {
+    if !reduceMotion {
+      GeometryReader { proxy in
+        let band = max(proxy.size.width * 0.45, 1)
+        LinearGradient(
+          stops: [
+            .init(color: .white.opacity(0), location: 0),
+            .init(color: .white, location: 0.5),
+            .init(color: .white.opacity(0), location: 1),
+          ],
+          startPoint: .leading,
+          endPoint: .trailing
+        )
+        .frame(width: band)
+        // Starts fully off the leading edge and ends fully off the trailing
+        // one, so the highlight enters and leaves rather than fading in place.
+        .offset(x: isSweeping ? proxy.size.width : -band)
+        .animation(
+          .linear(duration: 1.4).repeatForever(autoreverses: false),
+          value: isSweeping
+        )
       }
-      .clipShape(Capsule(style: .continuous))
-      .onAppear {
-        guard !reduceMotion else { return }
-        withAnimation(.linear(duration: Self.fillSeconds)) {
-          isFilling = true
-        }
+      // The glyphs are the window: the highlight only ever shows inside the
+      // letters, never as a bar crossing the shape.
+      .mask {
+        Text(text)
+          .font(font)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
       }
+    }
   }
 }
 

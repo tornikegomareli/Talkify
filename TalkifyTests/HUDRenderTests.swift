@@ -62,6 +62,40 @@ struct HUDRenderTests {
     #expect(size == CGSize(width: 1280, height: 520))
   }
 
+  /// The shaping band in both states. The cycling carousel has to show the
+  /// pick between its neighbours without the neighbours crowding it, and the
+  /// sweep caption has to sit on one line — neither is provable from a diff.
+  @Test func theShapingBandRendersBothStates() throws {
+    let cycling = DictationHUDContent()
+    cycling.isRevealed = true
+    cycling.shapingChoice = ShapingChoice(
+      library: ShapingPrompt.defaults,
+      selected: ShapingPrompt.defaults[0]
+    )
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: settings,
+        content: cycling
+      ),
+      named: "11-shaping-carousel"
+    )
+
+    let shaping = DictationHUDContent()
+    shaping.isRevealed = true
+    shaping.shapingName = ShapingPrompt.defaults[0].name
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: settings,
+        content: shaping
+      ),
+      named: "12-shaping-caption"
+    )
+  }
+
   @Test func theDropTargetRendersArmedAndOpen() throws {
     for (isOpen, name) in [(false, "02-drop-peek"), (true, "03-drop-open")] {
       let drop = DropHUDContent()

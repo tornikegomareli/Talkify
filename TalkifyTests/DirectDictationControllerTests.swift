@@ -29,8 +29,13 @@ struct DirectDictationControllerTests {
     var recordedSessions: [(wordCount: Int, speakingDuration: TimeInterval)] = []
     var accessibilityAlerts = 0
     var shapingNames: [String] = []
-    var shapingChoiceLabels: [String?] = []
+    var shapingChoices: [ShapingChoice?] = []
     var cycleCaptureStates: [Bool] = []
+
+    /// The picked name out of each choice. The cycling assertions predate the
+    /// carousel and read the same either way, which is the proof that drawing
+    /// the neighbours did not change what gets picked.
+    var shapingChoiceLabels: [String?] { shapingChoices.map { $0?.current } }
 
     func count(of event: String) -> Int {
       events.filter { $0 == event }.count
@@ -148,9 +153,9 @@ struct DirectDictationControllerTests {
         recorder.events.append("showShaping")
         recorder.shapingNames.append(name)
       },
-      showShapingChoice: { label in
+      showShapingChoice: { choice in
         recorder.events.append("showShapingChoice")
-        recorder.shapingChoiceLabels.append(label)
+        recorder.shapingChoices.append(choice)
       },
       showMessage: { message, _ in
         recorder.events.append("showMessage")
@@ -1449,6 +1454,9 @@ struct DirectDictationControllerTests {
     await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
     #expect(recorder.shapingChoiceLabels.last == "Bullet my lists")
+    // The direction the HUD slides the names, carried out of the press that
+    // moved them: 0 at session start, then the delta of each cycle.
+    #expect(recorder.shapingChoices.map { $0?.direction } == [0, 1])
     #expect(shapedPromptIDs.withLock { $0 } == ["bullet-lists"])
     #expect(recorder.insertedTexts == ["shaped raw words"])
     controller.stop()
@@ -1519,7 +1527,7 @@ struct DirectDictationControllerTests {
       await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
 
       #expect(recorder.cycleCaptureStates.isEmpty)
-      #expect(recorder.shapingChoiceLabels == [nil])
+      #expect(recorder.shapingChoices == [nil])
       controller.stop()
     }
   }
@@ -1588,7 +1596,7 @@ struct DirectDictationControllerTests {
     await prepare(controller, prewarmed: prewarmed)
 
     controller.handle(.shapingCycleRight)
-    #expect(recorder.shapingChoiceLabels.isEmpty)
+    #expect(recorder.shapingChoices.isEmpty)
 
     controller.toggleFromMenu()
     await waitUntil("Session never reached recording") {

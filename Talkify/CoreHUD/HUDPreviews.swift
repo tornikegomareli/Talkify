@@ -49,7 +49,8 @@ struct HUDShellPreviewHarness: View {
   var hudScale = 1.0
   /// false previews the dead-microphone state.
   var micAlive = true
-  /// Non-nil renders the shaping band carrying this cycling pick.
+  /// Non-nil renders the shaping band carrying this cycling pick, drawn
+  /// between the neighbours the arrows would land on.
   var shapingChoice: String?
   /// true toggles the session on and off every ~3 seconds so the canvas
   /// exercises the bloom-in/drain-out ramps and the text band's return.
@@ -68,7 +69,12 @@ struct HUDShellPreviewHarness: View {
       .background { HUDPreviewScreen.wallpaper }
       .task {
         content.text = text
-        content.shapingChoiceLabel = shapingChoice
+        content.shapingChoice = shapingChoice.flatMap { name in
+          ShapingChoice(
+            library: ShapingPrompt.defaults,
+            selected: ShapingPrompt.defaults.first { $0.name == name }
+          )
+        }
         settings.longDraftStyle = longDraft
         settings.hudScale = hudScale
         content.isRevealed = true
