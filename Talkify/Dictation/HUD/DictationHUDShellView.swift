@@ -48,8 +48,17 @@ struct DictationHUDShellView: View {
       for: screen,
       metrics: metrics,
       visualBandHeight: visualBandHeight,
-      includesTextBand: showsTextBand
+      includesTextBand: showsTextBand,
+      shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
+  }
+
+  /// Whether the shape carries the shaping label's strip. Derived from the
+  /// content rather than latched: the pick is set before the reveal and is not
+  /// cleared until the shaping phase or the next session, so the strip never
+  /// appears mid-flight and never leaves under a retracting shape.
+  private var showsShapingLabel: Bool {
+    content.shapingChoiceLabel != nil
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band;
@@ -120,7 +129,6 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
-          .overlay(alignment: .topTrailing) { shapingTag }
           .animation(
             settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
             value: content.text
@@ -157,6 +165,16 @@ struct DictationHUDShellView: View {
       }
       if showsTextBand {
         textBand
+      }
+      if let pick = content.shapingChoiceLabel {
+        HUDShapingLabel(
+          text: "Shaping: \(pick)",
+          palette: settings.glowPalette,
+          scale: metrics.scale,
+          level: content.audioLevel,
+          reduceMotion: reduceMotion
+        )
+        .frame(height: metrics.shapingBandHeight)
       }
     }
   }
@@ -220,14 +238,12 @@ struct DictationHUDShellView: View {
     )
   }
 
-  /// The room the tags need on each side.
+  /// The room the language tag needs on each side.
   ///
-  /// Symmetric, and sized to the wider of the two, because a centered draft
-  /// has to stay centered whichever shoulder is busier. It replaced a
-  /// per-character estimate that overshot a language pair by 40% and still
-  /// undershot a prompt name, which left the draft touching the tag.
+  /// Symmetric, so a centered draft stays centered. It replaced a
+  /// per-character estimate that overshot a language pair by 40%.
   private var tagInset: CGFloat {
-    max(24, tagReserve(content.languageTag), tagReserve(shapingTagText))
+    max(24, tagReserve(content.languageTag))
   }
 
   private func tagReserve(_ tag: String?) -> CGFloat {
@@ -263,27 +279,6 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// The session's shaping pick, in the same capsule as the language pair and
-  /// on the opposite shoulder.
-  ///
-  /// A tag rather than a band: while speaking, the pick is context, not the
-  /// thing being read, and a band of the shape carrying it at reading size
-  /// stole the glance the voice visual and the draft are there for. The
-  /// arrows change it in place, and it leaves when the arrows stop working.
-  @ViewBuilder
-  private var shapingTag: some View {
-    if let tag = shapingTagText {
-      tagCapsule(tag)
-        .padding(.trailing, 12 * metrics.scale)
-    }
-  }
-
-  private var shapingTagText: String? {
-    content.shapingChoiceLabel.map { "Shaping: \($0)" }
-  }
-
-  /// One style for both shoulder tags, so a session showing both reads as one
-  /// row rather than two decisions.
   private func tagCapsule(_ text: String) -> some View {
     Text(text)
       .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))

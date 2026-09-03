@@ -91,6 +91,23 @@ enum HUDGlowPalette: String, CaseIterable {
     }
   }
 
+  /// Three stops for the shaping label's sheen, in the order the ramp walks
+  /// them. Taken from the same palette as the beam so the label speaks the
+  /// palette's language, and kept to three because the shader mixes exactly
+  /// three and wraps.
+  var sheenColors: (Color, Color, Color) {
+    switch self {
+    case .spectrum: (.blue, .purple, .pink)
+    case .silver: (.white, Color(red: 0.62, green: 0.72, blue: 1.0), .white)
+    case .aurora: (.mint, .teal, .cyan)
+    case .sunset: (.orange, .pink, .purple)
+    case .ocean: (.cyan, .blue, .indigo)
+    // Mono means one color, so the ramp has nothing to walk and the label is
+    // left to the specular sweep alone.
+    case .mono: (.white, .white, .white)
+    }
+  }
+
   /// The particle cloud's colors, cycled across the motes.
   var particleColors: [SIMD4<Float>] {
     switch self {

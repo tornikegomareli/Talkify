@@ -55,7 +55,8 @@ struct HUDNotchGeometryTests {
       for: notched,
       metrics: .standard,
       visualBandHeight: 0,
-      includesTextBand: true
+      includesTextBand: true,
+      shapingBandHeight: 0
     )
     #expect(size == CGSize(width: 540, height: 32 + HUDMetrics.standard.textBandHeight))
   }
@@ -65,7 +66,8 @@ struct HUDNotchGeometryTests {
       for: notched,
       metrics: .standard,
       visualBandHeight: HUDMetrics.standard.visualBandHeight,
-      includesTextBand: true
+      includesTextBand: true,
+      shapingBandHeight: 0
     )
     let expected = 32
       + HUDMetrics.standard.visualBandHeight
@@ -80,7 +82,8 @@ struct HUDNotchGeometryTests {
       for: notched,
       metrics: .standard,
       visualBandHeight: HUDMetrics.standard.waveBandHeight,
-      includesTextBand: false
+      includesTextBand: false,
+      shapingBandHeight: 0
     )
     let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     #expect(content.height <= window.height - HUDNotchGeometry.shadowPadding)
@@ -91,7 +94,8 @@ struct HUDNotchGeometryTests {
       for: notched,
       metrics: .standard,
       visualBandHeight: HUDMetrics.standard.waveBandHeight,
-      includesTextBand: false
+      includesTextBand: false,
+      shapingBandHeight: 0
     )
     #expect(size.height == 32 + HUDMetrics.standard.waveBandHeight)
   }
@@ -99,39 +103,42 @@ struct HUDNotchGeometryTests {
   @Test func windowFrameIsTopCenterWithShadowSlack() {
     let frame = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     let expectedWidth: CGFloat = 540 + 44 * 2
+    // The shaping band rides outside the max: it can hang under either band
+    // stack, so the tallest layout is whichever stack wins plus it.
     let tallestBands = max(
       HUDMetrics.standard.waveBandHeight,
       HUDMetrics.standard.visualBandHeight + HUDMetrics.standard.maxTextBandHeight
-    )
+    ) + HUDMetrics.standard.shapingBandHeight
     #expect(frame.width == expectedWidth)
     #expect(frame.height == 32 + tallestBands + 44)
     #expect(frame.midX == notched.frame.midX)
     #expect(frame.maxY == notched.frame.maxY)
   }
 
-  /// A shaping session adds no height at all: the pick is a shoulder tag and
-  /// the caption takes the draft's place, so nothing about the shape says
-  /// whether shaping is on.
-  @Test func shapingAddsNoHeightToTheShape() {
+  @Test func contentSizeAddsTheShapingLabelBelowTheOtherBands() {
     let size = HUDNotchGeometry.contentSize(
       for: notched,
       metrics: .standard,
       visualBandHeight: HUDMetrics.standard.visualBandHeight,
-      includesTextBand: true
+      includesTextBand: true,
+      shapingBandHeight: HUDMetrics.standard.shapingBandHeight
     )
     let expected = 32
       + HUDMetrics.standard.visualBandHeight
       + HUDMetrics.standard.textBandHeight
+      + HUDMetrics.standard.shapingBandHeight
     #expect(size.height == expected)
   }
 
-  /// The tallest layout — the quiet visual band under a four-line draft —
-  /// must fit the fixed window, which never resizes (ADR-0001).
-  @Test func theTallestLayoutFitsTheFixedWindow() {
+  /// The tallest layout a shaping session can show — the quiet visual band, a
+  /// four-line draft, and the shaping label under both — must fit the fixed
+  /// window, which never resizes (ADR-0001).
+  @Test func tallestShapingLayoutFitsTheFixedWindow() {
     let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     let tallest = 32
       + HUDMetrics.standard.visualBandHeight
       + HUDMetrics.standard.maxTextBandHeight
+      + HUDMetrics.standard.shapingBandHeight
     #expect(tallest <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
@@ -180,13 +187,15 @@ struct HUDNotchGeometryTests {
       for: external,
       metrics: small,
       visualBandHeight: small.waveBandHeight,
-      includesTextBand: false
+      includesTextBand: false,
+      shapingBandHeight: 0
     )
     let standard = HUDNotchGeometry.contentSize(
       for: external,
       metrics: .standard,
       visualBandHeight: HUDMetrics.standard.waveBandHeight,
-      includesTextBand: false
+      includesTextBand: false,
+      shapingBandHeight: 0
     )
 
     #expect(size.width < standard.width)
@@ -215,7 +224,8 @@ struct HUDNotchGeometryTests {
       for: external,
       metrics: smallest,
       visualBandHeight: smallest.visualBandHeight,
-      includesTextBand: true
+      includesTextBand: true,
+      shapingBandHeight: 0
     )
 
     let standardWidth: CGFloat = 540 + 44 * 2

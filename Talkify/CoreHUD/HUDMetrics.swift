@@ -68,5 +68,11 @@ struct HUDMetrics: Equatable {
   /// text entirely, so it gets room to breathe.
   var waveBandHeight: CGFloat { 64 * scale }
 
+  /// Height of the shaping label's band, the shape's bottom strip while a
+  /// session can cycle its shaping pick. Sized for an 11-point caption, not
+  /// for reading: the pick is context, and a band big enough to read first
+  /// took the glance the visual and the draft are there for.
+  var shapingBandHeight: CGFloat { 22 * scale }
+
   var bottomCornerRadius: CGFloat { 20 * scale }
 }

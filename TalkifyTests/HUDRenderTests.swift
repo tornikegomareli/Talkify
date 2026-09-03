@@ -62,15 +62,16 @@ struct HUDRenderTests {
     #expect(size == CGSize(width: 1280, height: 520))
   }
 
-  /// Both shaping states. The pick's tag has to clear the housing and leave
-  /// the draft room beside it, and the sweep caption has to sit where the
-  /// draft was rather than under a stale "Listening…" — neither is provable
-  /// from a diff.
+  /// Both shaping states. The label has to sit centered under the draft
+  /// without crowding it, carrying the palette's colors, and the sweep
+  /// caption has to sit where the draft was rather than under a stale
+  /// "Listening…" — neither is provable from a diff.
   @Test func theShapingStatesRender() throws {
     let cycling = DictationHUDContent()
     cycling.isRevealed = true
-    cycling.text = "the draft it has to share the band with"
+    cycling.text = "the draft the label sits under"
     cycling.languageTag = "EN → ES"
+    cycling.audioLevel = 0.7
     cycling.shapingChoiceLabel = ShapingPrompt.defaults[0].name
 
     _ = try render(
@@ -79,7 +80,7 @@ struct HUDRenderTests {
         settings: settings,
         content: cycling
       ),
-      named: "11-shaping-tag"
+      named: "11-shaping-label"
     )
 
     let shaping = DictationHUDContent()
