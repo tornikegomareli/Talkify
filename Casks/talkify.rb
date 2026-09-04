@@ -2,12 +2,17 @@ cask "talkify" do
   version "0.8.0"
   sha256 "8303642a3cbc94f04ece5bc2dc06a5b7423a8f974248406d4daaf3c08ac474d0"
 
-  url "https://github.com/tornikegomareli/Talkify/releases/download/v#{version}/Talkify.dmg",
-      verified: "github.com/tornikegomareli/Talkify/"
+  url "https://github.com/tornikegomareli/Talkify/releases/download/v#{version}/Talkify.dmg"
   name "Talkify"
-  desc "Lightning-fast, local first voice dictation from the notch"
+  desc "On-device voice dictation from the notch"
   homepage "https://github.com/tornikegomareli/Talkify"
 
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  auto_updates true
   depends_on macos: :tahoe
   depends_on arch: :arm64
 

@@ -43,14 +43,14 @@ And dictated text is inserted by pasting it, so it passes through the system cli
 With Homebrew:
 
 ```bash
-brew tap tornikegomareli/talkify https://github.com/tornikegomareli/Talkify
-brew trust --tap tornikegomareli/talkify
-brew install --cask talkify
+brew install --cask tornikegomareli/talkify/talkify
 ```
 
-Homebrew 6 refuses to load anything from a third-party tap until you trust it,
-so the middle line is required. It is asking whether you trust this repository;
-[read the cask](Casks/talkify.rb) first if you would rather check what it does.
+The full name is what makes it one line. Homebrew 6 will not load anything from
+a third-party tap until you trust it, but installing by full name adds the tap
+and trusts this one cask on its own — nothing else in the tap, and no separate
+`brew trust`. [Read the cask](Casks/talkify.rb) first if you would rather see
+what it does.
 
 Or grab [**Talkify.dmg**](https://github.com/tornikegomareli/Talkify/releases/latest/download/Talkify.dmg) from the latest release.
 
