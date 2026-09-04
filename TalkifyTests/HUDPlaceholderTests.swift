@@ -114,4 +114,15 @@ struct HUDPlaceholderTests {
     hud.showLiveText("hello ", volatile: "ther")
     #expect(hud.textForTesting == "hello ther")
   }
+
+  @Test func aStatusMessageDoesNotKeepThePreviousGuess() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveDraft
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("hello ", volatile: "ther")
+    hud.showMessage("Couldn't insert text")
+    #expect(hud.textForTesting == "Couldn't insert text")
+  }
 }

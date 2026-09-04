@@ -150,7 +150,7 @@ struct HUDNotchGeometryTests {
     let content = HUDNotchGeometry.contentSize(
       for: notched,
       metrics: .standard,
-      visualBandHeight: 0,
+      visualBandHeight: HUDMetrics.standard.visualBandHeight,
       includesTextBand: true,
       shapingBandHeight: HUDMetrics.standard.shapingBandHeight
     )
@@ -159,6 +159,7 @@ struct HUDNotchGeometryTests {
       + HUDMetrics.standard.maxTextBandHeight
       + HUDMetrics.standard.shapingBandHeight
     #expect(content.height == 32
+      + HUDMetrics.standard.visualBandHeight
       + HUDMetrics.standard.textBandHeight
       + HUDMetrics.standard.shapingBandHeight)
     #expect(growDown <= window.height - HUDNotchGeometry.shadowPadding)

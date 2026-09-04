@@ -31,7 +31,7 @@ after the iOS Dynamic Island caption look. Bars are 2.5pt wide capsules,
 the text.
 
 **Waveform + Draft** — Compact's leading live draft with a `12 * scale`
-Chart Line ribbon at the top of the text band, flush under the housing, and
+Chart Line ribbon at the top of the text band, just under the housing, and
 Edge Glow on the silhouette. No five-bar indicator, particle cloud, or orb.
 The concert waveform styles stay on Waveform; this pick is one designed
 Chart Line. Glow palette colours the beam, the shaping caption, and the

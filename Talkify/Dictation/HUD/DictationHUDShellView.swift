@@ -47,7 +47,11 @@ struct DictationHUDShellView: View {
     HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
-      visualBandHeight: visualBandHeight,
+      // Waveform + Draft folds the 24-point ribbon into the text band, so
+      // the visual band is empty; the extra height still has to be in the
+      // declared size or Slide parks 4 points short of hiding the island.
+      visualBandHeight: visualBandHeight
+        + (showsWaveDraftRibbon ? metrics.visualBandHeight : 0),
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
@@ -146,13 +150,16 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
-          // Live draft snaps in: a spring on every volatile update made new
-          // words wait a quarter-second behind the recognizer. Grow Down
-          // still animates the island's height, not the glyphs.
+          // Grow Down springs the island's height, and only that. The glyphs
+          // are held still by the transaction on the draft itself, so new
+          // words land the moment the recognizer emits them. Keyed on the
+          // draft rather than a character count, because wrapping follows
+          // rendered width: a count-based step fires springs where nothing
+          // moved and snaps where the island actually grew.
           .animation(
             settings.longDraftStyle == .growDown
               ? .spring(duration: 0.18, bounce: 0) : nil,
-            value: draftHeightToken
+            value: draftValue
           )
           .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
       },
@@ -245,7 +252,25 @@ struct DictationHUDShellView: View {
   }
 
   private var showsWaveDraftRibbon: Bool {
-    settings.voiceVisual == .waveDraft && !reduceMotion
+    Self.showsRibbon(
+      visual: settings.voiceVisual,
+      keepsVisualLayout: keepsVisualLayout,
+      reduceMotion: reduceMotion
+    )
+  }
+
+  /// Gated on the listening layout for the same reason `visualBandHeight` is,
+  /// and static so the gate can be asserted without a window: a status message
+  /// renders with the session's settings but no voice visual, and
+  /// `levelHistory` still holds the last session's audio, so an ungated ribbon
+  /// draws a frozen squiggle of the words that just failed to insert — above a
+  /// band 24 points taller than any other visual's message.
+  static func showsRibbon(
+    visual: HUDVoiceVisualStyle,
+    keepsVisualLayout: Bool,
+    reduceMotion: Bool
+  ) -> Bool {
+    keepsVisualLayout && visual == .waveDraft && !reduceMotion
   }
 
   /// The room the language tag needs on each side.
@@ -322,19 +347,26 @@ struct DictationHUDShellView: View {
     return housing + belowHousing
   }
 
-  /// Coarse height for Grow Down's spring: one step per ~40 characters, so
-  /// wrapping animates the island without tweening every volatile letter.
-  private var draftHeightToken: Int {
-    (content.text.count + content.volatileText.count) / 40
+  /// Everything on screen, so the height spring fires exactly when the draft
+  /// changes — including on a volatile guess, which is what moves the wrap.
+  private var draftValue: String {
+    content.text + content.volatileText
   }
 
   /// Committed draft in full white, the current guess lighter, so new words
   /// show as soon as the recognizer emits them.
-  private var liveDraft: Text {
+  ///
+  /// The transaction is what keeps them prompt: words appear, they do not
+  /// fade in. Grow Down's spring lives on the bands and still animates the
+  /// island's height around this — it is only the glyphs that are held out
+  /// of it, which is what made new words trail the recognizer.
+  private var liveDraft: some View {
     let committed = AttributedString(content.text)
     var guess = AttributedString(content.volatileText)
+    guess.font = .system(size: 15 * metrics.scale, weight: .regular)
     guess.foregroundColor = Color.white.opacity(0.55)
     return Text(committed + guess)
+      .transaction { $0.animation = nil }
   }
 
   /// The Compact draft: the same long-draft semantics, leading-aligned so

@@ -17,18 +17,26 @@ struct ChartLineWaveView: View {
   /// Measured time between level ticks, smoothed; scroll speed follows it.
   @State private var tickInterval: Double = 0.022
 
+  private var live: Bool {
+    content.showsVoiceVisual && content.isAudioAlive
+  }
+
   var body: some View {
-    TimelineView(.animation) { context in
+    // Paused for a dead microphone as well as a stopped session: the amber
+    // state is a motionless line (HUDVisualTokens), and an unpaused timeline
+    // kept scrolling it, leaving silence and a dead mic separated by colour
+    // alone (CONTEXT.md).
+    TimelineView(.animation(paused: !live)) { context in
       let progress = min(1, max(0, context.date.timeIntervalSince(lastTick) / tickInterval))
       let level = content.audioLevel
-      let shape = SmoothLineShape(samples: samples, scrollProgress: progress)
+      let shape = SmoothLineShape(samples: samples, scrollProgress: live ? progress : 0)
 
       if content.isAudioAlive {
         ZStack {
           // Ambient under-glow: a wide soft pool of light beneath
           // the line, breathing with the voice.
           Ellipse()
-            .fill(Self.silver)
+            .fill(HUDVisualTokens.chartLineSilver)
             .frame(height: 26)
             .padding(.horizontal, 60)
             .blur(radius: 22)
@@ -38,7 +46,7 @@ struct ChartLineWaveView: View {
           // rest line, soft and fading downward.
           shape
             .stroke(
-              Self.silver,
+              HUDVisualTokens.chartLineSilver,
               style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
             )
             .scaleEffect(y: -1)
@@ -56,7 +64,7 @@ struct ChartLineWaveView: View {
           // bloom reads as light on glass rather than color.
           shape
             .stroke(
-              Self.silver,
+              HUDVisualTokens.chartLineSilver,
               style: StrokeStyle(
                 lineWidth: 4 + 8 * level,
                 lineCap: .round,
@@ -68,7 +76,7 @@ struct ChartLineWaveView: View {
           // Tight bloom hugging the core.
           shape
             .stroke(
-              Self.silver,
+              HUDVisualTokens.chartLineSilver,
               style: StrokeStyle(
                 lineWidth: 2.5 + 3 * level,
                 lineCap: .round,
@@ -116,20 +124,6 @@ struct ChartLineWaveView: View {
       lastTick = now
     }
   }
-
-  /// Metallic silver: white body cooling into a faint blue-gray at the
-  /// ends — the edge glow's palette, no saturated hues.
-  private static let silver = LinearGradient(
-    colors: [
-      Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
-      .white,
-      Color(red: 0.82, green: 0.86, blue: 0.95),
-      .white,
-      Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
-    ],
-    startPoint: .leading,
-    endPoint: .trailing
-  )
 
   /// A soft bright band ping-ponging across the strip; masking the extra
   /// specular stroke with it makes the light travel along the line.

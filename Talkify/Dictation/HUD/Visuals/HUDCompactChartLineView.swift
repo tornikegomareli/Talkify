@@ -27,7 +27,7 @@ struct HUDCompactChartLineView: View {
         ZStack {
           shape
             .stroke(
-              Self.silver,
+              HUDVisualTokens.chartLineSilver,
               style: StrokeStyle(
                 lineWidth: (1.4 + 2 * level) * scale,
                 lineCap: .round,
@@ -65,19 +65,4 @@ struct HUDCompactChartLineView: View {
     .allowsHitTesting(false)
     .accessibilityHidden(true)
   }
-
-  /// Same metallic silver as the concert Chart Line, so the ribbon is
-  /// recognisably that treatment rather than a second product. Palette
-  /// colour stays on the edge beam.
-  private static let silver = LinearGradient(
-    colors: [
-      Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
-      .white,
-      Color(red: 0.82, green: 0.86, blue: 0.95),
-      .white,
-      Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
-    ],
-    startPoint: .leading,
-    endPoint: .trailing
-  )
 }

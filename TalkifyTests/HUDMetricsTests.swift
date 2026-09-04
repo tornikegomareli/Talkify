@@ -110,6 +110,20 @@ struct HUDShellMetricsTests {
     ).scale
   }
 
+  /// A status message renders with the session's settings and no voice
+  /// visual, over a level history the last session filled. An ungated ribbon
+  /// drew that stale audio, frozen, above every error the user ever sees.
+  @Test func theRibbonLeavesWithTheVoiceVisual() {
+    #expect(DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, keepsVisualLayout: true, reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, keepsVisualLayout: false, reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, keepsVisualLayout: true, reduceMotion: true))
+    #expect(!DictationHUDShellView.showsRibbon(
+      visual: .compact, keepsVisualLayout: true, reduceMotion: false))
+  }
+
   @Test func aDraftLayoutIsHeldAtTheReadableFloorAndOthersAreNot() {
     #expect(scale(picked: 0.2, visual: .compact) == HUDMetrics.minimumReadableScale)
     #expect(scale(picked: 0.2, visual: .waveDraft) == HUDMetrics.minimumReadableScale)

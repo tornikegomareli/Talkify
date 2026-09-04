@@ -147,6 +147,7 @@ final class HUDStage {
       // through the retract.
       dictationContent.isDismissing = false
       dictationContent.text = ""
+      dictationContent.volatileText = ""
       dropContent.mode = .none
       dropContent.heldIcon = nil
       dropContent.transcript = nil
@@ -170,6 +171,7 @@ final class HUDStage {
     claim(.message, on: screen)
     dictationContent.showsVoiceVisual = false
     dictationContent.text = text
+    dictationContent.volatileText = ""
     revealDictation()
 
     messageDismissTask?.cancel()

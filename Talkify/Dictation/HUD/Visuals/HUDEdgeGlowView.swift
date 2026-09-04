@@ -43,6 +43,14 @@ struct HUDEdgeGlowView: View {
   /// directly under the housing.
   @State private var sweepStart = Date()
 
+  /// When the microphone went quiet, while the timeline is paused for it.
+  /// The sweep is driven by elapsed wall-clock time, so without this the
+  /// beam resumes having advanced through the whole dead interval and its
+  /// bright region jumps to somewhere else on the silhouette. Pushing
+  /// `sweepStart` forward by the paused duration is what makes the pause a
+  /// pause rather than a skip.
+  @State private var quietSince: Date?
+
   /// Mirrors `content.showsVoiceVisual` for the ramp's keyframe trigger.
   /// The trigger must *change* for the keyframes to play; a view mounted
   /// while listening is already true (the Settings preview switching back
@@ -116,6 +124,13 @@ struct HUDEdgeGlowView: View {
     .accessibilityHidden(true)
     .onChange(of: content.sessionEpoch) {
       sweepStart = .now
+      quietSince = nil
+    }
+    .onChange(of: content.isAudioAlive, initial: true) { _, alive in
+      if alive, let quietSince {
+        sweepStart = sweepStart.addingTimeInterval(Date().timeIntervalSince(quietSince))
+      }
+      quietSince = alive ? nil : Date()
     }
     .onChange(of: content.showsVoiceVisual, initial: true) { _, listening in
       ramped = listening
