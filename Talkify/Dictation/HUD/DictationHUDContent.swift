@@ -7,6 +7,10 @@ import Observation
 @Observable
 final class DictationHUDContent {
   var text = ""
+  /// The recognizer's current guess, not yet finalized. Drawn lighter so
+  /// new words can show before they commit (CONTEXT.md: volatile results
+  /// render immediately).
+  var volatileText = ""
   /// Drives the reveal/dismiss animation.
   var isRevealed = false
   /// True only while listening — the visuals react to the microphone, so

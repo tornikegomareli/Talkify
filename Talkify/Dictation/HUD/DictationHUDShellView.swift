@@ -146,9 +146,13 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
+          // Live draft snaps in: a spring on every volatile update made new
+          // words wait a quarter-second behind the recognizer. Grow Down
+          // still animates the island's height, not the glyphs.
           .animation(
-            settings.longDraftStyle == .growDown ? .spring(duration: 0.25, bounce: 0) : nil,
-            value: content.text
+            settings.longDraftStyle == .growDown
+              ? .spring(duration: 0.18, bounce: 0) : nil,
+            value: draftHeightToken
           )
           .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
       },
@@ -318,21 +322,36 @@ struct DictationHUDShellView: View {
     return housing + belowHousing
   }
 
+  /// Coarse height for Grow Down's spring: one step per ~40 characters, so
+  /// wrapping animates the island without tweening every volatile letter.
+  private var draftHeightToken: Int {
+    (content.text.count + content.volatileText.count) / 40
+  }
+
+  /// Committed draft in full white, the current guess lighter, so new words
+  /// show as soon as the recognizer emits them.
+  private var liveDraft: Text {
+    Text(
+      "\(Text(content.text))"
+        + "\(Text(content.volatileText).foregroundStyle(.white.opacity(0.55)))"
+    )
+  }
+
   /// The Compact draft: the same long-draft semantics, leading-aligned so
   /// the text hangs off the indicator instead of floating centered.
   @ViewBuilder
   private var compactDraftText: some View {
     switch settings.longDraftStyle {
     case .tailOnly:
-      Text(content.text)
+      liveDraft
         .lineLimit(1)
         .truncationMode(.head)
     case .growDown:
-      Text(content.text)
+      liveDraft
         .lineLimit(4)
         .multilineTextAlignment(.leading)
     case .shrinkToFit:
-      Text(content.text)
+      liveDraft
         .lineLimit(1)
         .truncationMode(.head)
         .minimumScaleFactor(0.55)
@@ -347,15 +366,15 @@ struct DictationHUDShellView: View {
   private var draftText: some View {
     switch settings.longDraftStyle {
     case .tailOnly:
-      Text(content.text)
+      liveDraft
         .lineLimit(1)
         .truncationMode(.head)
     case .growDown:
-      Text(content.text)
+      liveDraft
         .lineLimit(4)
         .multilineTextAlignment(.center)
     case .shrinkToFit:
-      Text(content.text)
+      liveDraft
         .lineLimit(1)
         .truncationMode(.head)
         .minimumScaleFactor(0.55)

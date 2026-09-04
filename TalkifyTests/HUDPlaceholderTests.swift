@@ -104,4 +104,14 @@ struct HUDPlaceholderTests {
     hud.showLiveText("hello there")
     #expect(hud.textForTesting == "hello there")
   }
+
+  @Test func aVolatileGuessShowsBeforeItCommits() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveDraft
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("hello ", volatile: "ther")
+    #expect(hud.textForTesting == "hello ther")
+  }
 }

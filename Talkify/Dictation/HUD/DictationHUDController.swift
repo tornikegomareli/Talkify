@@ -80,18 +80,18 @@ final class DictationHUDController {
     // and the transcription keeps running with the status item carrying it.
     stage.claim(.dictation, on: screen, rendering: settings)
     startVoiceVisual()
-    content.text = placeholder
+    setDraft(placeholder)
     stage.revealDictation()
   }
 
   func showLatched() {
     guard isListening else { return }
     sessionIsLatched = true
-    content.text = placeholder
+    setDraft(placeholder)
   }
 
   /// Exposed so the placeholder rules can be asserted without a window.
-  var textForTesting: String { content.text }
+  var textForTesting: String { content.text + content.volatileText }
 
   /// What the band says before any words arrive.
   ///
@@ -110,12 +110,12 @@ final class DictationHUDController {
   /// restores whatever the session was saying before.
   func showModelDownload(_ text: String?) {
     guard isListening else { return }
-    content.text = text ?? placeholder
+    setDraft(text ?? placeholder)
   }
 
-  func showLiveText(_ text: String) {
-    guard isListening, !text.isEmpty else { return }
-    content.text = text
+  func showLiveText(_ committed: String, volatile: String = "") {
+    guard isListening, !(committed + volatile).isEmpty else { return }
+    setDraft(committed, volatile: volatile)
   }
 
   /// Speech has stopped but the recognized text has not arrived yet.
@@ -149,8 +149,13 @@ final class DictationHUDController {
     // the caption below it says what is actually happening. A draft the user
     // really spoke stays, because those are the words being rewritten.
     if content.text == Self.listeningText || content.text == Self.latchedText {
-      content.text = ""
+      setDraft("")
     }
+  }
+
+  private func setDraft(_ committed: String, volatile: String = "") {
+    content.text = committed
+    content.volatileText = volatile
   }
 
   /// The session's shaping pick by name; nil clears its tag. Cycling arrives

@@ -52,7 +52,7 @@ extension DirectDictationController {
       _ languageTag: String?
     ) -> Void
     let showLatched: @MainActor () -> Void
-    let showLiveText: @MainActor (String) -> Void
+    let showLiveText: @MainActor (_ committed: String, _ volatile: String) -> Void
     let showFinalizing: @MainActor () -> Void
     /// The visible shaping phase: the HUD stays up saying which prompt is
     /// rewriting the finished words instead of dismissing into silence.
@@ -138,7 +138,7 @@ extension DirectDictationController {
           )
         },
         showLatched: { hudController.showLatched() },
-        showLiveText: { hudController.showLiveText($0) },
+        showLiveText: { hudController.showLiveText($0, volatile: $1) },
         showFinalizing: { hudController.showFinalizing() },
         showShaping: { hudController.showShaping(with: $0) },
         showShapingChoice: { hudController.showShapingChoice($0) },

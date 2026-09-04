@@ -111,7 +111,7 @@ _Avoid_: Transcript history, cloud analytics
 - Releasing the **Dictation Trigger** before 250 milliseconds counts as a quick tap
 - A quick tap leaves **Direct Dictation** active until the next trigger press
 - The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
-- The HUD renders volatile recognition results immediately
+- The HUD renders volatile recognition results immediately, in a lighter weight than finalized words, so new text can show before it commits
 - **Direct Dictation** inserts finalized recognition text plus the latest volatile result when recognition ends before finalizing it
 - The **Direct Dictation** HUD expands from the physical notch on the focused input's display
 - Settings exposes **Appearance**, **Sounds**, and **Insights** in that order
