@@ -55,9 +55,14 @@ struct SettingsWindowTests {
     #expect(AppearanceSettingsView.showsWaveformOptions(for: .waveform))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glow))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .compact))
-    #expect(AppearanceSettingsView.showsGlowOptions(for: .glow))
-    #expect(!AppearanceSettingsView.showsGlowOptions(for: .waveform))
-    #expect(!AppearanceSettingsView.showsGlowOptions(for: .compact))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .waveDraft))
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .glow))
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .waveDraft))
+    #expect(!AppearanceSettingsView.showsGlowPalette(for: .waveform))
+    #expect(!AppearanceSettingsView.showsGlowPalette(for: .compact))
+    #expect(AppearanceSettingsView.showsGlowCenter(for: .glow))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveDraft))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveform))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

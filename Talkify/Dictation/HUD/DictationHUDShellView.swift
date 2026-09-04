@@ -74,28 +74,28 @@ struct DictationHUDShellView: View {
     return nil
   }
 
-  /// Reduce Motion always shows the quiet level meter in its slim band;
-  /// otherwise both animated visuals get the tall band — the waveform fills
+  /// Reduce Motion always shows the quiet level meter in its slim band.
+  /// Compact has no band of its own. Waveform + Draft uses that same slim
+  /// strip for its Chart Line so strip + wrapped text still fit the fixed
+  /// window. Waveform and Edge Glow keep the tall band — the waveform fills
   /// it, the glow keeps it as an empty stage so the silhouette has flanks
-  /// for the light to wrap. In the Shape live draft trades band for text:
-  /// the glow drops the band entirely (the beam wraps the text band), the
-  /// waveform compresses to the slim strip so strip + wrapped text still
-  /// fit the fixed window.
+  /// for the light to wrap.
   private var visualBandHeight: CGFloat {
     guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
-    // Compact has no band of its own: its indicator lives inside the
-    // text band, beside the draft.
-    if settings.voiceVisual == .compact { return 0 }
-    return metrics.waveBandHeight
+    switch settings.voiceVisual {
+    case .compact: return 0
+    case .waveDraft: return metrics.visualBandHeight
+    case .waveform, .glow: return metrics.waveBandHeight
+    }
   }
 
   /// Waveform and Edge Glow replace the draft text entirely while
-  /// listening; Compact is built around it. With Reduce Motion the draft
-  /// text always shows.
+  /// listening; Compact and Waveform + Draft are built around it. With
+  /// Reduce Motion the draft text always shows.
   private var showsTextBand: Bool {
     if !keepsVisualLayout || reduceMotion { return true }
-    return settings.voiceVisual == .compact
+    return settings.voiceVisual.showsDraftWhileListening
   }
 
   /// Whether the bands stay as a listening session laid them out. Held through
@@ -104,11 +104,16 @@ struct DictationHUDShellView: View {
     content.showsVoiceVisual || content.isDismissing
   }
 
-  /// Whether the text band renders the Compact layout: the voice indicator
-  /// beside a leading-aligned draft. Not gated on the listening state —
-  /// swapping the band's structure at finalize reads as a glitch mid
-  /// retract, so the layout stays and the indicator settles instead.
-  private var showsCompactBand: Bool {
+  /// Whether the text band is Compact's leading-aligned draft. Not gated on
+  /// the listening state — swapping the band's structure at finalize reads
+  /// as a glitch mid retract, so the layout stays and the indicator settles
+  /// instead. Waveform + Draft uses the same alignment without the five-bar
+  /// equalizer, because its Chart Line is already the voice.
+  private var showsLeadingDraft: Bool {
+    settings.voiceVisual.showsDraftWhileListening && !reduceMotion
+  }
+
+  private var showsCompactIndicator: Bool {
     settings.voiceVisual == .compact && !reduceMotion
   }
 
@@ -133,7 +138,7 @@ struct DictationHUDShellView: View {
       isRevealed: content.isRevealed,
       size: size,
       rippleTrigger: content.sessionEpoch,
-      rippleEnabled: settings.voiceVisual == .glow,
+      rippleEnabled: settings.voiceVisual.usesEdgeGlow,
       content: {
         bands
           // The tag hangs off the shell, not the text band: Waveform and Edge
@@ -168,6 +173,8 @@ struct DictationHUDShellView: View {
             HUDLevelMeterView(content: content)
           } else if settings.voiceVisual == .waveform {
             HUDWaveformView(settings: settings, content: content)
+          } else if settings.voiceVisual == .waveDraft {
+            HUDCompactChartLineView(content: content, scale: metrics.scale)
           } else {
             // Edge Glow: the centers (particles, orb) are
             // shape-wide overlays, so the band is an empty stage.
@@ -194,14 +201,17 @@ struct DictationHUDShellView: View {
 
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
-  /// draft leading-aligned beside it; the other visuals center the draft.
+  /// draft leading-aligned beside it. Waveform + Draft keeps that
+  /// alignment without the indicator. The other visuals center the draft.
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if showsCompactBand {
+      if showsLeadingDraft {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
-          HUDCompactIndicatorView(content: content, scale: metrics.scale)
-            .padding(.top, 3 * metrics.scale)
+          if showsCompactIndicator {
+            HUDCompactIndicatorView(content: content, scale: metrics.scale)
+              .padding(.top, 3 * metrics.scale)
+          }
           compactDraftText
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -272,9 +282,23 @@ struct DictationHUDShellView: View {
       .padding(.horizontal, 4 * metrics.scale)
       .padding(.vertical, 1.5 * metrics.scale)
       .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
-      // Clears the housing, so a tag never sits beside the camera.
-      .padding(.top, HUDNotchGeometry.closedSize(for: screen).height + 5 * metrics.scale)
+      // Clears the housing, so a tag never sits beside the camera. When
+      // a slim visual band sits under the housing (Waveform + Draft, or
+      // Reduce Motion), the tag drops into the text band so it does not
+      // cover the ribbon.
+      .padding(.top, tagTopInset)
       .allowsHitTesting(false)
+  }
+
+  private var tagTopInset: CGFloat {
+    let housing = HUDNotchGeometry.closedSize(for: screen).height
+    let belowHousing: CGFloat
+    if showsTextBand, visualBandHeight > 0 {
+      belowHousing = visualBandHeight + 5 * metrics.scale
+    } else {
+      belowHousing = 5 * metrics.scale
+    }
+    return housing + belowHousing
   }
 
   /// The Compact draft: the same long-draft semantics, leading-aligned so
@@ -358,7 +382,7 @@ struct DictationHUDShellView: View {
   /// ends; the view disables its shader once the ramp reaches zero.
   @ViewBuilder
   private var edgeGlow: some View {
-    if !reduceMotion, settings.voiceVisual == .glow {
+    if !reduceMotion, settings.voiceVisual.usesEdgeGlow {
       HUDEdgeGlowView(
         content: content,
         settings: settings,
@@ -400,5 +424,13 @@ struct DictationHUDShellView: View {
 
 #Preview("Shaping band · compact") {
   HUDShellPreviewHarness(visual: .compact, shapingChoice: "Remove filler words")
+}
+
+#Preview("Waveform + Draft") {
+  HUDShellPreviewHarness(visual: .waveDraft)
+}
+
+#Preview("Waveform + Draft · dead mic") {
+  HUDShellPreviewHarness(visual: .waveDraft, micAlive: false)
 }
 

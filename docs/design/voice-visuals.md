@@ -2,14 +2,14 @@
 
 Source: `Talkify/Dictation/HUD/Visuals/`, `Talkify/CoreHUD/Shaders/`.
 
-The animated thing inside the island that reacts to the user's voice. Three
+The animated thing inside the island that reacts to the user's voice. Four
 of them, user-selectable, default Waveform. Rendering is Metal for the heavy
 ones (ADR-0002).
 
 This document exists mostly so a new surface knows what visual language it is
 joining, and what colors are already spoken for.
 
-## The three
+## The four
 
 **Waveform** — a shader waveform filling the `64 * scale` visual band. Nine
 sub-styles the user picks between: Article, Silver, Capsules, Chart Line
@@ -27,10 +27,18 @@ silhouette has flanks for light to wrap around. Also replaces draft text.
 
 **Compact** — a five-bar indicator beside leading-aligned live draft text,
 after the iOS Dynamic Island caption look. Bars are 2.5pt wide capsules,
-2.5pt apart, resting at 3pt and reaching about 14pt. This is the only visual
-that shows the draft while listening, and the shape grows with the text.
+2.5pt apart, resting at 3pt and reaching about 14pt. The shape grows with
+the text.
 
-Under Reduce Motion all three are replaced by a quiet level meter in the slim
+**Waveform + Draft** — Compact's leading live draft with a slim Chart Line
+ribbon in the `24 * scale` band and Edge Glow on the silhouette. No five-bar
+indicator, particle cloud, or orb. The concert waveform styles stay on
+Waveform; this pick is one designed Chart Line. Glow palette colours the
+beam, the shaping caption, and the status ghost. Putting the draft on top of
+the 64-point waveform was prototyped and removed; this is the other
+direction: the draft has its own band.
+
+Under Reduce Motion all four are replaced by a quiet level meter in the slim
 `24 * scale` band, and the draft text always shows.
 
 ## Edge Glow palettes

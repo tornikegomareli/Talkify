@@ -95,12 +95,13 @@ final class DictationHUDController {
 
   /// What the band says before any words arrive.
   ///
-  /// Empty for Compact: it is the one visual built around the live draft, so a
-  /// placeholder there is words nobody spoke. Every path that would write one
-  /// asks here, rather than each deciding for itself — which is how "Listening
-  /// (latched)" kept coming back after the opening text was handled.
+  /// Empty for Compact and Waveform + Draft: both are built around the live
+  /// draft, so a placeholder there is words nobody spoke. Every path that
+  /// would write one asks here, rather than each deciding for itself — which
+  /// is how "Listening (latched)" kept coming back after the opening text was
+  /// handled.
   private var placeholder: String {
-    guard sessionSettings.voiceVisual != .compact else { return "" }
+    guard !sessionSettings.voiceVisual.showsDraftWhileListening else { return "" }
     return sessionIsLatched ? Self.latchedText : Self.listeningText
   }
 

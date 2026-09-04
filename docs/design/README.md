@@ -16,7 +16,7 @@ bar, and a dark modal Settings window.
 | `design-system.md` | Color, type, spacing, radius, elevation, contrast |
 | `hud-anatomy.md` | The notch island: geometry, bands, states, hard rules |
 | `motion.md` | Every animation with its real spring and duration |
-| `voice-visuals.md` | The three voice visuals and their palettes |
+| `voice-visuals.md` | The four voice visuals and their palettes |
 | `settings-ui.md` | The Settings modal and its component set |
 | `FEATURE.md` | **Drop Transcription** — the feature being designed |
 

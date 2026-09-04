@@ -27,15 +27,15 @@ struct HUDMetrics: Equatable {
   /// sizes beneath it are for the visuals that replace the draft entirely.
   static let minimumReadableScale: CGFloat = 0.4
 
-  /// The floor for a given voice visual. Compact is built around the live
-  /// draft, and Reduce Motion restores the draft for every visual, so both stop
-  /// where the text stops being legible. Waveform and Edge Glow replace the
-  /// draft entirely and go all the way down.
+  /// The floor for a given voice visual. Compact and Waveform + Draft are
+  /// built around the live draft, and Reduce Motion restores the draft for
+  /// every visual, so those stop where the text stops being legible. Waveform
+  /// and Edge Glow replace the draft entirely and go all the way down.
   ///
   /// Read from the session's own settings rather than from what the HUD happens
   /// to be showing, so a shape cannot change size partway through a session.
   static func minimumScale(for visual: HUDVoiceVisualStyle, reduceMotion: Bool) -> CGFloat {
-    visual == .compact || reduceMotion ? minimumReadableScale : minimumScale
+    visual.showsDraftWhileListening || reduceMotion ? minimumReadableScale : minimumScale
   }
 
   /// The unscaled shape. The host window is sized from this, so the window

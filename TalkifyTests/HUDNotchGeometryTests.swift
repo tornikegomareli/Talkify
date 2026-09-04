@@ -142,6 +142,34 @@ struct HUDNotchGeometryTests {
     #expect(tallest <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
+  /// Waveform + Draft is that same tallest stack: slim Chart Line, Grow Down
+  /// cap, shaping caption. The concert 64-point waveform on top of the draft
+  /// would not fit.
+  @Test func waveDraftMaximumStackFitsTheFixedWindow() {
+    let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
+    let content = HUDNotchGeometry.contentSize(
+      for: notched,
+      metrics: .standard,
+      visualBandHeight: HUDMetrics.standard.visualBandHeight,
+      includesTextBand: true,
+      shapingBandHeight: HUDMetrics.standard.shapingBandHeight
+    )
+    let growDown = 32
+      + HUDMetrics.standard.visualBandHeight
+      + HUDMetrics.standard.maxTextBandHeight
+      + HUDMetrics.standard.shapingBandHeight
+    #expect(content.height == 32
+      + HUDMetrics.standard.visualBandHeight
+      + HUDMetrics.standard.textBandHeight
+      + HUDMetrics.standard.shapingBandHeight)
+    #expect(growDown <= window.height - HUDNotchGeometry.shadowPadding)
+    let concertPlusDraft = 32
+      + HUDMetrics.standard.waveBandHeight
+      + HUDMetrics.standard.maxTextBandHeight
+      + HUDMetrics.standard.shapingBandHeight
+    #expect(concertPlusDraft > window.height - HUDNotchGeometry.shadowPadding)
+  }
+
   /// Issue #83: a real notch already sits in its own housing, clear of
   /// wherever the system draws status items, so there is nothing for the
   /// shape to hide there — it keeps hugging the true top edge.

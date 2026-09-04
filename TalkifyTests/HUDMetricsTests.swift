@@ -30,11 +30,12 @@ struct HUDMetricsTests {
     #expect(HUDMetrics(scale: 0).scale == HUDMetrics.minimumScale)
   }
 
-  /// Compact is the only visual built around the live draft, so it is the only
-  /// one that gives up the smallest sizes. Reduce Motion restores the draft for
-  /// every visual and takes them away from all three.
-  @Test func onlyCompactAndReduceMotionGiveUpTheSmallestSizes() {
+  /// Compact and Waveform + Draft are built around the live draft, so they
+  /// give up the smallest sizes. Reduce Motion restores the draft for every
+  /// visual and takes those sizes away from all of them.
+  @Test func draftVisualsAndReduceMotionGiveUpTheSmallestSizes() {
     #expect(HUDMetrics.minimumScale(for: .compact, reduceMotion: false) == 0.4)
+    #expect(HUDMetrics.minimumScale(for: .waveDraft, reduceMotion: false) == 0.4)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .glow, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: true) == 0.4)
@@ -109,6 +110,7 @@ struct HUDShellMetricsTests {
 
   @Test func aDraftLayoutIsHeldAtTheReadableFloorAndOthersAreNot() {
     #expect(scale(picked: 0.2, visual: .compact) == HUDMetrics.minimumReadableScale)
+    #expect(scale(picked: 0.2, visual: .waveDraft) == HUDMetrics.minimumReadableScale)
     #expect(scale(picked: 0.2, visual: .waveform) == HUDMetrics.minimumScale)
     #expect(scale(picked: 0.7, visual: .compact) == 0.7)
   }

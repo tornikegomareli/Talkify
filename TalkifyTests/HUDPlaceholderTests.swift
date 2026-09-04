@@ -3,10 +3,10 @@ import Testing
 
 @testable import Talkify
 
-/// Compact is built around the live draft, so it opens with nothing. Three
-/// separate paths write the placeholder — opening, latching, and coming back
-/// from a model download — and fixing only the first left "Listening (latched)"
-/// still appearing.
+/// Compact and Waveform + Draft are built around the live draft, so they
+/// open with nothing. Three separate paths write the placeholder — opening,
+/// latching, and coming back from a model download — and fixing only the
+/// first left "Listening (latched)" still appearing.
 @MainActor
 @Suite("HUD placeholder text")
 struct HUDPlaceholderTests {
@@ -20,9 +20,10 @@ struct HUDPlaceholderTests {
     store.sessionSettings
   }
 
-  @Test func compactOpensWithNoText() {
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .waveDraft])
+  func aDraftVisualOpensWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .compact
+    store.voiceVisual = visual
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
@@ -35,11 +36,12 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting.isEmpty)
   }
 
-  /// A latched Compact session still says nothing, which is the case that was
+  /// A latched draft visual still says nothing, which is the case that was
   /// reported after the opening text was already handled.
-  @Test func compactLatchesWithNoText() {
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .waveDraft])
+  func aDraftVisualLatchesWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .compact
+    store.voiceVisual = visual
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: true, settings: session(store))

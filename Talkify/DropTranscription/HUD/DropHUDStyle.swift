@@ -7,11 +7,11 @@ struct DropHUDStyle {
   let metrics: HUDMetrics
   /// The accent for glyphs, the peek bar, and the notice.
   ///
-  /// The drop surfaces speak the voice visual's colour: Edge Glow lends its
-  /// palette — the same hue the status ghost takes during a glow session, so
-  /// one palette means one colour everywhere — and every other visual keeps
-  /// the Talkify blue. Settings chrome is unaffected either way; the palette
-  /// colours the HUD, never the app (CONTEXT.md).
+  /// The drop surfaces speak the voice visual's colour: Edge Glow and
+  /// Waveform + Draft lend the palette — the same hue the status ghost takes
+  /// during those sessions, so one palette means one colour everywhere — and
+  /// every other visual keeps the Talkify blue. Settings chrome is unaffected
+  /// either way; the palette colours the HUD, never the app (CONTEXT.md).
   let accent: Color
   /// The receptive edge gets the palette's whole gradient rather than one hue
   /// of it: it is the one element long enough to show a palette off.
@@ -22,7 +22,7 @@ struct DropHUDStyle {
   init(settings: DictationSessionSettings) {
     metrics = settings.hudMetrics
     accent = Color(nsColor: settings.dropAccent)
-    accentStroke = settings.voiceVisual == .glow
+    accentStroke = settings.voiceVisual.usesEdgeGlow
       ? settings.glowPalette.stroke
       : AnyShapeStyle(SettingsTheme.accent)
   }

@@ -53,7 +53,7 @@ struct HUDEdgeGlowView: View {
   var body: some View {
     GeometryReader { proxy in
       let listening = content.showsVoiceVisual
-      TimelineView(.animation(paused: !listening)) { context in
+      TimelineView(.animation(paused: !listening || !content.isAudioAlive)) { context in
         // Plain values for the @Sendable keyframeAnimator content
         // closure; the body re-evaluates on every level tick and
         // timeline frame, so they stay fresh.

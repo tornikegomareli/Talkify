@@ -1,20 +1,27 @@
 import SwiftUI
 
 /// The Appearance section: the live preview first, then the Voice visual
-/// and Motion and layout groups (CONTEXT.md). Waveform and Glow rows are
-/// conditional on the selected visual; hidden values stay persisted.
+/// and Motion and layout groups (CONTEXT.md). Waveform, palette, and glow
+/// center rows are conditional on the selected visual; hidden values stay
+/// persisted.
 struct AppearanceSettingsView: View {
   @Bindable var settings: AppSettings
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   /// Which conditional rows the selected visual exposes; hidden values
-  /// stay persisted (CONTEXT.md).
+  /// stay persisted (CONTEXT.md). Waveform + Draft is a designed Chart
+  /// Line, so it does not offer the concert style picker. It takes the
+  /// glow palette (beam, shaping caption, status ghost) but not a center.
   static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .waveform
   }
 
-  static func showsGlowOptions(for visual: HUDVoiceVisualStyle) -> Bool {
+  static func showsGlowPalette(for visual: HUDVoiceVisualStyle) -> Bool {
+    visual.usesEdgeGlow
+  }
+
+  static func showsGlowCenter(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .glow
   }
 
@@ -41,7 +48,7 @@ struct AppearanceSettingsView: View {
           )
         }
 
-        if Self.showsGlowOptions(for: settings.voiceVisual) {
+        if Self.showsGlowPalette(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Glow palette",
             description: "The colors used by the edge beam",
@@ -49,7 +56,9 @@ struct AppearanceSettingsView: View {
             optionLabel: { $0.rawValue },
             selection: $settings.glowPalette
           )
+        }
 
+        if Self.showsGlowCenter(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Glow center",
             description: "The visual inside the edge beam",

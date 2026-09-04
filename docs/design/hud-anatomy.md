@@ -58,15 +58,17 @@ height. Nothing is ever drawn here — content would sit behind the camera.
 
 **Visual band.** Holds the voice visual. Its height depends on which visual
 is selected: `64 * scale` for Waveform, `64 * scale` (empty, used as a stage
-for edge-hugging light) for Edge Glow, `24 * scale` for the Reduce Motion
-level meter, and zero for Compact, whose indicator lives inside the text band
-instead.
+for edge-hugging light) for Edge Glow, `24 * scale` for Waveform + Draft's
+slim Chart Line and for the Reduce Motion level meter, and zero for Compact,
+whose indicator lives inside the text band instead.
 
-**Text band.** Holds live draft text. Present for Compact, absent for
-Waveform and Edge Glow while listening, and always present under Reduce
-Motion. Draft text is 15pt medium white, centered, with three long-draft
-behaviors the user picks between: single line with head truncation, wrap and
-grow downward capped at four lines, or single line that shrinks to fit.
+**Text band.** Holds live draft text. Present for Compact and Waveform +
+Draft, absent for Waveform and Edge Glow while listening, and always present
+under Reduce Motion. Draft text is 15pt medium white, centered except on
+Compact and Waveform + Draft where it is leading-aligned, with three
+long-draft behaviors the user picks between: single line with head
+truncation, wrap and grow downward capped at four lines, or single line that
+shrinks to fit.
 
 **Language tag.** A small capsule pinned to the top leading corner below the
 housing, shown only when a second dictation language is configured. It hangs
