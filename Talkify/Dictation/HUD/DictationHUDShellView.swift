@@ -116,11 +116,6 @@ struct DictationHUDShellView: View {
     settings.voiceVisual == .compact && !reduceMotion
   }
 
-  private var showsCompactIndicator: Bool {
-    settings.voiceVisual == .compact && !reduceMotion
-  }
-
-
   private var filletSize: CGFloat {
     HUDNotchGeometry.filletSize(for: screen)
   }
@@ -203,6 +198,9 @@ struct DictationHUDShellView: View {
           .padding(.horizontal, tagInset * metrics.scale)
         }
       }
+      // The ribbon sits at the top of the stage and the words are centered in
+      // the whole island, so the line crosses them and paints over the glyphs.
+      // That is the chosen look, not an oversight: reviewed and kept.
       .overlay(alignment: .top) {
         if showsRecentDraft, showsWaveDraftRibbon {
           HUDCompactChartLineView(content: content, scale: metrics.scale)
@@ -257,10 +255,8 @@ struct DictationHUDShellView: View {
       Group {
         if showsLeadingDraft {
           HStack(alignment: .top, spacing: 10 * metrics.scale) {
-            if showsCompactIndicator {
-              HUDCompactIndicatorView(content: content, scale: metrics.scale)
-                .padding(.top, 3 * metrics.scale)
-            }
+            HUDCompactIndicatorView(content: content, scale: metrics.scale)
+              .padding(.top, 3 * metrics.scale)
             compactDraftText
               .frame(maxWidth: .infinity, alignment: .leading)
           }
