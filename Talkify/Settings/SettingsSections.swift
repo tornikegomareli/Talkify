@@ -18,6 +18,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
   case sounds
   case dictation
   case promptShaping
+  case replacements
   case dropTranscription
   case readAloud
   case language
@@ -35,6 +36,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .sounds: "Sounds"
     case .dictation: "Dictation"
     case .promptShaping: "Prompt Shaping"
+    case .replacements: "Spelling replacements"
     case .dropTranscription: "Drop Transcription"
     case .readAloud: "Read Aloud"
     case .language: "Language"
@@ -51,6 +53,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .sounds: "Choose and preview the session sounds"
     case .dictation: "Choose where finished dictation text goes"
     case .promptShaping: "Rewrite what you dictate, on device"
+    case .replacements: "Fix words Apple Speech keeps misspelling"
     case .dropTranscription: "Transcribe audio and video files"
     case .readAloud: "Choose the voice that reads selected text"
     case .language: "Choose your languages"
@@ -67,6 +70,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case .sounds: "waveform"
     case .dictation: "text.cursor"
     case .promptShaping: "wand.and.sparkles"
+    case .replacements: "arrow.left.arrow.right"
     case .dropTranscription: "square.and.arrow.down"
     case .readAloud: "speaker.wave.2"
     case .language: "globe"

@@ -675,7 +675,8 @@ final class DirectDictationController {
     let hasVisibleText = !displayText
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .isEmpty
-    pendingLiveText = displayText
+    let replacements = currentSessionSettings?.spellingReplacements ?? []
+    pendingLiveText = SpellingReplacements.apply(displayText, using: replacements)
     send(.updateReceived(hasVisibleText: hasVisibleText))
     pendingLiveText = nil
   }
@@ -734,27 +735,38 @@ final class DirectDictationController {
       defer { finishTask = nil }
       do {
         let spoken = try await dependencies.finishRecognition()
+        // Delivery follows the session snapshot, so a Settings change
+        // mid-session applies to the next session (ADR-0004).
+        let session = currentSessionSettings ?? settings.sessionSettings
+        // Held separately from `text`, which shaping and translation go on to
+        // overwrite: this is the spelling the user asked for, and it is what
+        // a failed translation has to fall back to.
+        let replaced = SpellingReplacements.apply(
+          spoken,
+          using: session.spellingReplacements
+        )
+        var text = replaced
+        // Shape the words that will be inserted, not the recognizer's
+        // misspelling: an empty replacement must not send a blank
+        // transcript to the On-device model, which can answer with
+        // words nobody spoke.
+        let willShape = chosenPrompt != nil
+          && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // A session about to shape keeps the HUD up saying so; every other
         // session dismisses here exactly as before.
-        let willShape = chosenPrompt != nil && !spoken.isEmpty
         if let chosenPrompt, willShape {
           dependencies.showShaping(chosenPrompt.name)
         } else {
           dependencies.hideHUD()
         }
-        // Delivery follows the session snapshot, so a Settings change
-        // mid-session applies to the next session (ADR-0004).
-        let session = currentSessionSettings ?? settings.sessionSettings
 
-        // The one place between recognition and insertion where the words may
-        // change. A transform that fails delivers nothing: the trigger
-        // promised a translation, and pasting the untranslated words instead
-        // lands the wrong language in someone else's document.
-        var text = spoken
-        // Shaping first, then translation. A prompt is written in one language,
-        // with a one-shot example in it, so handing it a translation of the
-        // words asks it to work in a language it was not written for; and a
-        // translator given cleaned-up words has less to get wrong.
+        // Replacements, then shaping, then translation. The list is a
+        // spelling fix for what the Speech Model produced, so shaping and
+        // translation both see the name the user wrote. A prompt is written
+        // in one language, with a one-shot example in it, so handing it a
+        // translation of the words asks it to work in a language it was not
+        // written for; and a translator given cleaned-up words has less to
+        // get wrong.
         if let chosenPrompt, willShape {
           text = await dependencies.shapeText(text, chosenPrompt)
         }
@@ -765,12 +777,13 @@ final class DirectDictationController {
           do {
             text = try await translation.translate(text, with: pair)
           } catch {
-            // The rescue is the words as spoken, not as shaped: shaping is a
-            // convenience and the raw words are what must survive.
+            // The rescue drops shaping, which is a convenience, and keeps the
+            // replacements, which are not: the user typed that spelling and it
+            // is the one they want wherever the words land.
             await recordHistory(spoken: spoken, delivered: nil, session: session)
             // Clipboard-only whatever the session's destination: nothing is
             // pasted, and the words survive where the user can reach them.
-            let rescue = await dependencies.insertText(spoken, nil, .clipboardOnly)
+            let rescue = await dependencies.insertText(replaced, nil, .clipboardOnly)
             // Ended, not failed: a failure action would drive the machine to
             // cancelling and cancel a session that has already finished.
             send(.sessionEnded)

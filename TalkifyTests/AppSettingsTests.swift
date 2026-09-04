@@ -25,6 +25,7 @@ struct AppSettingsTests {
     #expect(settings.readAloudVoiceID.isEmpty)
     #expect(settings.dictationTriggerBinding == .fnTrigger)
     #expect(settings.readAloudBinding == .optionEscape)
+    #expect(settings.spellingReplacements.isEmpty)
   }
 
   @Test func everyPreferenceRoundTrips() {
@@ -462,6 +463,39 @@ struct AppSettingsTests {
     // The selection is left alone: an id the seeds do not carry resolves to
     // nil, which is passthrough.
     #expect(settings.promptShapingPromptID == "mine")
+  }
+
+  @Test func spellingReplacementsPersistAndReadBack() {
+    let defaults = freshDefaults()
+    let settings = AppSettings(defaults: defaults)
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "ex code", to: "Xcode"),
+    ]
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.spellingReplacements == settings.spellingReplacements)
+    #expect(defaults.data(forKey: "dictationSpellingReplacements") != nil)
+  }
+
+  @Test func undecodableStoredSpellingReplacementsBecomeAnEmptyList() {
+    let defaults = freshDefaults()
+    defaults.set(Data("not json".utf8), forKey: "dictationSpellingReplacements")
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.spellingReplacements.isEmpty)
+  }
+
+  @Test func sessionSnapshotCapturesSpellingReplacements() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "ex code", to: "Xcode"),
+    ]
+    let snapshot = settings.sessionSettings
+    settings.spellingReplacements = []
+    #expect(snapshot.spellingReplacements == [
+      SpellingReplacement(id: "1", from: "ex code", to: "Xcode"),
+    ])
+    #expect(settings.sessionSettings.spellingReplacements.isEmpty)
   }
 
   @Test func promptShapingRoundTripsUnderItsKeys() {

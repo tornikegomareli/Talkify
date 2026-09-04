@@ -42,6 +42,7 @@ final class AppSettings {
     static let promptShapingEnabled = "dictationPromptShapingEnabled"
     static let promptShapingPrompt = "dictationPromptShapingPrompt"
     static let shapingPrompts = "dictationShapingPrompts"
+    static let spellingReplacements = "dictationSpellingReplacements"
   }
 
   @ObservationIgnored
@@ -135,6 +136,16 @@ final class AppSettings {
   /// inserts the raw words unchanged.
   func restoreDefaultShapingPrompts() {
     shapingPrompts = ShapingPrompt.defaults
+  }
+
+  /// User-authored whole-word swaps applied after recognition. Empty is
+  /// today's behavior: the session inserts what the Speech Model produced.
+  var spellingReplacements: [SpellingReplacement] {
+    didSet {
+      if let data = try? JSONEncoder().encode(spellingReplacements) {
+        defaults.set(data, forKey: Keys.spellingReplacements)
+      }
+    }
   }
 
   var voiceVisual: HUDVoiceVisualStyle {
@@ -310,6 +321,7 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
+    spellingReplacements = Self.storedSpellingReplacements(in: defaults)
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
@@ -376,6 +388,17 @@ final class AppSettings {
        let prompts = try? JSONDecoder().decode([ShapingPrompt].self, from: data)
     else { return nil }
     return prompts
+  }
+
+  /// A missing or unreadable value is an empty list, which is the same as
+  /// never having had the feature: nothing is rewritten.
+  private static func storedSpellingReplacements(
+    in defaults: UserDefaults
+  ) -> [SpellingReplacement] {
+    guard let data = defaults.data(forKey: Keys.spellingReplacements),
+       let pairs = try? JSONDecoder().decode([SpellingReplacement].self, from: data)
+    else { return [] }
+    return pairs
   }
 
   private static func store(_ binding: KeyBinding, in defaults: UserDefaults, key: String) {
@@ -461,6 +484,9 @@ struct DictationSessionSettings: Equatable {
   /// the arrow keys can cycle the session's pick without reading a library
   /// that may change mid-session.
   let shapingLibrary: [ShapingPrompt]
+  /// Whole-word swaps captured with everything else, so editing the list
+  /// mid-session cannot rewrite a phrase already on its way to insertion.
+  let spellingReplacements: [SpellingReplacement]
   let voiceVisual: HUDVoiceVisualStyle
   let waveformStyle: HUDWaveformStyle
   let revealStyle: HUDRevealStyle
@@ -493,6 +519,7 @@ struct DictationSessionSettings: Equatable {
       ? settings.shapingPrompts.prompt(for: settings.promptShapingPromptID)
       : nil
     shapingLibrary = settings.promptShapingEnabled ? settings.shapingPrompts : []
+    spellingReplacements = settings.spellingReplacements
     voiceVisual = settings.voiceVisual
     waveformStyle = settings.waveformStyle
     revealStyle = settings.revealStyle
