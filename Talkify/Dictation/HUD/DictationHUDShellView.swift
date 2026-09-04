@@ -150,16 +150,12 @@ struct DictationHUDShellView: View {
           // clears the camera, and an overlay so it never changes the fixed
           // window's size.
           .overlay(alignment: .topLeading) { languageTag }
-          // Grow Down springs the island's height, and only that. The glyphs
-          // are held still by the transaction on the draft itself, so new
-          // words land the moment the recognizer emits them. Keyed on the
-          // draft rather than a character count, because wrapping follows
-          // rendered width: a count-based step fires springs where nothing
-          // moved and snaps where the island actually grew.
+          // Grow Down springs the island's height. Glyphs opt out so new
+          // words land immediately; the token is coarse so a wrap is one spring.
           .animation(
             settings.longDraftStyle == .growDown
               ? .spring(duration: 0.18, bounce: 0) : nil,
-            value: draftValue
+            value: draftHeightToken
           )
           .animation(.spring(duration: 0.25, bounce: 0), value: visualBandHeight)
       },
@@ -254,23 +250,24 @@ struct DictationHUDShellView: View {
   private var showsWaveDraftRibbon: Bool {
     Self.showsRibbon(
       visual: settings.voiceVisual,
-      keepsVisualLayout: keepsVisualLayout,
+      listening: content.showsVoiceVisual,
+      dismissing: content.isDismissing,
+      shaping: content.shapingName != nil,
       reduceMotion: reduceMotion
     )
   }
 
-  /// Gated on the listening layout for the same reason `visualBandHeight` is,
-  /// and static so the gate can be asserted without a window: a status message
-  /// renders with the session's settings but no voice visual, and
-  /// `levelHistory` still holds the last session's audio, so an ungated ribbon
-  /// draws a frozen squiggle of the words that just failed to insert — above a
-  /// band 24 points taller than any other visual's message.
+  /// Compact keeps its indicator through shaping and retracts; the ribbon
+  /// does the same, but a status message is a new occupant and must not
+  /// inherit the last session's audio or the extra 24 points of height.
   static func showsRibbon(
     visual: HUDVoiceVisualStyle,
-    keepsVisualLayout: Bool,
+    listening: Bool,
+    dismissing: Bool,
+    shaping: Bool,
     reduceMotion: Bool
   ) -> Bool {
-    keepsVisualLayout && visual == .waveDraft && !reduceMotion
+    visual == .waveDraft && !reduceMotion && (listening || dismissing || shaping)
   }
 
   /// The room the language tag needs on each side.
@@ -347,19 +344,15 @@ struct DictationHUDShellView: View {
     return housing + belowHousing
   }
 
-  /// Everything on screen, so the height spring fires exactly when the draft
-  /// changes — including on a volatile guess, which is what moves the wrap.
-  private var draftValue: String {
-    content.text + content.volatileText
+  /// Coarse height for Grow Down's spring: one step per ~40 characters, so
+  /// wrapping animates the island without tweening every volatile letter.
+  private var draftHeightToken: Int {
+    (content.text.count + content.volatileText.count) / 40
   }
 
   /// Committed draft in full white, the current guess lighter, so new words
-  /// show as soon as the recognizer emits them.
-  ///
-  /// The transaction is what keeps them prompt: words appear, they do not
-  /// fade in. Grow Down's spring lives on the bands and still animates the
-  /// island's height around this — it is only the glyphs that are held out
-  /// of it, which is what made new words trail the recognizer.
+  /// show as soon as the recognizer emits them. Glyphs opt out of Grow Down's
+  /// height spring so they do not fade in with it.
   private var liveDraft: some View {
     let committed = AttributedString(content.text)
     var guess = AttributedString(content.volatileText)

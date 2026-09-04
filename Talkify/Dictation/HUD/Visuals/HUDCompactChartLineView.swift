@@ -20,7 +20,11 @@ struct HUDCompactChartLineView: View {
     TimelineView(.animation(paused: !live)) { context in
       let progress = min(1, max(0, context.date.timeIntervalSince(lastTick) / tickInterval))
       let level = content.audioLevel
-      let shape = SmoothLineShape(samples: samples, scrollProgress: live ? progress : 0)
+      let shape = SmoothLineShape(
+        samples: samples,
+        scrollProgress: (live || lastTick != .distantPast) ? progress : 0,
+        fill: 0.8
+      )
       let hairline = max(1, 1.2 * scale)
 
       if content.isAudioAlive {
@@ -52,17 +56,23 @@ struct HUDCompactChartLineView: View {
     }
     .padding(.horizontal, 10 * scale)
     .clipped()
-    .onAppear { samples = content.levelHistory }
+    .onAppear { samples = Self.ribbonSamples(content.levelHistory) }
     .onChange(of: content.levelHistory) { _, new in
       let now = Date()
       let gap = now.timeIntervalSince(lastTick)
       if gap < 0.1 {
         tickInterval = tickInterval * 0.8 + gap * 0.2
       }
-      samples = new
+      samples = Self.ribbonSamples(new)
       lastTick = now
     }
     .allowsHitTesting(false)
     .accessibilityHidden(true)
+  }
+
+  /// Square-root so quiet speech still fills the 12-point strip. Linear
+  /// samples sat under the concert rest lift and read as a straight line.
+  private static func ribbonSamples(_ samples: [Float]) -> [Float] {
+    samples.map { $0.squareRoot() }
   }
 }

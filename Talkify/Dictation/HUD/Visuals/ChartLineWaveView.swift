@@ -22,14 +22,15 @@ struct ChartLineWaveView: View {
   }
 
   var body: some View {
-    // Paused for a dead microphone as well as a stopped session: the amber
-    // state is a motionless line (HUDVisualTokens), and an unpaused timeline
-    // kept scrolling it, leaving silence and a dead mic separated by colour
-    // alone (CONTEXT.md).
+    // Paused when the session is over or the microphone is dead, so the
+    // amber line is motionless (CONTEXT.md: dead ≠ silent).
     TimelineView(.animation(paused: !live)) { context in
       let progress = min(1, max(0, context.date.timeIntervalSince(lastTick) / tickInterval))
       let level = content.audioLevel
-      let shape = SmoothLineShape(samples: samples, scrollProgress: live ? progress : 0)
+      let shape = SmoothLineShape(
+        samples: samples,
+        scrollProgress: (live || lastTick != .distantPast) ? progress : 0
+      )
 
       if content.isAudioAlive {
         ZStack {

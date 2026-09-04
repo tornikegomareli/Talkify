@@ -110,18 +110,27 @@ struct HUDShellMetricsTests {
     ).scale
   }
 
-  /// A status message renders with the session's settings and no voice
-  /// visual, over a level history the last session filled. An ungated ribbon
-  /// drew that stale audio, frozen, above every error the user ever sees.
-  @Test func theRibbonLeavesWithTheVoiceVisual() {
+  /// Listening, retracting, and shaping keep the ribbon; a status message
+  /// does not. Compact never has one.
+  @Test func theRibbonFollowsOccupancy() {
     #expect(DictationHUDShellView.showsRibbon(
-      visual: .waveDraft, keepsVisualLayout: true, reduceMotion: false))
+      visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
+    #expect(DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, listening: false, dismissing: true, shaping: false,
+      reduceMotion: false))
+    #expect(DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, listening: false, dismissing: false, shaping: true,
+      reduceMotion: false))
     #expect(!DictationHUDShellView.showsRibbon(
-      visual: .waveDraft, keepsVisualLayout: false, reduceMotion: false))
+      visual: .waveDraft, listening: false, dismissing: false, shaping: false,
+      reduceMotion: false))
     #expect(!DictationHUDShellView.showsRibbon(
-      visual: .waveDraft, keepsVisualLayout: true, reduceMotion: true))
+      visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: true))
     #expect(!DictationHUDShellView.showsRibbon(
-      visual: .compact, keepsVisualLayout: true, reduceMotion: false))
+      visual: .compact, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
   }
 
   @Test func aDraftLayoutIsHeldAtTheReadableFloorAndOthersAreNot() {

@@ -20,6 +20,16 @@ struct HUDPlaceholderTests {
     store.sessionSettings
   }
 
+  private func ribbon(_ stage: HUDStage, visual: HUDVoiceVisualStyle) -> Bool {
+    DictationHUDShellView.showsRibbon(
+      visual: visual,
+      listening: stage.dictationContent.showsVoiceVisual,
+      dismissing: stage.dictationContent.isDismissing,
+      shaping: stage.dictationContent.shapingName != nil,
+      reduceMotion: false
+    )
+  }
+
   @Test(arguments: [HUDVoiceVisualStyle.compact, .waveDraft])
   func aDraftVisualOpensWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
@@ -123,6 +133,31 @@ struct HUDPlaceholderTests {
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     hud.showLiveText("hello ", volatile: "ther")
     hud.showMessage("Couldn't insert text")
+    #expect(hud.textForTesting == "Couldn't insert text")
+  }
+
+  /// hide() pins the layout for the retract, then an insert failure claims
+  /// the shape for a message. That message is a new occupant: the ribbon
+  /// stays through shaping and the retract, and leaves with the status line.
+  @Test func aStatusMessageDoesNotKeepTheRibbon() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveDraft
+    let stage = HUDStage(settings: store)
+    let hud = DictationHUDController(stage: stage, settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("the words it is rewriting")
+    hud.showShaping(with: "Tighten grammar")
+    #expect(ribbon(stage, visual: .waveDraft))
+
+    hud.hide()
+    #expect(stage.dictationContent.isDismissing)
+    #expect(ribbon(stage, visual: .waveDraft))
+
+    hud.showMessage("Couldn't insert text")
+    #expect(!stage.dictationContent.isDismissing)
+    #expect(stage.dictationContent.shapingName == nil)
+    #expect(!ribbon(stage, visual: .waveDraft))
     #expect(hud.textForTesting == "Couldn't insert text")
   }
 }

@@ -5,16 +5,27 @@ import SwiftUI
 struct SmoothLineShape: Shape {
   let samples: [Float]
   let scrollProgress: Double
+  /// Fraction of the rect height a full-scale sample occupies, measured
+  /// up from the rest line. Concert Chart Line keeps 0.5 so the reflection
+  /// can sit in the lower half; the ribbon uses more so a 12-point strip
+  /// is not half empty.
+  var fill: CGFloat = 0.5
 
   nonisolated func path(in rect: CGRect) -> Path {
     guard samples.count > 2 else { return Path() }
     let step = rect.width / CGFloat(samples.count - 2)
     let offset = CGFloat(scrollProgress) * step
+    let span = rect.height * fill
+    let restY = rect.minY + span
+    // Concert's 0.75pt floor at 64pt. Scaled with the span so a 12-point
+    // ribbon (and the 40% HUD-size floor) does not clamp quiet speech
+    // to a straight line.
+    let lift = min(0.75, span * 0.025)
 
     let points = samples.enumerated().map { index, sample in
       CGPoint(
         x: rect.minX + CGFloat(index) * step - offset,
-        y: rect.midY - max(0.75, CGFloat(sample) * rect.height / 2)
+        y: restY - max(lift, CGFloat(sample) * span)
       )
     }
 

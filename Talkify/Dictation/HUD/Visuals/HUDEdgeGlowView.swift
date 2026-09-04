@@ -43,12 +43,9 @@ struct HUDEdgeGlowView: View {
   /// directly under the housing.
   @State private var sweepStart = Date()
 
-  /// When the microphone went quiet, while the timeline is paused for it.
-  /// The sweep is driven by elapsed wall-clock time, so without this the
-  /// beam resumes having advanced through the whole dead interval and its
-  /// bright region jumps to somewhere else on the silhouette. Pushing
-  /// `sweepStart` forward by the paused duration is what makes the pause a
-  /// pause rather than a skip.
+  /// When the microphone went quiet. Elapsed time subtracts this so the
+  /// first unpaused frame does not jump; onChange then folds it into
+  /// `sweepStart`.
   @State private var quietSince: Date?
 
   /// Mirrors `content.showsVoiceVisual` for the ramp's keyframe trigger.
@@ -76,7 +73,7 @@ struct HUDEdgeGlowView: View {
         let lineWidth = Self.lineWidth * Double(metrics.scale) * (1 + level)
         let blurRadius = Self.blurRadius * Double(metrics.scale) * (1 + 0.5 * level)
         let origin = Self.sweepOrigin(
-          at: context.date.timeIntervalSince(sweepStart),
+          at: sweepElapsed(at: context.date),
           in: size,
           cornerRadius: metrics.bottomCornerRadius,
           topFilletRadius: topFilletRadius,
@@ -123,18 +120,26 @@ struct HUDEdgeGlowView: View {
     .allowsHitTesting(false)
     .accessibilityHidden(true)
     .onChange(of: content.sessionEpoch) {
-      sweepStart = .now
+      sweepStart = Date.now
       quietSince = nil
     }
     .onChange(of: content.isAudioAlive, initial: true) { _, alive in
+      let now = Date.now
       if alive, let quietSince {
-        sweepStart = sweepStart.addingTimeInterval(Date().timeIntervalSince(quietSince))
+        sweepStart = sweepStart.addingTimeInterval(now.timeIntervalSince(quietSince))
       }
-      quietSince = alive ? nil : Date()
+      quietSince = alive ? nil : now
     }
     .onChange(of: content.showsVoiceVisual, initial: true) { _, listening in
       ramped = listening
     }
+  }
+
+  /// Wall-clock elapsed, minus any open dead-mic pause, so the first
+  /// unpaused frame is already at the freeze point.
+  private func sweepElapsed(at date: Date) -> TimeInterval {
+    date.timeIntervalSince(sweepStart)
+      - (quietSince.map { date.timeIntervalSince($0) } ?? 0)
   }
 
   /// The eased ping-pong position along the silhouette at time `t` (left
