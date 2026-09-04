@@ -331,10 +331,10 @@ struct DictationHUDShellView: View {
   /// Committed draft in full white, the current guess lighter, so new words
   /// show as soon as the recognizer emits them.
   private var liveDraft: Text {
-    Text(
-      "\(Text(content.text))"
-        + "\(Text(content.volatileText).foregroundStyle(.white.opacity(0.55)))"
-    )
+    let committed = AttributedString(content.text)
+    var guess = AttributedString(content.volatileText)
+    guess.foregroundColor = Color.white.opacity(0.55)
+    return Text(committed + guess)
   }
 
   /// The Compact draft: the same long-draft semantics, leading-aligned so
