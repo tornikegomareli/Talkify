@@ -153,7 +153,7 @@ struct DictationHUDShellView: View {
           // Grow Down springs the island's height. Glyphs opt out so new
           // words land immediately; the token is coarse so a wrap is one spring.
           .animation(
-            settings.longDraftStyle == .growDown
+            settings.longDraftStyle == .growDown && !showsRecentDraft
               ? .spring(duration: 0.18, bounce: 0) : nil,
             value: draftHeightToken
           )
@@ -206,18 +206,23 @@ struct DictationHUDShellView: View {
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
   /// draft leading-aligned beside it. Waveform + Draft puts a thin Chart
-  /// Line flush under the housing and keeps that alignment, so the words
-  /// get the strip a dedicated ribbon band would have occupied. The other
-  /// visuals center the draft.
+  /// Line flush under the housing and a recent-word line under that, so
+  /// the words get the strip a dedicated ribbon band would have occupied.
+  /// The other visuals center the draft.
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if showsWaveDraftRibbon {
+      if showsRecentDraft {
         VStack(alignment: .leading, spacing: 4 * metrics.scale) {
-          HUDCompactChartLineView(content: content, scale: metrics.scale)
-            .frame(height: metrics.ribbonBandHeight)
-          compactDraftText
-            .frame(maxWidth: .infinity, alignment: .leading)
+          if showsWaveDraftRibbon {
+            HUDCompactChartLineView(content: content, scale: metrics.scale)
+              .frame(height: metrics.ribbonBandHeight)
+          }
+          HUDRecentDraftText(
+            committed: content.text,
+            volatile: content.volatileText,
+            scale: metrics.scale
+          )
         }
       } else if showsLeadingDraft {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
@@ -237,7 +242,7 @@ struct DictationHUDShellView: View {
     // The tag sits in the inset rather than in the flow, and the inset grows
     // on both sides, so centered drafts stay centered and nothing overlaps.
     .padding(.horizontal, tagInset * metrics.scale)
-    .padding(.top, showsWaveDraftRibbon ? 4 * metrics.scale : 9 * metrics.scale)
+    .padding(.top, showsRecentDraft ? 4 * metrics.scale : 9 * metrics.scale)
     .padding(.bottom, 9 * metrics.scale)
     // Waveform + Draft folds the old 24-point ribbon band into this
     // minimum so the island does not shrink and the extra height is text.
@@ -247,14 +252,37 @@ struct DictationHUDShellView: View {
     )
   }
 
-  private var showsWaveDraftRibbon: Bool {
-    Self.showsRibbon(
+  private var showsRecentDraft: Bool {
+    Self.showsRecentDraft(
       visual: settings.voiceVisual,
       listening: content.showsVoiceVisual,
       dismissing: content.isDismissing,
       shaping: content.shapingName != nil,
       reduceMotion: reduceMotion
     )
+  }
+
+  private var showsWaveDraftRibbon: Bool {
+    Self.showsRibbon(
+      visual: settings.voiceVisual,
+      listening: content.showsVoiceVisual,
+      dismissing: content.isDismissing,
+      shaping: content.shapingName != nil,
+      reduceMotion: reduceMotion,
+      ribbonEnabled: settings.waveDraftShowsRibbon
+    )
+  }
+
+  /// Waveform + Draft's recent-word line. Same occupancy as the ribbon:
+  /// listening, retracting, and shaping keep it; a status message does not.
+  static func showsRecentDraft(
+    visual: HUDVoiceVisualStyle,
+    listening: Bool,
+    dismissing: Bool,
+    shaping: Bool,
+    reduceMotion: Bool
+  ) -> Bool {
+    visual == .waveDraft && !reduceMotion && (listening || dismissing || shaping)
   }
 
   /// Compact keeps its indicator through shaping and retracts; the ribbon
@@ -265,9 +293,16 @@ struct DictationHUDShellView: View {
     listening: Bool,
     dismissing: Bool,
     shaping: Bool,
-    reduceMotion: Bool
+    reduceMotion: Bool,
+    ribbonEnabled: Bool = true
   ) -> Bool {
-    visual == .waveDraft && !reduceMotion && (listening || dismissing || shaping)
+    ribbonEnabled && showsRecentDraft(
+      visual: visual,
+      listening: listening,
+      dismissing: dismissing,
+      shaping: shaping,
+      reduceMotion: reduceMotion
+    )
   }
 
   /// The room the language tag needs on each side.

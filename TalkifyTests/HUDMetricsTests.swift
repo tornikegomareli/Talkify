@@ -131,6 +131,12 @@ struct HUDShellMetricsTests {
     #expect(!DictationHUDShellView.showsRibbon(
       visual: .compact, listening: true, dismissing: false, shaping: false,
       reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRibbon(
+      visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false, ribbonEnabled: false))
+    #expect(DictationHUDShellView.showsRecentDraft(
+      visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
   }
 
   @Test func aDraftLayoutIsHeldAtTheReadableFloorAndOthersAreNot() {

@@ -63,6 +63,15 @@ struct SettingsWindowTests {
     #expect(AppearanceSettingsView.showsGlowCenter(for: .glow))
     #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveDraft))
     #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveform))
+    #expect(!AppearanceSettingsView.showsLongDraftBehavior(
+      for: .waveDraft, reduceMotion: false))
+    #expect(AppearanceSettingsView.showsLongDraftBehavior(
+      for: .waveDraft, reduceMotion: true))
+    #expect(AppearanceSettingsView.showsLongDraftBehavior(
+      for: .compact, reduceMotion: false))
+    #expect(AppearanceSettingsView.showsWaveDraftRibbon(for: .waveDraft))
+    #expect(!AppearanceSettingsView.showsWaveDraftRibbon(for: .waveform))
+    #expect(!AppearanceSettingsView.showsWaveDraftRibbon(for: .glow))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

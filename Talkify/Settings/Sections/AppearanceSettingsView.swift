@@ -25,6 +25,20 @@ struct AppearanceSettingsView: View {
     visual == .glow
   }
 
+  static func showsWaveDraftRibbon(for visual: HUDVoiceVisualStyle) -> Bool {
+    visual == .waveDraft
+  }
+
+  /// Waveform + Draft uses a recent-word line instead of the global long
+  /// draft behaviors. Reduce Motion restores the plain band, where the
+  /// existing pick still applies.
+  static func showsLongDraftBehavior(
+    for visual: HUDVoiceVisualStyle,
+    reduceMotion: Bool
+  ) -> Bool {
+    !(visual == .waveDraft && !reduceMotion)
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
       SettingsPreviewCard(settings: settings)
@@ -67,6 +81,18 @@ struct AppearanceSettingsView: View {
             selection: $settings.glowCenter
           )
         }
+
+        if Self.showsWaveDraftRibbon(for: settings.voiceVisual) {
+          SettingsRow(
+            title: "Chart Line ribbon",
+            description: "The slim waveform under the housing. Off leaves "
+              + "the live draft and the glow."
+          ) {
+            Toggle("Chart Line ribbon", isOn: $settings.waveDraftShowsRibbon)
+              .labelsHidden()
+              .toggleStyle(.switch)
+          }
+        }
       }
 
       SettingsCard(title: "Motion and layout") {
@@ -99,13 +125,18 @@ struct AppearanceSettingsView: View {
           selection: $settings.revealStyle
         )
 
-        SettingsPickerRow(
-          title: "Long draft behavior",
-          description: "How the HUD handles longer dictated text",
-          options: HUDLongDraftStyle.allCases,
-          optionLabel: { $0.rawValue },
-          selection: $settings.longDraftStyle
-        )
+        if Self.showsLongDraftBehavior(
+          for: settings.voiceVisual,
+          reduceMotion: reduceMotion
+        ) {
+          SettingsPickerRow(
+            title: "Long draft behavior",
+            description: "How the HUD handles longer dictated text",
+            options: HUDLongDraftStyle.allCases,
+            optionLabel: { $0.rawValue },
+            selection: $settings.longDraftStyle
+          )
+        }
       }
     }
   }
