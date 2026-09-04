@@ -4,7 +4,7 @@ cask "talkify" do
 
   url "https://github.com/tornikegomareli/Talkify/releases/download/v#{version}/Talkify.dmg"
   name "Talkify"
-  desc "On-device voice dictation from the notch"
+  desc "Lightning-fast, local first voice dictation from the notch"
   homepage "https://github.com/tornikegomareli/Talkify"
 
   livecheck do
