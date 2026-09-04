@@ -5,10 +5,11 @@
 enum HUDVoiceVisualStyle: String, CaseIterable {
   /// A Metal shader waveform that fills the HUD's visual band.
   case waveform = "Waveform"
-  /// Compact's live draft and Edge Glow on the silhouette, with an optional
-  /// slim Chart Line under the housing. No five-bar indicator, particle
-  /// cloud, or orb — those sit on the words. The concert waveform styles
-  /// stay on Waveform; this composition is one designed Chart Line.
+  /// Centered recent-word live draft and Edge Glow on the silhouette, with
+  /// an optional slim Chart Line overlaid at the top of the same stage. No
+  /// five-bar indicator, particle cloud, or orb — those sit on the words.
+  /// The concert waveform styles stay on Waveform; this composition is one
+  /// designed Chart Line.
   case waveDraft = "Waveform + Draft"
   /// An origin glow hugging the shape's edge: it blooms out of the notch
   /// housing on session start, breathes with the voice, and drains back

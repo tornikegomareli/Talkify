@@ -47,11 +47,12 @@ struct DictationHUDShellView: View {
     HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
-      // Waveform + Draft folds the 24-point ribbon into the text band, so
-      // the visual band is empty; the extra height still has to be in the
-      // declared size or Slide parks 4 points short of hiding the island.
+      // Waveform + Draft has no visual band; its hanging stage is 40
+      // points, 4 more than the ordinary text band. That extra has to be
+      // in the declared size or Slide parks short of hiding the island.
       visualBandHeight: visualBandHeight
-        + (showsWaveDraftRibbon ? metrics.visualBandHeight : 0),
+        + (showsRecentDraft
+          ? metrics.waveDraftStageHeight - metrics.textBandHeight : 0),
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
@@ -110,10 +111,9 @@ struct DictationHUDShellView: View {
   /// Whether the text band is Compact's leading-aligned draft. Not gated on
   /// the listening state — swapping the band's structure at finalize reads
   /// as a glitch mid retract, so the layout stays and the indicator settles
-  /// instead. Waveform + Draft uses the same alignment without the five-bar
-  /// equalizer, because its Chart Line is already the voice.
+  /// instead. Waveform + Draft has its own centered stage.
   private var showsLeadingDraft: Bool {
-    settings.voiceVisual.showsDraftWhileListening && !reduceMotion
+    settings.voiceVisual == .compact && !reduceMotion
   }
 
   private var showsCompactIndicator: Bool {
@@ -148,8 +148,10 @@ struct DictationHUDShellView: View {
           // Glow hide the band for the whole listening phase, which is exactly
           // when the live language needs naming. Padded below the housing so it
           // clears the camera, and an overlay so it never changes the fixed
-          // window's size.
-          .overlay(alignment: .topLeading) { languageTag }
+          // window's size. Waveform + Draft places its own tag on the island.
+          .overlay(alignment: .topLeading) {
+            if !showsRecentDraft { languageTag }
+          }
           // Grow Down springs the island's height. Glyphs opt out so new
           // words land immediately; the token is coarse so a wrap is one spring.
           .animation(
@@ -169,8 +171,56 @@ struct DictationHUDShellView: View {
 
   private var bands: some View {
     VStack(spacing: 0) {
+      island
+      if let label = shapingLabel {
+        HUDShapingLabel(
+          text: label.text,
+          palette: settings.glowPalette,
+          scale: metrics.scale,
+          activity: label.activity,
+          reduceMotion: reduceMotion
+        )
+        .frame(height: metrics.shapingBandHeight)
+      }
+    }
+  }
+
+  /// Housing plus the bands below it. Waveform + Draft's recent-word line
+  /// is an overlay on this silhouette, not a ZStack sibling: a
+  /// max-height-infinity child in a ZStack expands to the host window and
+  /// the black shape follows it. Overlay stays the stacked size, and the
+  /// words center in the box the glow wraps — including the housing
+  /// flanks, which are visible even though the camera sits in the middle.
+  private var island: some View {
+    stackedBands
+      .overlay {
+        if showsRecentDraft {
+          HUDRecentDraftText(
+            committed: content.text,
+            volatile: content.volatileText,
+            scale: metrics.scale
+          )
+          .padding(.horizontal, tagInset * metrics.scale)
+        }
+      }
+      .overlay(alignment: .top) {
+        if showsRecentDraft, showsWaveDraftRibbon {
+          HUDCompactChartLineView(content: content, scale: metrics.scale)
+            .frame(height: metrics.ribbonBandHeight)
+            .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
+            .padding(.horizontal, tagInset * metrics.scale)
+        }
+      }
+      .overlay(alignment: .leading) {
+        if showsRecentDraft { languageTag }
+      }
+  }
+
+  private var stackedBands: some View {
+    VStack(spacing: 0) {
       // Strip level with the housing: kept empty so text never collides
-      // with the camera.
+      // with the camera. Waveform + Draft still counts it in the box the
+      // words are centered in, because the flanks of that strip are visible.
       Color.clear
         .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
       if visualBandHeight > 0 {
@@ -190,66 +240,43 @@ struct DictationHUDShellView: View {
       if showsTextBand {
         textBand
       }
-      if let label = shapingLabel {
-        HUDShapingLabel(
-          text: label.text,
-          palette: settings.glowPalette,
-          scale: metrics.scale,
-          activity: label.activity,
-          reduceMotion: reduceMotion
-        )
-        .frame(height: metrics.shapingBandHeight)
-      }
     }
   }
 
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
-  /// draft leading-aligned beside it. Waveform + Draft puts a thin Chart
-  /// Line flush under the housing and a recent-word line under that, so
-  /// the words get the strip a dedicated ribbon band would have occupied.
+  /// draft leading-aligned beside it. Waveform + Draft only reserves the
+  /// hanging stage here; the words themselves overlay the whole island.
   /// The other visuals center the draft.
   @ViewBuilder
   private var textBand: some View {
-    Group {
-      if showsRecentDraft {
-        VStack(alignment: .leading, spacing: 4 * metrics.scale) {
-          if showsWaveDraftRibbon {
-            HUDCompactChartLineView(content: content, scale: metrics.scale)
-              .frame(height: metrics.ribbonBandHeight)
+    if showsRecentDraft {
+      Color.clear
+        .frame(height: metrics.waveDraftStageHeight)
+    } else {
+      Group {
+        if showsLeadingDraft {
+          HStack(alignment: .top, spacing: 10 * metrics.scale) {
+            if showsCompactIndicator {
+              HUDCompactIndicatorView(content: content, scale: metrics.scale)
+                .padding(.top, 3 * metrics.scale)
+            }
+            compactDraftText
+              .frame(maxWidth: .infinity, alignment: .leading)
           }
-          HUDRecentDraftText(
-            committed: content.text,
-            volatile: content.volatileText,
-            scale: metrics.scale
-          )
+        } else {
+          draftText
         }
-      } else if showsLeadingDraft {
-        HStack(alignment: .top, spacing: 10 * metrics.scale) {
-          if showsCompactIndicator {
-            HUDCompactIndicatorView(content: content, scale: metrics.scale)
-              .padding(.top, 3 * metrics.scale)
-          }
-          compactDraftText
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-      } else {
-        draftText
       }
+      .font(.system(size: 15 * metrics.scale, weight: .medium))
+      .foregroundStyle(.white)
+      // The tag sits in the inset rather than in the flow, and the inset grows
+      // on both sides, so centered drafts stay centered and nothing overlaps.
+      .padding(.horizontal, tagInset * metrics.scale)
+      .padding(.top, 9 * metrics.scale)
+      .padding(.bottom, 9 * metrics.scale)
+      .frame(minHeight: metrics.textBandHeight)
     }
-    .font(.system(size: 15 * metrics.scale, weight: .medium))
-    .foregroundStyle(.white)
-    // The tag sits in the inset rather than in the flow, and the inset grows
-    // on both sides, so centered drafts stay centered and nothing overlaps.
-    .padding(.horizontal, tagInset * metrics.scale)
-    .padding(.top, showsRecentDraft ? 4 * metrics.scale : 9 * metrics.scale)
-    .padding(.bottom, 9 * metrics.scale)
-    // Waveform + Draft folds the old 24-point ribbon band into this
-    // minimum so the island does not shrink and the extra height is text.
-    .frame(
-      minHeight: metrics.textBandHeight
-        + (showsWaveDraftRibbon ? metrics.visualBandHeight : 0)
-    )
   }
 
   private var showsRecentDraft: Bool {
@@ -285,9 +312,9 @@ struct DictationHUDShellView: View {
     visual == .waveDraft && !reduceMotion && (listening || dismissing || shaping)
   }
 
-  /// Compact keeps its indicator through shaping and retracts; the ribbon
-  /// does the same, but a status message is a new occupant and must not
-  /// inherit the last session's audio or the extra 24 points of height.
+  /// Compact keeps its indicator through shaping and retracts; the recent
+  /// draft does the same, but a status message is a new occupant and must
+  /// not inherit the last session's audio or the extra 24 points of height.
   static func showsRibbon(
     visual: HUDVoiceVisualStyle,
     listening: Bool,
@@ -343,6 +370,11 @@ struct DictationHUDShellView: View {
     if let tag = content.languageTag {
       tagCapsule(tag)
         .padding(.leading, 12 * metrics.scale)
+        // Waveform + Draft overlays the tag on the whole island, so it
+        // shares the draft's vertical center. Other visuals pin it below
+        // the housing from the shell.
+        .padding(.top, showsRecentDraft ? 0 : tagTopInset)
+        .allowsHitTesting(false)
     }
   }
 
@@ -359,19 +391,12 @@ struct DictationHUDShellView: View {
       .padding(.horizontal, 4 * metrics.scale)
       .padding(.vertical, 1.5 * metrics.scale)
       .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
-      // Clears the housing, so a tag never sits beside the camera. When
-      // Waveform + Draft's ribbon or Reduce Motion's meter sits under the
-      // housing, the tag drops below that strip so it does not cover it.
-      .padding(.top, tagTopInset)
-      .allowsHitTesting(false)
   }
 
   private var tagTopInset: CGFloat {
     let housing = HUDNotchGeometry.closedSize(for: screen).height
     let belowHousing: CGFloat
-    if showsWaveDraftRibbon {
-      belowHousing = 4 * metrics.scale + metrics.ribbonBandHeight + 4 * metrics.scale
-    } else if showsTextBand, visualBandHeight > 0 {
+    if showsTextBand, visualBandHeight > 0 {
       belowHousing = visualBandHeight + 5 * metrics.scale
     } else {
       belowHousing = 5 * metrics.scale

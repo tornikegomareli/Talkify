@@ -68,6 +68,11 @@ struct HUDMetrics: Equatable {
   /// text band rather than as a band of its own, so the words sit higher.
   var ribbonBandHeight: CGFloat { 12 * scale }
 
+  /// Waveform + Draft hanging band: 24-point type plus 8 points above
+  /// and below. Tighter than the 36+24 stage that left empty air in the
+  /// pill; still tall enough that the line does not kiss the stroke.
+  var waveDraftStageHeight: CGFloat { 40 * scale }
+
   /// Height of the waveform band. The waveform variant replaces the draft
   /// text entirely, so it gets room to breathe.
   var waveBandHeight: CGFloat { 64 * scale }

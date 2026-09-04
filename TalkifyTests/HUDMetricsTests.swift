@@ -8,6 +8,7 @@ struct HUDMetricsTests {
     #expect(HUDMetrics.standard.contentWidth == 540)
     #expect(HUDMetrics.standard.waveBandHeight == 64)
     #expect(HUDMetrics.standard.ribbonBandHeight == 12)
+    #expect(HUDMetrics.standard.waveDraftStageHeight == 40)
   }
 
   @Test func everyDimensionScalesTogether() {
@@ -20,6 +21,7 @@ struct HUDMetricsTests {
     #expect(half.visualBandHeight == full.visualBandHeight * 0.8)
     #expect(half.waveBandHeight == full.waveBandHeight * 0.8)
     #expect(half.ribbonBandHeight == full.ribbonBandHeight * 0.8)
+    #expect(half.waveDraftStageHeight == full.waveDraftStageHeight * 0.8)
     #expect(half.bottomCornerRadius == full.bottomCornerRadius * 0.8)
   }
 
@@ -136,6 +138,12 @@ struct HUDShellMetricsTests {
       reduceMotion: false, ribbonEnabled: false))
     #expect(DictationHUDShellView.showsRecentDraft(
       visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
+    #expect(DictationHUDShellView.showsRecentDraft(
+      visual: .waveDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRecentDraft(
+      visual: .waveDraft, listening: false, dismissing: false, shaping: false,
       reduceMotion: false))
   }
 

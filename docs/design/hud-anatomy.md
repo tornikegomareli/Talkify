@@ -16,7 +16,7 @@ as the notch itself stretching downward.
 ```
         screen top edge
  ───────┬─────────────────┬───────
-        │▓▓▓ housing  ▓▓▓ │          ← camera lives here, always empty
+        │▓▓▓ housing  ▓▓▓ │          ← camera lives here; flanks can carry Waveform + Draft
  ╭──────┴─────────────────┴──────╮
  │                               │   ← visual band (voice visual)
  │                               │
@@ -37,7 +37,8 @@ detached tabs.
 | Text band height | `36 * scale` min, `120 * scale` max | yes |
 | Visual band, Reduce Motion | `24 * scale` | yes |
 | Visual band, waveform / glow | `64 * scale` | yes |
-| Waveform + Draft ribbon | `12 * scale`, inside the text band | yes |
+| Waveform + Draft hanging stage | `40 * scale` | yes |
+| Waveform + Draft ribbon | `12 * scale`, inside the hanging stage | yes |
 | Bottom corner radius | `20 * scale` | yes |
 | Housing, measured notch | whatever the display reports | **no** |
 | Housing, simulated | `185 × 32` | **no** |
@@ -54,8 +55,12 @@ bezel curve.
 
 ## The bands
 
-**Housing band.** Always present, always empty. Its height is the notch's
-height. Nothing is ever drawn here — content would sit behind the camera.
+**Housing band.** Always present. Its height is the notch's height. The
+camera sits in the middle of this strip, so Compact, Waveform, Edge Glow,
+and status messages leave it empty. Waveform + Draft is the exception: its
+recent-word line is an overlay centered on the housing-plus-stage
+silhouette, because the flanks of that strip are still visible beside the
+camera. The camera itself stays empty.
 
 **Visual band.** Holds the voice visual. Its height depends on which visual
 is selected: `64 * scale` for Waveform, `64 * scale` (empty, used as a stage
@@ -65,16 +70,21 @@ Chart Line ribbon live inside the text band instead.
 
 **Text band.** Holds live draft text. Present for Compact and Waveform +
 Draft, absent for Waveform and Edge Glow while listening, and always present
-under Reduce Motion. Draft text is 15pt medium white, centered except on
-Compact and Waveform + Draft where it is leading-aligned, with three
-long-draft behaviors the user picks between: single line with head
-truncation, wrap and grow downward capped at four lines, or single line that
-shrinks to fit.
+under Reduce Motion. Draft text is 15pt medium white and centered, except
+Compact (leading, beside the five-bar indicator) and Waveform + Draft (a
+`24 * scale` recent-word line centered in the island, overlaying housing
+plus a `40 * scale` hanging stage). Compact keeps the three long-draft
+behaviors the user picks between: single line with head truncation, wrap
+and grow downward capped at four lines, or single line that shrinks to
+fit. Waveform + Draft does not: eight tokens on one line, and a line that
+does not fit clips the oldest words instead of ellipsizing each one.
 
-**Language tag.** A small capsule pinned to the top leading corner below the
-housing, shown only when a second dictation language is configured. It hangs
-off the shell as an overlay rather than sitting in the layout, so it never
-changes the window's size.
+**Language tag.** A small capsule shown only when a second dictation
+language is configured. It hangs off the shell as an overlay rather than
+sitting in the layout, so it never changes the window's size. Compact,
+Waveform, Edge Glow, and status messages pin it to the top leading corner
+below the housing. Waveform + Draft overlays it on the leading edge of the
+island, vertically centered with the draft.
 
 ## Hard rules that keep being violated
 
@@ -89,7 +99,11 @@ itself inside the same fixed window.
 overshoot lifts the shape off the screen edge and opens a visible gap above
 it. Scale anchored at `.top` cannot.
 
-**Nothing is drawn in the housing band.**
+**Nothing is drawn in the housing band**, except Waveform + Draft's
+recent-word overlay, which is centered on the housing-plus-stage
+silhouette so the line sits in the visible flanks rather than only under
+the camera. Status messages, Compact, Waveform, and Edge Glow still leave
+the housing empty.
 
 **Fillets require a real notch.** Zero otherwise.
 

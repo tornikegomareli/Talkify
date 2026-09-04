@@ -232,6 +232,56 @@ struct HUDRenderTests {
     _ = try render(card, named: "12-drop-preview-card")
   }
 
+  /// Ribbon on and off share the hanging stage; the Chart Line is only
+  /// pixels on top of it. The PNG canvas is the fixed host, so this is a
+  /// look-at fixture rather than a size assertion.
+  @Test func waveDraftRendersWithAndWithoutTheRibbon() throws {
+    for ribbon in [true, false] {
+      let store = AppSettings.previewStore()
+      store.voiceVisual = .waveDraft
+      store.waveDraftShowsRibbon = ribbon
+      let content = DictationHUDContent()
+      content.isRevealed = true
+      content.showsVoiceVisual = true
+      content.isAudioAlive = true
+      content.text = "one two three four five six seven eight"
+      content.languageTag = "EN"
+
+      _ = try render(
+        DictationHUDShellView(
+          screen: notchedScreen,
+          settings: store.sessionSettings,
+          content: content
+        ),
+        named: ribbon ? "14-wave-draft-ribbon" : "15-wave-draft-text"
+      )
+    }
+  }
+
+  /// Ordinary eight-word drafts are wider than the island. This is a
+  /// look-at fixture for one overflow policy: the newest words stay
+  /// readable, the oldest clip, and no token ellipsizes on its own.
+  @Test func waveDraftRendersALongEightWordLine() throws {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveDraft
+    store.waveDraftShowsRibbon = false
+    let content = DictationHUDContent()
+    content.isRevealed = true
+    content.showsVoiceVisual = true
+    content.isAudioAlive = true
+    content.text = "please schedule another meeting with the marketing team"
+    content.languageTag = "EN"
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: store.sessionSettings,
+        content: content
+      ),
+      named: "16-wave-draft-long-line"
+    )
+  }
+
   /// The menu bar ghost filling from the bottom as a file job advances, in the
   /// accent the drop surfaces are wearing.
   @Test(arguments: [SettingsTheme.accentColor, HUDGlowPalette.sunset.statusAccent])
