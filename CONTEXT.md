@@ -59,6 +59,10 @@ _Avoid_: Bundled model, Talkify model, Whisper model
 An opt-in pass that rewrites finished **Direct Dictation** text through the **On-device model** before insertion, using the session's **Shaping Prompt**.
 _Avoid_: AI cleanup, post-processing, autocorrect
 
+**Spelling replacement**:
+One user-authored from→to pair, applied as a whole-word swap after recognition and before **Prompt Shaping**. The left side may be a phrase. The list is empty by default.
+_Avoid_: Autocorrect, vocabulary, dictionary, lexicon
+
 **Shaping Prompt**:
 One named entry in the user's editable library, holding the wording that tells the **On-device model** what to do with the words. The framing that keeps it rewriting rather than answering is not part of it and is never editable.
 _Avoid_: System prompt, preset, template
@@ -150,7 +154,7 @@ _Avoid_: Transcript history, cloud analytics
 - Settings changes apply to the live app and persist immediately; Settings has no Save step
 - The Appearance preview uses the same preferences and HUD surface as Direct Dictation
 - Settings changes update the Appearance preview immediately, while an active Direct Dictation session keeps the choices captured at session start
-- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, the shaping choice, and whether the session lowers other audio
+- Dictation session settings include the voice visual, waveform style, glow palette, glow center, reveal style, long-draft behavior, HUD size, sound set, sound enabled state, sound volume, insertion destination, the transcription history choice, the shaping choice, the **Spelling replacement** list, and whether the session lowers other audio
 - **Direct Dictation** can lower other audio while it listens and put it back when the session ends, cancels or fails; it is off by default because the control it moves is system-wide
 - macOS has no per-application ducking, so lowering other audio moves the default output device's own volume and quiets Talkify's session sounds along with everything else
 - A lowered volume is restored only while it is still the value Talkify set: a volume the user changed mid-session is theirs, the same rule the clipboard restore follows
@@ -198,7 +202,15 @@ _Avoid_: Transcript history, cloud analytics
 - Settings preserves its selected section and window frame while the app runs, and opens on Appearance after a fresh launch
 - The voice-reactive visual must make silence and a dead microphone look different
 - With Reduce Motion enabled, the HUD replaces the animated visual with a quiet level meter and skips expand/collapse animation
-- A session inserts raw finalized text unless the user turned **Prompt Shaping** on: no filler-word list, no autocorrect, and no rewriting anybody did not ask for
+- A session inserts raw finalized text unless the user turned **Prompt Shaping** on or added a **Spelling replacement**: no filler-word list, no autocorrect, and no rewriting anybody did not ask for
+- A **Spelling replacement** is a whole-word swap the user typed: the misspelling Apple Speech produced, and the spelling that should land instead
+- **Spelling replacement** has its own Settings section; an empty list is exactly today's behavior
+- Matching ignores case, surrounding spaces are trimmed, and a possessive keeps its 's, so Calman, calman, and Calman's all become Kalman / Kalman's
+- The misspelling can be several words or a hyphenated one, because splitting a name is how Apple Speech usually gets it wrong: "ex code" and "e-mail" are as common as a single wrong token
+- Every pair is measured against what was said rather than against another pair's output, and where two pairs both fit, the longer misspelling wins, so "git hub" becomes GitHub rather than Git hub
+- A pair with a blank from or to is skipped, so a row still being filled in does not rewrite anything
+- **Spelling replacement** runs after recognition and before **Prompt Shaping**, on the live draft and on the inserted text, and on a finished **Drop Transcription**
+- Prompt Shaping sees the replaced spelling, and is skipped if that spelling is empty
 - **Prompt Shaping** is the text cleanup the roadmap deferred, shipped as an explicit beta and off by default, so the default session still inserts exactly what was said
 - While **Prompt Shaping** is on, the session's **Shaping Prompt** rewrites finished text through the **On-device model** between recognition and insertion, and nothing leaves the Mac: the model is Apple's, it runs here, and Talkify makes no request on its behalf
 - Any prompt shaping unavailability, failure, or slow answer inserts the raw words unchanged
@@ -207,7 +219,7 @@ _Avoid_: Transcript history, cloud analytics
 - Deleting the selected shaping prompt, or restoring the defaults over it, moves the selection to the first prompt in the library
 - A selected shaping prompt that still resolves to nothing inserts the raw words unchanged
 - A shaping prompt can be run against a sample sentence in Settings, through the same service a session uses, so a prompt is written by reading what it does rather than by guessing
-- Transcription history keeps the words as spoken; a translated session's second line is what actually landed, so it is written after shaping and before insertion
+- Transcription history keeps the words as recognized, before **Spelling replacement** or **Prompt Shaping**; a translated session's second line is what actually landed, so it is written after shaping and before insertion
 - Shaping runs before translation: a prompt carries its own language and its one-shot example in that language, and a translator handed cleaned-up words has less to get wrong
 - The shaping choice is captured in the Dictation session settings snapshot, along with the whole prompt library while shaping is on
 - A session that will shape keeps the HUD up through the shaping phase, naming the prompt in the same caption the pick rode in, and the HUD leaves early when the answer lands

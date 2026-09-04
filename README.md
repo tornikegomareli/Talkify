@@ -85,6 +85,7 @@ xcodebuild test -project Talkify.xcodeproj -scheme Talkify -destination 'platfor
 | Transcribe a file | Drag audio or video at the notch and drop it |
 | Cancel mid-session | **Esc** |
 | Shape what you dictate | Turn it on in **Settings → Prompt Shaping** |
+| Fix a misspelled name | Add a pair in **Settings → Spelling replacements** |
 | Pick the shaping prompt mid-session | **←** / **→** while dictating, with shaping on |
 | Read selected text aloud | **⌥ ⎋** (toggles; also in the menu) |
 | Read it aloud translated | Same key, with **Translate before speaking** on |
