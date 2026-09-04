@@ -157,7 +157,7 @@ _Avoid_: Transcript history, cloud analytics
 - The device that was lowered is the one restored, not whichever output is default when the session ends: the default can change mid-session, and the volume that needs putting back belongs to the device that was quieted
 - An output with no settable volume does not duck, and neither does one already at silence
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
-- A fourth voice visual, Waveform + Draft, keeps Compact's leading live draft and wraps the shape in Edge Glow, with a slim Chart Line ribbon under the housing instead of the five-bar indicator; it has no particle cloud and no orb
+- A fourth voice visual, Waveform + Draft, keeps Compact's leading live draft and wraps the shape in Edge Glow, with a slim Chart Line ribbon at the top of the text band instead of the five-bar indicator; it has no particle cloud and no orb
 - Compact and Waveform + Draft show the live draft while listening; Waveform and Edge Glow replace the draft text entirely
 - An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; putting words on the concert waveform stays rejected. Waveform + Draft is the chosen live-draft direction: the draft has its own band under a slim ribbon, in one shape
 - A detached child pill under the island (the uni-pills goo bubble) was prototyped as a third placement and rejected by feel: a second detached surface does not fit the single-shape design

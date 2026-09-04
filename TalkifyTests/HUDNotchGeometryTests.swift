@@ -142,24 +142,23 @@ struct HUDNotchGeometryTests {
     #expect(tallest <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
-  /// Waveform + Draft is that same tallest stack: slim Chart Line, Grow Down
-  /// cap, shaping caption. The concert 64-point waveform on top of the draft
-  /// would not fit.
+  /// Waveform + Draft has no dedicated visual band: the ribbon lives in the
+  /// text band. Grow Down plus shaping still fits; a concert waveform on top
+  /// of the draft would not.
   @Test func waveDraftMaximumStackFitsTheFixedWindow() {
     let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
     let content = HUDNotchGeometry.contentSize(
       for: notched,
       metrics: .standard,
-      visualBandHeight: HUDMetrics.standard.visualBandHeight,
+      visualBandHeight: 0,
       includesTextBand: true,
       shapingBandHeight: HUDMetrics.standard.shapingBandHeight
     )
     let growDown = 32
-      + HUDMetrics.standard.visualBandHeight
+      + HUDMetrics.standard.ribbonBandHeight
       + HUDMetrics.standard.maxTextBandHeight
       + HUDMetrics.standard.shapingBandHeight
     #expect(content.height == 32
-      + HUDMetrics.standard.visualBandHeight
       + HUDMetrics.standard.textBandHeight
       + HUDMetrics.standard.shapingBandHeight)
     #expect(growDown <= window.height - HUDNotchGeometry.shadowPadding)

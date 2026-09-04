@@ -75,17 +75,16 @@ struct DictationHUDShellView: View {
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band.
-  /// Compact has no band of its own. Waveform + Draft uses that same slim
-  /// strip for its Chart Line so strip + wrapped text still fit the fixed
-  /// window. Waveform and Edge Glow keep the tall band — the waveform fills
-  /// it, the glow keeps it as an empty stage so the silhouette has flanks
-  /// for the light to wrap.
+  /// Compact and Waveform + Draft have no band of their own: Compact's
+  /// indicator and Waveform + Draft's Chart Line live inside the text band,
+  /// so the words start higher. Waveform and Edge Glow keep the tall band —
+  /// the waveform fills it, the glow keeps it as an empty stage so the
+  /// silhouette has flanks for the light to wrap.
   private var visualBandHeight: CGFloat {
     guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     switch settings.voiceVisual {
-    case .compact: return 0
-    case .waveDraft: return metrics.visualBandHeight
+    case .compact, .waveDraft: return 0
     case .waveform, .glow: return metrics.waveBandHeight
     }
   }
@@ -173,8 +172,6 @@ struct DictationHUDShellView: View {
             HUDLevelMeterView(content: content)
           } else if settings.voiceVisual == .waveform {
             HUDWaveformView(settings: settings, content: content)
-          } else if settings.voiceVisual == .waveDraft {
-            HUDCompactChartLineView(content: content, scale: metrics.scale)
           } else {
             // Edge Glow: the centers (particles, orb) are
             // shape-wide overlays, so the band is an empty stage.
@@ -201,12 +198,21 @@ struct DictationHUDShellView: View {
 
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
-  /// draft leading-aligned beside it. Waveform + Draft keeps that
-  /// alignment without the indicator. The other visuals center the draft.
+  /// draft leading-aligned beside it. Waveform + Draft puts a thin Chart
+  /// Line flush under the housing and keeps that alignment, so the words
+  /// get the strip a dedicated ribbon band would have occupied. The other
+  /// visuals center the draft.
   @ViewBuilder
   private var textBand: some View {
     Group {
-      if showsLeadingDraft {
+      if showsWaveDraftRibbon {
+        VStack(alignment: .leading, spacing: 4 * metrics.scale) {
+          HUDCompactChartLineView(content: content, scale: metrics.scale)
+            .frame(height: metrics.ribbonBandHeight)
+          compactDraftText
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      } else if showsLeadingDraft {
         HStack(alignment: .top, spacing: 10 * metrics.scale) {
           if showsCompactIndicator {
             HUDCompactIndicatorView(content: content, scale: metrics.scale)
@@ -224,8 +230,18 @@ struct DictationHUDShellView: View {
     // The tag sits in the inset rather than in the flow, and the inset grows
     // on both sides, so centered drafts stay centered and nothing overlaps.
     .padding(.horizontal, tagInset * metrics.scale)
-    .padding(.vertical, 9 * metrics.scale)
-    .frame(minHeight: metrics.textBandHeight)
+    .padding(.top, showsWaveDraftRibbon ? 4 * metrics.scale : 9 * metrics.scale)
+    .padding(.bottom, 9 * metrics.scale)
+    // Waveform + Draft folds the old 24-point ribbon band into this
+    // minimum so the island does not shrink and the extra height is text.
+    .frame(
+      minHeight: metrics.textBandHeight
+        + (showsWaveDraftRibbon ? metrics.visualBandHeight : 0)
+    )
+  }
+
+  private var showsWaveDraftRibbon: Bool {
+    settings.voiceVisual == .waveDraft && !reduceMotion
   }
 
   /// The room the language tag needs on each side.
@@ -283,9 +299,8 @@ struct DictationHUDShellView: View {
       .padding(.vertical, 1.5 * metrics.scale)
       .background(Capsule(style: .continuous).fill(.white.opacity(0.13)))
       // Clears the housing, so a tag never sits beside the camera. When
-      // a slim visual band sits under the housing (Waveform + Draft, or
-      // Reduce Motion), the tag drops into the text band so it does not
-      // cover the ribbon.
+      // Waveform + Draft's ribbon or Reduce Motion's meter sits under the
+      // housing, the tag drops below that strip so it does not cover it.
       .padding(.top, tagTopInset)
       .allowsHitTesting(false)
   }
@@ -293,7 +308,9 @@ struct DictationHUDShellView: View {
   private var tagTopInset: CGFloat {
     let housing = HUDNotchGeometry.closedSize(for: screen).height
     let belowHousing: CGFloat
-    if showsTextBand, visualBandHeight > 0 {
+    if showsWaveDraftRibbon {
+      belowHousing = 4 * metrics.scale + metrics.ribbonBandHeight + 4 * metrics.scale
+    } else if showsTextBand, visualBandHeight > 0 {
       belowHousing = visualBandHeight + 5 * metrics.scale
     } else {
       belowHousing = 5 * metrics.scale

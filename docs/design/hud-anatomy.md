@@ -37,6 +37,7 @@ detached tabs.
 | Text band height | `36 * scale` min, `120 * scale` max | yes |
 | Visual band, Reduce Motion | `24 * scale` | yes |
 | Visual band, waveform / glow | `64 * scale` | yes |
+| Waveform + Draft ribbon | `12 * scale`, inside the text band | yes |
 | Bottom corner radius | `20 * scale` | yes |
 | Housing, measured notch | whatever the display reports | **no** |
 | Housing, simulated | `185 × 32` | **no** |
@@ -58,9 +59,9 @@ height. Nothing is ever drawn here — content would sit behind the camera.
 
 **Visual band.** Holds the voice visual. Its height depends on which visual
 is selected: `64 * scale` for Waveform, `64 * scale` (empty, used as a stage
-for edge-hugging light) for Edge Glow, `24 * scale` for Waveform + Draft's
-slim Chart Line and for the Reduce Motion level meter, and zero for Compact,
-whose indicator lives inside the text band instead.
+for edge-hugging light) for Edge Glow, `24 * scale` for the Reduce Motion
+level meter, and zero for Compact and Waveform + Draft, whose indicator and
+Chart Line ribbon live inside the text band instead.
 
 **Text band.** Holds live draft text. Present for Compact and Waveform +
 Draft, absent for Waveform and Edge Glow while listening, and always present

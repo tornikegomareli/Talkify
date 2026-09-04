@@ -64,6 +64,10 @@ struct HUDMetrics: Equatable {
   /// shown between the housing and the text band.
   var visualBandHeight: CGFloat { 24 * scale }
 
+  /// Height of the Waveform + Draft Chart Line, drawn at the top of the
+  /// text band rather than as a band of its own, so the words sit higher.
+  var ribbonBandHeight: CGFloat { 12 * scale }
+
   /// Height of the waveform band. The waveform variant replaces the draft
   /// text entirely, so it gets room to breathe.
   var waveBandHeight: CGFloat { 64 * scale }

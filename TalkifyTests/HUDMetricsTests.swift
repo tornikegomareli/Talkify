@@ -7,6 +7,7 @@ struct HUDMetricsTests {
     #expect(HUDMetrics.standard.scale == 1)
     #expect(HUDMetrics.standard.contentWidth == 540)
     #expect(HUDMetrics.standard.waveBandHeight == 64)
+    #expect(HUDMetrics.standard.ribbonBandHeight == 12)
   }
 
   @Test func everyDimensionScalesTogether() {
@@ -18,6 +19,7 @@ struct HUDMetricsTests {
     #expect(half.maxTextBandHeight == full.maxTextBandHeight * 0.8)
     #expect(half.visualBandHeight == full.visualBandHeight * 0.8)
     #expect(half.waveBandHeight == full.waveBandHeight * 0.8)
+    #expect(half.ribbonBandHeight == full.ribbonBandHeight * 0.8)
     #expect(half.bottomCornerRadius == full.bottomCornerRadius * 0.8)
   }
 

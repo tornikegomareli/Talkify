@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The Waveform + Draft ribbon: Chart Line's conveyor in the slim 24-point
-/// band, retuned so the line still reads at the 40% HUD-size floor. The
-/// concert Chart Line's 6-point unscaled padding, −10 offset, reflection,
-/// and 26-point under-glow would clip away in this strip.
+/// The Waveform + Draft ribbon: Chart Line's conveyor in a 12-point strip
+/// at the top of the draft, retuned so the line still reads at the 40%
+/// HUD-size floor. The concert Chart Line's 6-point unscaled padding, −10
+/// offset, reflection, and 26-point under-glow would clip away in this strip.
 struct HUDCompactChartLineView: View {
   let content: DictationHUDContent
   var scale: CGFloat = 1
@@ -29,12 +29,12 @@ struct HUDCompactChartLineView: View {
             .stroke(
               Self.silver,
               style: StrokeStyle(
-                lineWidth: (2.2 + 3 * level) * scale,
+                lineWidth: (1.4 + 2 * level) * scale,
                 lineCap: .round,
                 lineJoin: .round
               )
             )
-            .blur(radius: 3 * scale)
+            .blur(radius: 2 * scale)
             .opacity(0.25 + 0.45 * level)
           shape
             .stroke(
