@@ -187,6 +187,7 @@ final class DropTranscriptionController {
     // earned; a second file takes the shape, so the first goes to disk.
     offer.commit()
     let localeIdentifier = settings.localeIdentifierForDrop(languageIndex: languageIndex)
+    let replacements = settings.spellingReplacements
 
     // Nothing in the shape while a job runs. The drop target retracts and the
     // menu bar ghost carries progress from there.
@@ -210,17 +211,26 @@ final class DropTranscriptionController {
         )
         try Task.checkCancellation()
 
+        // Captured at job start so editing the list while a file runs cannot
+        // rewrite a transcript that was already recognized under the old one.
+        // Rebuilt rather than counted here, so the card keeps counting words
+        // the one way the service does.
+        let replaced = FileTranscriptionService.Transcript(
+          text: SpellingReplacements.apply(transcript.text, using: replacements),
+          duration: transcript.duration
+        )
+
         // Staged, not saved: the card is where the user picks a destination,
         // and the Save-to location is what happens if they pick none
         // (CONTEXT.md). The file is real from here on either way.
-        let staged = try StagedTranscript.stage(text: transcript.text, source: url)
+        let staged = try StagedTranscript.stage(text: replaced.text, source: url)
         offer.present(
           staged,
           as: DropHUDContent.Transcript(
             url: staged.url,
-            text: transcript.text,
-            wordCount: transcript.wordCount,
-            duration: transcript.duration
+            text: replaced.text,
+            wordCount: replaced.wordCount,
+            duration: replaced.duration
           )
         )
       } catch is CancellationError {
