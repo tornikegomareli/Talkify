@@ -232,6 +232,51 @@ struct HUDRenderTests {
     _ = try render(card, named: "12-drop-preview-card")
   }
 
+  /// The PNG canvas is the fixed host, so this is a look-at fixture
+  /// rather than a size assertion.
+  @Test func glowDraftRendersTheRecentWordLine() throws {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let content = DictationHUDContent()
+    content.isRevealed = true
+    content.showsVoiceVisual = true
+    content.isAudioAlive = true
+    content.text = "one two three four five six seven eight"
+    content.languageTag = "EN"
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: store.sessionSettings,
+        content: content
+      ),
+      named: "14-glow-draft-text"
+    )
+  }
+
+  /// Ordinary eight-word drafts are wider than the island. This is a
+  /// look-at fixture for one overflow policy: the newest words stay
+  /// readable, the oldest clip, and no token ellipsizes on its own.
+  @Test func glowDraftRendersALongEightWordLine() throws {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let content = DictationHUDContent()
+    content.isRevealed = true
+    content.showsVoiceVisual = true
+    content.isAudioAlive = true
+    content.text = "please schedule another meeting with the marketing team"
+    content.languageTag = "EN"
+
+    _ = try render(
+      DictationHUDShellView(
+        screen: notchedScreen,
+        settings: store.sessionSettings,
+        content: content
+      ),
+      named: "16-glow-draft-long-line"
+    )
+  }
+
   /// The menu bar ghost filling from the bottom as a file job advances, in the
   /// accent the drop surfaces are wearing.
   @Test(arguments: [SettingsTheme.accentColor, HUDGlowPalette.sunset.statusAccent])

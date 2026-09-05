@@ -548,7 +548,7 @@ final class DirectDictationController {
       dependencies.showLatched()
     case .showLiveText:
       if let pendingLiveText {
-        dependencies.showLiveText(pendingLiveText)
+        dependencies.showLiveText(pendingLiveText, pendingVolatileText)
       }
     case .showFinalizing:
       dependencies.showFinalizing()
@@ -576,6 +576,7 @@ final class DirectDictationController {
   /// The text carried alongside the current `updateReceived` action; the
   /// machine decides whether it shows, the controller remembers what.
   private var pendingLiveText: String?
+  private var pendingVolatileText = ""
 
   private func checkAndBegin() {
     // Held here rather than once recording starts: the first HUD frames are
@@ -675,9 +676,11 @@ final class DirectDictationController {
     let hasVisibleText = !displayText
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .isEmpty
-    pendingLiveText = displayText
+    pendingLiveText = update.finalizedText
+    pendingVolatileText = update.volatileText
     send(.updateReceived(hasVisibleText: hasVisibleText))
     pendingLiveText = nil
+    pendingVolatileText = ""
   }
 
   /// Writes the session's entry, after any translation and before the

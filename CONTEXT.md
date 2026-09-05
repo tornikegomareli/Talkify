@@ -111,7 +111,7 @@ _Avoid_: Transcript history, cloud analytics
 - Releasing the **Dictation Trigger** before 250 milliseconds counts as a quick tap
 - A quick tap leaves **Direct Dictation** active until the next trigger press
 - The **Direct Dictation** HUD shows live draft text while speech continues, unless the selected voice visual replaces it; with Reduce Motion the draft text always shows
-- The HUD renders volatile recognition results immediately
+- The HUD renders volatile recognition results immediately, so new text can show before it commits. Compact and the Reduce Motion band draw them lighter than finalized words; Edge Glow + Draft paints both the same, because that line is a glance, not a proofread
 - **Direct Dictation** inserts finalized recognition text plus the latest volatile result when recognition ends before finalizing it
 - The **Direct Dictation** HUD expands from the physical notch on the focused input's display
 - Settings exposes **Appearance**, **Sounds**, and **Insights** in that order
@@ -128,7 +128,7 @@ _Avoid_: Transcript history, cloud analytics
 - **HUD size** is a Settings slider from 20% to 100% in 5% steps, defaulting to 100%, and applies on every display rather than only where there is no notch
 - A display raises its own **HUD size** floor when the picked size would leave the shape narrower than the housing it descends from plus its fillets: a shape narrower than its housing reads as a tab floating under the notch, and its fillets land inside the cutout with no bezel to meet
 - That floor cannot be one number: a notch is a fixed physical width but its width in points moves with the scaled display mode, so the same MacBook reports roughly 155 points under More Space and 273 under Larger Text; a display with no notch keeps the slider's own minimum, which is where a smaller HUD is wanted because every point the shape covers is screen the user was working in
-- A HUD that will show draft text has a second floor at 40%, where the draft is still 6 points: Compact is built around the live draft and Reduce Motion restores it for every visual, so both stop there while Waveform and Edge Glow, which replace the draft entirely, go down to 20%
+- A HUD that will show draft text has a second floor at 40%, where the draft is still 6 points: Compact and Edge Glow + Draft are built around the live draft and Reduce Motion restores it for every visual, so those stop there while Waveform and Edge Glow, which replace the draft entirely, go down to 20%
 - The **HUD size** slider offers only the sizes the selected voice visual can be shown at, and the higher of the two floors wins whenever both apply
 - A size below the selected visual's floor stays persisted and returns when a visual that can show it is picked again
 - The housing band and the fillets never scale with **HUD size**: the band's height is the physical notch on a notched display and the menu bar's clearance elsewhere, and a fillet exists to meet a physical bezel
@@ -142,7 +142,7 @@ _Avoid_: Transcript history, cloud analytics
 - HUD status and error messages dismiss themselves after about two seconds
 - The HUD writes nothing while it retracts and its bands do not resize: the shape leaves exactly as it stood, and its text and layout reset only once it is off screen
 - The wait between the last word and the recognized text is silent — no label stands in for it, and the voice visual comes to rest rather than reading the silence as a dead microphone
-- Compact opens with no text at all, because it is built around the live draft and a placeholder would be words nobody spoke
+- Compact and Edge Glow + Draft open with no text at all, because they are built around the live draft and a placeholder would be words nobody spoke
 - The HUD's shaders and the particle cloud's compute kernels are compiled at launch, so the cost never lands on the first frames of a session
 - Talkify holds a user-initiated activity assertion while a **Direct Dictation** session or a **Drop Transcription** job runs, and holds none while idle: a menu-bar-only app with no window is what App Nap targets, and a napped process draws the HUD's animation clock too slowly to watch
 - The assertion is taken before the begin guards run, because the frames a napped process draws badly are the first ones; every guard that refuses a session releases it again
@@ -157,8 +157,9 @@ _Avoid_: Transcript history, cloud analytics
 - The device that was lowered is the one restored, not whichever output is default when the session ends: the default can change mid-session, and the volume that needs putting back belongs to the device that was quieted
 - An output with no settable volume does not duck, and neither does one already at silence
 - A third voice visual, Compact, shows a small five-bar voice indicator beside the leading-aligned live draft inside the shape, after the iOS Dynamic Island caption look; the shape grows with the draft
-- Compact is the only visual that shows the live draft while listening; Waveform and Edge Glow replace the draft text entirely
-- An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; the draft-in-shape presentation belongs to Compact alone
+- A fourth voice visual, Edge Glow + Draft, keeps a live draft of the last eight word tokens at 24-point type, centered in the island (housing plus a 40-point stage), and wraps the shape in Edge Glow. It has no Chart Line ribbon, particle cloud, or orb. Each visible word keeps a stable identity: a new token slides in from the right, a departing token slides off to the left, and a finalization rewrites the same token in place. A line that does not fit clips the oldest words rather than ellipsizing each one. Insertion still uses the full transcript.
+- Compact and Edge Glow + Draft show the live draft while listening; Waveform and Edge Glow replace the draft text entirely
+- An In the Shape live-draft placement for Waveform and Edge Glow was prototyped and removed; putting words on the concert waveform stays rejected. Edge Glow + Draft is the chosen live-draft direction: the draft has its own hanging stage in one shape, without a Chart Line ribbon
 - A detached child pill under the island (the uni-pills goo bubble) was prototyped as a third placement and rejected by feel: a second detached surface does not fit the single-shape design
 - Reduce Motion overrides every live draft placement with the plain text band and quiet level meter
 - `AppSettings` is the only persisted source of truth for preferences; the Dictation controller creates Dictation session settings for the HUD at session start
@@ -276,7 +277,7 @@ _Avoid_: Transcript history, cloud analytics
 - **Insights** shows words, sessions, speaking time, weighted words per minute, Voice Momentum, 14-day activity, streaks, and a 16-week heatmap
 - Settings lets the user choose the session sounds, mute them, adjust their volume, choose the voice-reactive visual, the waveform style, and the edge glow's color palette
 - Insertion latency must be benchmarked before choosing permanent per-application defaults
-- Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end, and no live-draft direction for Waveform and Edge Glow is chosen yet
+- Mid-session insertion was prototyped (streamed finalized chunks; a ghost overlay over the focused input) and rejected: insertion stays at session end. The live-draft direction for combining Waveform and Edge Glow with the draft is Edge Glow + Draft, not mid-session insertion and not words over the concert waveform
 - A marked-text input method (system-dictation-style provisional text in any field) remains a considered route, deferred: it needs a separate installable input-source bundle, System Settings enablement, and cross-process wiring
 - **Read Aloud** speaks the focused application's selected text with Apple speech synthesis, on-device and offline; Siri voices are unavailable to third-party apps
 - Read Aloud reads the selection through Accessibility, and by copying it when Accessibility answers nothing, which is what every browser does; if neither finds anything it shows "No text selected" through the HUD and speaks nothing
@@ -406,7 +407,7 @@ _Avoid_: Transcript history, cloud analytics
 - The sidebar retains the `SETTINGS` group label even when the header also shows Settings; it distinguishes navigation groups
 - The Talkify ghost is the app icon, the status item icon (template-rendered so it follows the menu bar theme), and the Settings header icon
 - While Direct Dictation listens, the status item ghost pulses between full and dimmed tint; the pulse stops when the session ends
-- An Edge Glow session tints the status ghost pulse with its captured palette's accent; Waveform and Compact sessions keep the theme tint, and the idle ghost stays template-rendered
+- An Edge Glow or Edge Glow + Draft session tints the status ghost pulse with its captured palette's accent; Waveform and Compact sessions keep the theme tint, and the idle ghost stays template-rendered
 - The Settings surface uses a 16-point continuous radius, a one-pixel low-opacity border, and a soft shadow
 - Settings may open during Direct Dictation; the active session remains on its captured settings and changes apply next session
 - While Direct Dictation is active, Settings shows a small contextual notice that changes apply to the next session; idle Settings has no notice
@@ -423,5 +424,5 @@ _Avoid_: Transcript history, cloud analytics
 - Settings navigation uses a fixed Talkify blue accent; selected Glow palettes do not recolor the Settings shell
 
 - "subtitles" was used for text displayed during a Google Meet call — resolved: this is **Live Captions**.
-- HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker.
-- The voice-reactive visual — resolved: both prototyped variants ship, user-selectable from Settings, and both replace draft text while listening. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) fills the visual band; the edge glow is a three-part animation — a palette-gradient beam whose bright region blooms in from under the housing on session start, sweeps the shape's open silhouette while listening, follows the voice in brightness and stroke thickness (the feel-test pick over reach, particle count, particle size, and syllable bursts), and drains back when the session ends, a one-shot ripple wave rolling across the housing at session start, and a particle cloud in the palette's colors chasing the beam's sweeping origin. The palette (Spectrum, Silver, Aurora, Sunset, Ocean, Mono) is a Settings pick coloring beam and particles together.
+- HUD behavior for long drafts — resolved: the downward-growing panel won the feel test against tail-only truncation and shrink-to-fit. The HUD wraps long drafts and grows downward, capped at four lines; the other two variants remain selectable for the Settings picker. Edge Glow + Draft is the exception: it shows the last eight word tokens on one 24-point centered line instead of those behaviors, because wrapping fights a larger type in the stage. Reduce Motion restores the plain band, where the global pick still applies.
+- The voice-reactive visual — resolved: Waveform and Edge Glow ship and replace draft text while listening; Compact shows the live draft with a five-bar indicator; Edge Glow + Draft is the fourth pick, live draft plus Edge Glow chrome with no glow center and no Chart Line. The waveform (default: the Chart Line conveyor with metallic silver treatment, plus seven alternate styles) fills the visual band; Edge Glow + Draft does not offer those styles. The edge glow is a three-part animation — a palette-gradient beam whose bright region blooms in from under the housing on session start, sweeps the shape's open silhouette while listening, follows the voice in brightness and stroke thickness (the feel-test pick over reach, particle count, particle size, and syllable bursts), and drains back when the session ends, a one-shot ripple wave rolling across the housing at session start, and a particle cloud in the palette's colors chasing the beam's sweeping origin. Edge Glow + Draft keeps the beam and the ripple and drops the center. The palette (Spectrum, Silver, Aurora, Sunset, Ocean, Mono) is a Settings pick coloring beam and particles together, and the shaping caption.

@@ -80,6 +80,8 @@ struct AppSettingsTests {
     #expect(defaults.object(forKey: "dictationSoundsEnabled") as? Bool == false)
     #expect(defaults.double(forKey: "dictationSoundVolume") == 0.2)
     #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow")
+    settings.voiceVisual = .glowDraft
+    #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow + Draft")
     #expect(defaults.string(forKey: "hudWaveformStyle") == "Silver")
     #expect(defaults.string(forKey: "hudRevealStyle") == "Drift")
     #expect(defaults.string(forKey: "hudLongDraftStyle") == "Tail Only")

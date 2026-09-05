@@ -7,6 +7,7 @@ struct HUDMetricsTests {
     #expect(HUDMetrics.standard.scale == 1)
     #expect(HUDMetrics.standard.contentWidth == 540)
     #expect(HUDMetrics.standard.waveBandHeight == 64)
+    #expect(HUDMetrics.standard.glowDraftStageHeight == 40)
   }
 
   @Test func everyDimensionScalesTogether() {
@@ -18,6 +19,7 @@ struct HUDMetricsTests {
     #expect(half.maxTextBandHeight == full.maxTextBandHeight * 0.8)
     #expect(half.visualBandHeight == full.visualBandHeight * 0.8)
     #expect(half.waveBandHeight == full.waveBandHeight * 0.8)
+    #expect(half.glowDraftStageHeight == full.glowDraftStageHeight * 0.8)
     #expect(half.bottomCornerRadius == full.bottomCornerRadius * 0.8)
   }
 
@@ -30,11 +32,12 @@ struct HUDMetricsTests {
     #expect(HUDMetrics(scale: 0).scale == HUDMetrics.minimumScale)
   }
 
-  /// Compact is the only visual built around the live draft, so it is the only
-  /// one that gives up the smallest sizes. Reduce Motion restores the draft for
-  /// every visual and takes them away from all three.
-  @Test func onlyCompactAndReduceMotionGiveUpTheSmallestSizes() {
+  /// Compact and Edge Glow + Draft are built around the live draft, so they
+  /// give up the smallest sizes. Reduce Motion restores the draft for every
+  /// visual and takes those sizes away from all of them.
+  @Test func draftVisualsAndReduceMotionGiveUpTheSmallestSizes() {
     #expect(HUDMetrics.minimumScale(for: .compact, reduceMotion: false) == 0.4)
+    #expect(HUDMetrics.minimumScale(for: .glowDraft, reduceMotion: false) == 0.4)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .glow, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: true) == 0.4)
@@ -107,8 +110,32 @@ struct HUDShellMetricsTests {
     ).scale
   }
 
+  /// Listening, retracting, and shaping keep the recent draft; a status
+  /// message does not. Compact never has one.
+  @Test func theRecentDraftFollowsOccupancy() {
+    #expect(DictationHUDShellView.showsRecentDraft(
+      visual: .glowDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
+    #expect(DictationHUDShellView.showsRecentDraft(
+      visual: .glowDraft, listening: false, dismissing: true, shaping: false,
+      reduceMotion: false))
+    #expect(DictationHUDShellView.showsRecentDraft(
+      visual: .glowDraft, listening: false, dismissing: false, shaping: true,
+      reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRecentDraft(
+      visual: .glowDraft, listening: false, dismissing: false, shaping: false,
+      reduceMotion: false))
+    #expect(!DictationHUDShellView.showsRecentDraft(
+      visual: .glowDraft, listening: true, dismissing: false, shaping: false,
+      reduceMotion: true))
+    #expect(!DictationHUDShellView.showsRecentDraft(
+      visual: .compact, listening: true, dismissing: false, shaping: false,
+      reduceMotion: false))
+  }
+
   @Test func aDraftLayoutIsHeldAtTheReadableFloorAndOthersAreNot() {
     #expect(scale(picked: 0.2, visual: .compact) == HUDMetrics.minimumReadableScale)
+    #expect(scale(picked: 0.2, visual: .glowDraft) == HUDMetrics.minimumReadableScale)
     #expect(scale(picked: 0.2, visual: .waveform) == HUDMetrics.minimumScale)
     #expect(scale(picked: 0.7, visual: .compact) == 0.7)
   }

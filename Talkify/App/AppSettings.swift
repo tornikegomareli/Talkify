@@ -470,11 +470,12 @@ struct DictationSessionSettings: Equatable {
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
-  /// on the status ghost while a file job fills it. Edge Glow lends its
-  /// palette's own hue; every other visual keeps Talkify blue. One definition,
-  /// so the shape and the menu bar can never drift apart (CONTEXT.md).
+  /// on the status ghost while a file job fills it. Edge Glow and Edge Glow +
+  /// Draft lend the palette's own hue; every other visual keeps Talkify blue.
+  /// One definition, so the shape and the menu bar can never drift apart
+  /// (CONTEXT.md).
   var dropAccent: NSColor {
-    voiceVisual == .glow ? glowPalette.statusAccent : SettingsTheme.accentColor
+    voiceVisual.usesEdgeGlow ? glowPalette.statusAccent : SettingsTheme.accentColor
   }
 
   @MainActor

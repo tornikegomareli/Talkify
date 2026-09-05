@@ -48,12 +48,13 @@ the notch, nothing inside it. **Open** is the real target.
 Open shows a media type glyph, the file name, and nothing else. The edge
 carries a dashed accent stroke, so it reads as live and receptive.
 
-The accent is not fixed. It follows the voice visual: with Edge Glow selected
-the target wears that palette — the full gradient on its edge, where there is
-length enough to show a palette off, and the palette's one representative hue
-on the glyph, the peek bar and the closing line. Sunset makes an orange target;
-Aurora a green one. Every other visual keeps the Talkify blue. It is the same
-hue the status ghost takes during a glow session, so a palette means one colour
+The accent is not fixed. It follows the voice visual: with Edge Glow or
+Edge Glow + Draft selected the target wears that palette — the full gradient
+on its edge, where there is length enough to show a palette off, and the
+palette's one representative hue on the glyph, the peek bar and the closing
+line. Sunset makes an orange target; Aurora a green one. Every other visual
+keeps the Talkify blue. It is the same hue the status ghost takes during a
+glow session, so a palette means one colour
 across the whole app — except Settings chrome, which stays blue on purpose. The peek bar breathes for the same reason: a pointer crossing the
 top of the screen catches movement, never a static tab.
 

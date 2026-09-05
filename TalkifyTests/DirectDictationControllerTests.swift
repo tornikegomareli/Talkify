@@ -142,7 +142,7 @@ struct DirectDictationControllerTests {
         recorder.listeningTags.append(languageTag)
       },
       showLatched: { recorder.events.append("showLatched") },
-      showLiveText: { _ in recorder.events.append("showLiveText") },
+      showLiveText: { _, _ in recorder.events.append("showLiveText") },
       showFinalizing: { recorder.events.append("showFinalizing") },
       showShaping: { name in
         recorder.events.append("showShaping")

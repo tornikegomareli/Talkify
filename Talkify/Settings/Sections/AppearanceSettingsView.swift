@@ -1,21 +1,38 @@
 import SwiftUI
 
 /// The Appearance section: the live preview first, then the Voice visual
-/// and Motion and layout groups (CONTEXT.md). Waveform and Glow rows are
-/// conditional on the selected visual; hidden values stay persisted.
+/// and Motion and layout groups (CONTEXT.md). Waveform, palette, and glow
+/// center rows are conditional on the selected visual; hidden values stay
+/// persisted.
 struct AppearanceSettingsView: View {
   @Bindable var settings: AppSettings
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   /// Which conditional rows the selected visual exposes; hidden values
-  /// stay persisted (CONTEXT.md).
+  /// stay persisted (CONTEXT.md). Edge Glow + Draft takes the glow palette
+  /// (beam, shaping caption, status ghost) but not a center or the concert
+  /// waveform styles.
   static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .waveform
   }
 
-  static func showsGlowOptions(for visual: HUDVoiceVisualStyle) -> Bool {
+  static func showsGlowPalette(for visual: HUDVoiceVisualStyle) -> Bool {
+    visual.usesEdgeGlow
+  }
+
+  static func showsGlowCenter(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .glow
+  }
+
+  /// Edge Glow + Draft uses a recent-word line instead of the global long
+  /// draft behaviors. Reduce Motion restores the plain band, where the
+  /// existing pick still applies.
+  static func showsLongDraftBehavior(
+    for visual: HUDVoiceVisualStyle,
+    reduceMotion: Bool
+  ) -> Bool {
+    !(visual == .glowDraft && !reduceMotion)
   }
 
   var body: some View {
@@ -41,7 +58,7 @@ struct AppearanceSettingsView: View {
           )
         }
 
-        if Self.showsGlowOptions(for: settings.voiceVisual) {
+        if Self.showsGlowPalette(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Glow palette",
             description: "The colors used by the edge beam",
@@ -49,7 +66,9 @@ struct AppearanceSettingsView: View {
             optionLabel: { $0.rawValue },
             selection: $settings.glowPalette
           )
+        }
 
+        if Self.showsGlowCenter(for: settings.voiceVisual) {
           SettingsPickerRow(
             title: "Glow center",
             description: "The visual inside the edge beam",
@@ -90,13 +109,18 @@ struct AppearanceSettingsView: View {
           selection: $settings.revealStyle
         )
 
-        SettingsPickerRow(
-          title: "Long draft behavior",
-          description: "How the HUD handles longer dictated text",
-          options: HUDLongDraftStyle.allCases,
-          optionLabel: { $0.rawValue },
-          selection: $settings.longDraftStyle
-        )
+        if Self.showsLongDraftBehavior(
+          for: settings.voiceVisual,
+          reduceMotion: reduceMotion
+        ) {
+          SettingsPickerRow(
+            title: "Long draft behavior",
+            description: "How the HUD handles longer dictated text",
+            options: HUDLongDraftStyle.allCases,
+            optionLabel: { $0.rawValue },
+            selection: $settings.longDraftStyle
+          )
+        }
       }
     }
   }

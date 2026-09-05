@@ -142,6 +142,22 @@ struct HUDNotchGeometryTests {
     #expect(tallest <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
+  /// Edge Glow + Draft has no dedicated visual band: the hanging stage
+  /// replaces the ordinary text band. Housing plus that stage plus shaping
+  /// still fits; a concert waveform on top of the draft would not.
+  @Test func glowDraftMaximumStackFitsTheFixedWindow() {
+    let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
+    let glowDraft = 32
+      + HUDMetrics.standard.glowDraftStageHeight
+      + HUDMetrics.standard.shapingBandHeight
+    #expect(glowDraft <= window.height - HUDNotchGeometry.shadowPadding)
+    let concertPlusDraft = 32
+      + HUDMetrics.standard.waveBandHeight
+      + HUDMetrics.standard.maxTextBandHeight
+      + HUDMetrics.standard.shapingBandHeight
+    #expect(concertPlusDraft > window.height - HUDNotchGeometry.shadowPadding)
+  }
+
   /// Issue #83: a real notch already sits in its own housing, clear of
   /// wherever the system draws status items, so there is nothing for the
   /// shape to hide there — it keeps hugging the true top edge.

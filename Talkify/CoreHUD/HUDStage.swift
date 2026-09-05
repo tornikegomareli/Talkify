@@ -147,6 +147,7 @@ final class HUDStage {
       // through the retract.
       dictationContent.isDismissing = false
       dictationContent.text = ""
+      dictationContent.volatileText = ""
       dropContent.mode = .none
       dropContent.heldIcon = nil
       dropContent.transcript = nil
@@ -168,8 +169,14 @@ final class HUDStage {
   func showMessage(_ text: String, on displayID: CGDirectDisplayID? = nil) {
     guard let screen = screen(preferring: displayID) else { return }
     claim(.message, on: screen)
+    // hide() pins these for the retract, and claim() cancels that order-out.
+    // A message is a new occupant and must not inherit them.
+    dictationContent.isDismissing = false
+    dictationContent.shapingName = nil
+    dictationContent.shapingChoiceLabel = nil
     dictationContent.showsVoiceVisual = false
     dictationContent.text = text
+    dictationContent.volatileText = ""
     revealDictation()
 
     messageDismissTask?.cancel()

@@ -55,9 +55,20 @@ struct SettingsWindowTests {
     #expect(AppearanceSettingsView.showsWaveformOptions(for: .waveform))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glow))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .compact))
-    #expect(AppearanceSettingsView.showsGlowOptions(for: .glow))
-    #expect(!AppearanceSettingsView.showsGlowOptions(for: .waveform))
-    #expect(!AppearanceSettingsView.showsGlowOptions(for: .compact))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glowDraft))
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .glow))
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .glowDraft))
+    #expect(!AppearanceSettingsView.showsGlowPalette(for: .waveform))
+    #expect(!AppearanceSettingsView.showsGlowPalette(for: .compact))
+    #expect(AppearanceSettingsView.showsGlowCenter(for: .glow))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .glowDraft))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveform))
+    #expect(!AppearanceSettingsView.showsLongDraftBehavior(
+      for: .glowDraft, reduceMotion: false))
+    #expect(AppearanceSettingsView.showsLongDraftBehavior(
+      for: .glowDraft, reduceMotion: true))
+    #expect(AppearanceSettingsView.showsLongDraftBehavior(
+      for: .compact, reduceMotion: false))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

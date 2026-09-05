@@ -328,14 +328,12 @@ actor SpeechRecognitionService {
 
     try await reserve(locale: locale)
 
+    // progressiveTranscription is Apple's live-audio preset: volatile
+    // guesses plus fastResults, so the draft streams while speaking
+    // instead of appearing only at pauses.
     let transcriber = SpeechTranscriber(
       locale: locale,
-      transcriptionOptions: [],
-      // fastResults biases the transcriber towards responsiveness so
-      // the live draft streams while the user is still speaking,
-      // instead of appearing only at pauses.
-      reportingOptions: [.volatileResults, .fastResults],
-      attributeOptions: []
+      preset: .progressiveTranscription
     )
 
     // Only a missing model produces a request, so this is the one branch that

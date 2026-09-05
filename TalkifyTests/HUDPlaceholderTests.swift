@@ -3,10 +3,10 @@ import Testing
 
 @testable import Talkify
 
-/// Compact is built around the live draft, so it opens with nothing. Three
-/// separate paths write the placeholder — opening, latching, and coming back
-/// from a model download — and fixing only the first left "Listening (latched)"
-/// still appearing.
+/// Compact and Edge Glow + Draft are built around the live draft, so they
+/// open with nothing. Three separate paths write the placeholder — opening,
+/// latching, and coming back from a model download — and fixing only the
+/// first left "Listening (latched)" still appearing.
 @MainActor
 @Suite("HUD placeholder text")
 struct HUDPlaceholderTests {
@@ -20,9 +20,20 @@ struct HUDPlaceholderTests {
     store.sessionSettings
   }
 
-  @Test func compactOpensWithNoText() {
+  private func recentDraft(_ stage: HUDStage, visual: HUDVoiceVisualStyle) -> Bool {
+    DictationHUDShellView.showsRecentDraft(
+      visual: visual,
+      listening: stage.dictationContent.showsVoiceVisual,
+      dismissing: stage.dictationContent.isDismissing,
+      shaping: stage.dictationContent.shapingName != nil,
+      reduceMotion: false
+    )
+  }
+
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
+  func aDraftVisualOpensWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .compact
+    store.voiceVisual = visual
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
@@ -35,11 +46,12 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting.isEmpty)
   }
 
-  /// A latched Compact session still says nothing, which is the case that was
+  /// A latched draft visual still says nothing, which is the case that was
   /// reported after the opening text was already handled.
-  @Test func compactLatchesWithNoText() {
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
+  func aDraftVisualLatchesWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .compact
+    store.voiceVisual = visual
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: true, settings: session(store))
@@ -101,5 +113,52 @@ struct HUDPlaceholderTests {
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     hud.showLiveText("hello there")
     #expect(hud.textForTesting == "hello there")
+  }
+
+  @Test func aVolatileGuessShowsBeforeItCommits() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("hello ", volatile: "ther")
+    #expect(hud.textForTesting == "hello ther")
+  }
+
+  @Test func aStatusMessageDoesNotKeepThePreviousGuess() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("hello ", volatile: "ther")
+    hud.showMessage("Couldn't insert text")
+    #expect(hud.textForTesting == "Couldn't insert text")
+  }
+
+  /// hide() pins the layout for the retract, then an insert failure claims
+  /// the shape for a message. That message is a new occupant: the recent
+  /// draft stays through shaping and the retract, and leaves with the
+  /// status line.
+  @Test func aStatusMessageDoesNotKeepTheRecentDraft() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let stage = HUDStage(settings: store)
+    let hud = DictationHUDController(stage: stage, settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("the words it is rewriting")
+    hud.showShaping(with: "Tighten grammar")
+    #expect(recentDraft(stage, visual: .glowDraft))
+
+    hud.hide()
+    #expect(stage.dictationContent.isDismissing)
+    #expect(recentDraft(stage, visual: .glowDraft))
+
+    hud.showMessage("Couldn't insert text")
+    #expect(!stage.dictationContent.isDismissing)
+    #expect(stage.dictationContent.shapingName == nil)
+    #expect(!recentDraft(stage, visual: .glowDraft))
+    #expect(hud.textForTesting == "Couldn't insert text")
   }
 }
