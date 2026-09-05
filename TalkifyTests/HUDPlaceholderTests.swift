@@ -91,6 +91,43 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting.isEmpty)
   }
 
+  /// The clear in showShaping only beats the writers that ran before it. A
+  /// model download finishing mid-session reports nil, which restored the
+  /// placeholder under the shaping caption — and the same hole is open to
+  /// every other path that asks for one.
+  @Test func nothingRestoresThePlaceholderAfterSpeechEnds() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveform
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: true, settings: session(store))
+    hud.showLatched()
+    #expect(hud.textForTesting == "Listening (latched)")
+
+    hud.showFinalizing()
+    hud.showShaping(with: "Tighten grammar")
+    #expect(hud.textForTesting.isEmpty)
+
+    hud.showModelDownload(nil)
+    #expect(hud.textForTesting.isEmpty, "the placeholder came back after the session stopped listening")
+  }
+
+  /// The next session opens with one again, so the rule above cannot leak
+  /// into it.
+  @Test func theNextSessionStillOpensWithAPlaceholder() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveform
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showFinalizing()
+    hud.showShaping(with: "Tighten grammar")
+    #expect(hud.textForTesting.isEmpty)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    #expect(hud.textForTesting == "Listening…")
+  }
+
   /// The words being rewritten are not a placeholder, so the shaping phase
   /// leaves them where they are.
   @Test func theShapingPhaseKeepsARealDraft() {

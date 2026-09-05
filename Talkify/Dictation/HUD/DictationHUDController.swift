@@ -17,6 +17,11 @@ final class DictationHUDController {
   private var sessionSettings: DictationSessionSettings
   /// Remembered so a download line can restore the right session text.
   private var sessionIsLatched = false
+  /// True from the moment speech ends until the next session opens. The
+  /// placeholder is a listening affordance, so nothing may write one after
+  /// this — a finished model download restoring "Listening (latched)" under
+  /// the shaping caption is the case that found it.
+  private var hasStoppedListening = false
   private var lastLevelAt = ContinuousClock.now
   private var micWatchdogTask: Task<Void, Never>?
   private var hasPlayedBeginSound = false
@@ -72,6 +77,7 @@ final class DictationHUDController {
     sessionSettings = settings
     hasPlayedBeginSound = false
     hasPlayedEndSound = false
+    hasStoppedListening = false
     content.languageTag = languageTag
     content.shapingName = nil
     content.shapingChoiceLabel = nil
@@ -96,11 +102,16 @@ final class DictationHUDController {
   /// What the band says before any words arrive.
   ///
   /// Empty for Compact and Edge Glow + Draft: both are built around the live
-  /// draft, so a placeholder there is words nobody spoke. Every path that
-  /// would write one asks here, rather than each deciding for itself — which
-  /// is how "Listening (latched)" kept coming back after the opening text was
-  /// handled.
+  /// draft, so a placeholder there is words nobody spoke. Empty again once
+  /// the session stops listening, because the word is a lie by then.
+  ///
+  /// Every path that would write one asks here, rather than each deciding for
+  /// itself — which is how "Listening (latched)" kept coming back after the
+  /// opening text was handled, and how it came back a second time after the
+  /// shaping phase cleared it: a one-shot clear only beats the writers that
+  /// ran before it.
   private var placeholder: String {
+    guard !hasStoppedListening else { return "" }
     guard !sessionSettings.voiceVisual.showsDraftWhileListening else { return "" }
     return sessionIsLatched ? Self.latchedText : Self.listeningText
   }
@@ -125,6 +136,7 @@ final class DictationHUDController {
   /// settles to zero so the visual comes to rest instead of freezing mid-wobble.
   func showFinalizing() {
     guard isListening else { return }
+    hasStoppedListening = true
     stopWatchdog()
     content.isAudioAlive = true
     content.audioLevel = 0
@@ -136,6 +148,7 @@ final class DictationHUDController {
   /// hide() that follows the rewrite must not replay it.
   func showShaping(with promptName: String) {
     guard isListening else { return }
+    hasStoppedListening = true
     stopVoiceVisual()
     if !hasPlayedEndSound {
       hasPlayedEndSound = true
