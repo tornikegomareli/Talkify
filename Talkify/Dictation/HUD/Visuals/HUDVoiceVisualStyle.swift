@@ -29,16 +29,4 @@ enum HUDVoiceVisualStyle: String, CaseIterable {
   var usesEdgeGlow: Bool {
     self == .glow || self == .glowDraft
   }
-
-  /// The name stored before this visual was renamed Edge Glow + Draft.
-  private static let formerDraftRawValue = "Waveform + Draft"
-
-  /// Reads a stored pick, including the name this visual used to ship under.
-  init?(stored: String) {
-    if stored == Self.formerDraftRawValue {
-      self = .glowDraft
-      return
-    }
-    self.init(rawValue: stored)
-  }
 }

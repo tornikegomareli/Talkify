@@ -88,13 +88,6 @@ struct AppSettingsTests {
     #expect(defaults.string(forKey: "readAloudVoice") == "com.apple.voice.enhanced.en-GB.Jamie")
   }
 
-  @Test func aFormerWaveformPlusDraftPickBecomesEdgeGlowPlusDraft() {
-    let defaults = freshDefaults()
-    defaults.set("Waveform + Draft", forKey: "hudVoiceVisual")
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.voiceVisual == .glowDraft)
-  }
-
   @Test func keyBindingsPersistUnderTheirHistoricalKeys() {
     let defaults = freshDefaults()
     let settings = AppSettings(defaults: defaults)

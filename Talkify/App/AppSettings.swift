@@ -310,8 +310,7 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
-    voiceVisual = defaults.string(forKey: Keys.voiceVisual).flatMap(HUDVoiceVisualStyle.init(stored:))
-      ?? .waveform
+    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
