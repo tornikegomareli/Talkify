@@ -30,18 +30,16 @@ after the iOS Dynamic Island caption look. Bars are 2.5pt wide capsules,
 2.5pt apart, resting at 3pt and reaching about 14pt. The shape grows with
 the text.
 
-**Waveform + Draft** — the last eight word tokens on one `24 * scale`
+**Edge Glow + Draft** — the last eight word tokens on one `24 * scale`
 line centered in the island (housing plus a `40 * scale` stage), with
-Edge Glow on the silhouette. A `12 * scale` Chart Line ribbon can sit
-under the housing; it is on by default and can be turned off without
-shrinking the box. No five-bar indicator, particle cloud, or orb.
-The concert waveform styles stay on Waveform; this pick is one designed
-Chart Line. Glow palette colours the beam, the shaping caption, and the
-status ghost. Putting the draft on top of the 64-point waveform was
-prototyped and removed; this is the other direction: the ribbon shares the
-draft's band so the words sit in the same center either way. New and
-departing tokens slide; a finalization does not fade the line. A line
-that does not fit keeps the newest words readable and clips the oldest.
+Edge Glow on the silhouette. No Chart Line ribbon, five-bar indicator,
+particle cloud, or orb. The concert waveform styles stay on Waveform.
+Glow palette colours the beam, the shaping caption, and the status ghost.
+Putting the draft on top of the 64-point waveform was prototyped and
+removed; this is the other direction: the words sit in the hanging stage
+under the glow. New and departing tokens slide; a finalization does not
+fade the line. A line that does not fit keeps the newest words readable
+and clips the oldest.
 
 Under Reduce Motion all four are replaced by a quiet level meter in the slim
 `24 * scale` band, and the draft text always shows.

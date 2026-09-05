@@ -49,7 +49,7 @@ Open shows a media type glyph, the file name, and nothing else. The edge
 carries a dashed accent stroke, so it reads as live and receptive.
 
 The accent is not fixed. It follows the voice visual: with Edge Glow or
-Waveform + Draft selected the target wears that palette — the full gradient
+Edge Glow + Draft selected the target wears that palette — the full gradient
 on its edge, where there is length enough to show a palette off, and the
 palette's one representative hue on the glyph, the peek bar and the closing
 line. Sunset makes an orange target; Aurora a green one. Every other visual

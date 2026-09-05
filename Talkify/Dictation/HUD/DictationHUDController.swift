@@ -95,7 +95,7 @@ final class DictationHUDController {
 
   /// What the band says before any words arrive.
   ///
-  /// Empty for Compact and Waveform + Draft: both are built around the live
+  /// Empty for Compact and Edge Glow + Draft: both are built around the live
   /// draft, so a placeholder there is words nobody spoke. Every path that
   /// would write one asks here, rather than each deciding for itself — which
   /// is how "Listening (latched)" kept coming back after the opening text was

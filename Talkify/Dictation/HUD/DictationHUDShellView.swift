@@ -47,12 +47,12 @@ struct DictationHUDShellView: View {
     HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
-      // Waveform + Draft has no visual band; its hanging stage is 40
+      // Edge Glow + Draft has no visual band; its hanging stage is 40
       // points, 4 more than the ordinary text band. That extra has to be
       // in the declared size or Slide parks short of hiding the island.
       visualBandHeight: visualBandHeight
         + (showsRecentDraft
-          ? metrics.waveDraftStageHeight - metrics.textBandHeight : 0),
+          ? metrics.glowDraftStageHeight - metrics.textBandHeight : 0),
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
@@ -80,22 +80,22 @@ struct DictationHUDShellView: View {
   }
 
   /// Reduce Motion always shows the quiet level meter in its slim band.
-  /// Compact and Waveform + Draft have no band of their own: Compact's
-  /// indicator and Waveform + Draft's Chart Line live inside the text band,
-  /// so the words start higher. Waveform and Edge Glow keep the tall band —
+  /// Compact and Edge Glow + Draft have no band of their own: Compact's
+  /// indicator lives in the text band, and Edge Glow + Draft's words overlay
+  /// the island. Waveform and Edge Glow keep the tall band —
   /// the waveform fills it, the glow keeps it as an empty stage so the
   /// silhouette has flanks for the light to wrap.
   private var visualBandHeight: CGFloat {
     guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     switch settings.voiceVisual {
-    case .compact, .waveDraft: return 0
+    case .compact, .glowDraft: return 0
     case .waveform, .glow: return metrics.waveBandHeight
     }
   }
 
   /// Waveform and Edge Glow replace the draft text entirely while
-  /// listening; Compact and Waveform + Draft are built around it. With
+  /// listening; Compact and Edge Glow + Draft are built around it. With
   /// Reduce Motion the draft text always shows.
   private var showsTextBand: Bool {
     if !keepsVisualLayout || reduceMotion { return true }
@@ -111,7 +111,7 @@ struct DictationHUDShellView: View {
   /// Whether the text band is Compact's leading-aligned draft. Not gated on
   /// the listening state — swapping the band's structure at finalize reads
   /// as a glitch mid retract, so the layout stays and the indicator settles
-  /// instead. Waveform + Draft has its own centered stage.
+  /// instead. Edge Glow + Draft has its own centered stage.
   private var showsLeadingDraft: Bool {
     settings.voiceVisual == .compact && !reduceMotion
   }
@@ -143,7 +143,7 @@ struct DictationHUDShellView: View {
           // Glow hide the band for the whole listening phase, which is exactly
           // when the live language needs naming. Padded below the housing so it
           // clears the camera, and an overlay so it never changes the fixed
-          // window's size. Waveform + Draft places its own tag on the island.
+          // window's size. Edge Glow + Draft places its own tag on the island.
           .overlay(alignment: .topLeading) {
             if !showsRecentDraft { languageTag }
           }
@@ -180,7 +180,7 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// Housing plus the bands below it. Waveform + Draft's recent-word line
+  /// Housing plus the bands below it. Edge Glow + Draft's recent-word line
   /// is an overlay on this silhouette, not a ZStack sibling: a
   /// max-height-infinity child in a ZStack expands to the host window and
   /// the black shape follows it. Overlay stays the stacked size, and the
@@ -198,17 +198,6 @@ struct DictationHUDShellView: View {
           .padding(.horizontal, tagInset * metrics.scale)
         }
       }
-      // The ribbon sits at the top of the stage and the words are centered in
-      // the whole island, so the line crosses them and paints over the glyphs.
-      // That is the chosen look, not an oversight: reviewed and kept.
-      .overlay(alignment: .top) {
-        if showsRecentDraft, showsWaveDraftRibbon {
-          HUDCompactChartLineView(content: content, scale: metrics.scale)
-            .frame(height: metrics.ribbonBandHeight)
-            .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
-            .padding(.horizontal, tagInset * metrics.scale)
-        }
-      }
       .overlay(alignment: .leading) {
         if showsRecentDraft { languageTag }
       }
@@ -217,7 +206,7 @@ struct DictationHUDShellView: View {
   private var stackedBands: some View {
     VStack(spacing: 0) {
       // Strip level with the housing: kept empty so text never collides
-      // with the camera. Waveform + Draft still counts it in the box the
+      // with the camera. Edge Glow + Draft still counts it in the box the
       // words are centered in, because the flanks of that strip are visible.
       Color.clear
         .frame(height: HUDNotchGeometry.closedSize(for: screen).height)
@@ -243,14 +232,14 @@ struct DictationHUDShellView: View {
 
   /// Draft text lives in the band below the housing. Compact puts its
   /// voice indicator on the leading side, Dynamic Island-style, with the
-  /// draft leading-aligned beside it. Waveform + Draft only reserves the
+  /// draft leading-aligned beside it. Edge Glow + Draft only reserves the
   /// hanging stage here; the words themselves overlay the whole island.
   /// The other visuals center the draft.
   @ViewBuilder
   private var textBand: some View {
     if showsRecentDraft {
       Color.clear
-        .frame(height: metrics.waveDraftStageHeight)
+        .frame(height: metrics.glowDraftStageHeight)
     } else {
       Group {
         if showsLeadingDraft {
@@ -285,19 +274,8 @@ struct DictationHUDShellView: View {
     )
   }
 
-  private var showsWaveDraftRibbon: Bool {
-    Self.showsRibbon(
-      visual: settings.voiceVisual,
-      listening: content.showsVoiceVisual,
-      dismissing: content.isDismissing,
-      shaping: content.shapingName != nil,
-      reduceMotion: reduceMotion,
-      ribbonEnabled: settings.waveDraftShowsRibbon
-    )
-  }
-
-  /// Waveform + Draft's recent-word line. Same occupancy as the ribbon:
-  /// listening, retracting, and shaping keep it; a status message does not.
+  /// Edge Glow + Draft's recent-word line: listening, retracting, and
+  /// shaping keep it; a status message does not.
   static func showsRecentDraft(
     visual: HUDVoiceVisualStyle,
     listening: Bool,
@@ -305,27 +283,7 @@ struct DictationHUDShellView: View {
     shaping: Bool,
     reduceMotion: Bool
   ) -> Bool {
-    visual == .waveDraft && !reduceMotion && (listening || dismissing || shaping)
-  }
-
-  /// Compact keeps its indicator through shaping and retracts; the recent
-  /// draft does the same, but a status message is a new occupant and must
-  /// not inherit the last session's audio or the extra 24 points of height.
-  static func showsRibbon(
-    visual: HUDVoiceVisualStyle,
-    listening: Bool,
-    dismissing: Bool,
-    shaping: Bool,
-    reduceMotion: Bool,
-    ribbonEnabled: Bool = true
-  ) -> Bool {
-    ribbonEnabled && showsRecentDraft(
-      visual: visual,
-      listening: listening,
-      dismissing: dismissing,
-      shaping: shaping,
-      reduceMotion: reduceMotion
-    )
+    visual == .glowDraft && !reduceMotion && (listening || dismissing || shaping)
   }
 
   /// The room the language tag needs on each side.
@@ -366,7 +324,7 @@ struct DictationHUDShellView: View {
     if let tag = content.languageTag {
       tagCapsule(tag)
         .padding(.leading, 12 * metrics.scale)
-        // Waveform + Draft overlays the tag on the whole island, so it
+        // Edge Glow + Draft overlays the tag on the whole island, so it
         // shares the draft's vertical center. Other visuals pin it below
         // the housing from the shell.
         .padding(.top, showsRecentDraft ? 0 : tagTopInset)
@@ -543,11 +501,11 @@ struct DictationHUDShellView: View {
   HUDShellPreviewHarness(visual: .compact, shapingChoice: "Remove filler words")
 }
 
-#Preview("Waveform + Draft") {
-  HUDShellPreviewHarness(visual: .waveDraft)
+#Preview("Edge Glow + Draft") {
+  HUDShellPreviewHarness(visual: .glowDraft)
 }
 
-#Preview("Waveform + Draft · dead mic") {
-  HUDShellPreviewHarness(visual: .waveDraft, micAlive: false)
+#Preview("Edge Glow + Draft · dead mic") {
+  HUDShellPreviewHarness(visual: .glowDraft, micAlive: false)
 }
 

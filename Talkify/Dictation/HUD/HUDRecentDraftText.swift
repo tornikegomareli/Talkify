@@ -26,7 +26,7 @@ struct HUDRecentDraftWindow: Equatable {
   /// token so a ForEach can keep surviving words in place.
   let visibleTokens: [VisibleToken]
 
-  /// The visible string, committed and volatile together. Waveform + Draft
+  /// The visible string, committed and volatile together. Edge Glow + Draft
   /// paints them the same: the line is a glance, not a proofread.
   var displayString: String { committed + volatile }
 
@@ -153,7 +153,7 @@ private struct HUDRecentDraftLineLayout: Layout {
   }
 }
 
-/// Waveform + Draft's live draft: one 24-point line of recent words,
+/// Edge Glow + Draft's live draft: one 24-point line of recent words,
 /// centered in the island when it fits. Each word keeps a stable id, so
 /// only a new or departing token slides; a finalization rewrites in place.
 struct HUDRecentDraftText: View {

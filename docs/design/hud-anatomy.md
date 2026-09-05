@@ -16,7 +16,7 @@ as the notch itself stretching downward.
 ```
         screen top edge
  ───────┬─────────────────┬───────
-        │▓▓▓ housing  ▓▓▓ │          ← camera lives here; flanks can carry Waveform + Draft
+        │▓▓▓ housing  ▓▓▓ │          ← camera lives here; flanks can carry Edge Glow + Draft
  ╭──────┴─────────────────┴──────╮
  │                               │   ← visual band (voice visual)
  │                               │
@@ -37,8 +37,7 @@ detached tabs.
 | Text band height | `36 * scale` min, `120 * scale` max | yes |
 | Visual band, Reduce Motion | `24 * scale` | yes |
 | Visual band, waveform / glow | `64 * scale` | yes |
-| Waveform + Draft hanging stage | `40 * scale` | yes |
-| Waveform + Draft ribbon | `12 * scale`, inside the hanging stage | yes |
+| Edge Glow + Draft hanging stage | `40 * scale` | yes |
 | Bottom corner radius | `20 * scale` | yes |
 | Housing, measured notch | whatever the display reports | **no** |
 | Housing, simulated | `185 × 32` | **no** |
@@ -57,7 +56,7 @@ bezel curve.
 
 **Housing band.** Always present. Its height is the notch's height. The
 camera sits in the middle of this strip, so Compact, Waveform, Edge Glow,
-and status messages leave it empty. Waveform + Draft is the exception: its
+and status messages leave it empty. Edge Glow + Draft is the exception: its
 recent-word line is an overlay centered on the housing-plus-stage
 silhouette, because the flanks of that strip are still visible beside the
 camera. The camera itself stays empty.
@@ -65,25 +64,25 @@ camera. The camera itself stays empty.
 **Visual band.** Holds the voice visual. Its height depends on which visual
 is selected: `64 * scale` for Waveform, `64 * scale` (empty, used as a stage
 for edge-hugging light) for Edge Glow, `24 * scale` for the Reduce Motion
-level meter, and zero for Compact and Waveform + Draft, whose indicator and
-Chart Line ribbon live inside the text band instead.
+level meter, and zero for Compact and Edge Glow + Draft, whose indicator
+and hanging stage live inside the text band instead.
 
-**Text band.** Holds live draft text. Present for Compact and Waveform +
+**Text band.** Holds live draft text. Present for Compact and Edge Glow +
 Draft, absent for Waveform and Edge Glow while listening, and always present
 under Reduce Motion. Draft text is 15pt medium white and centered, except
-Compact (leading, beside the five-bar indicator) and Waveform + Draft (a
+Compact (leading, beside the five-bar indicator) and Edge Glow + Draft (a
 `24 * scale` recent-word line centered in the island, overlaying housing
 plus a `40 * scale` hanging stage). Compact keeps the three long-draft
 behaviors the user picks between: single line with head truncation, wrap
 and grow downward capped at four lines, or single line that shrinks to
-fit. Waveform + Draft does not: eight tokens on one line, and a line that
+fit. Edge Glow + Draft does not: eight tokens on one line, and a line that
 does not fit clips the oldest words instead of ellipsizing each one.
 
 **Language tag.** A small capsule shown only when a second dictation
 language is configured. It hangs off the shell as an overlay rather than
 sitting in the layout, so it never changes the window's size. Compact,
 Waveform, Edge Glow, and status messages pin it to the top leading corner
-below the housing. Waveform + Draft overlays it on the leading edge of the
+below the housing. Edge Glow + Draft overlays it on the leading edge of the
 island, vertically centered with the draft.
 
 ## Hard rules that keep being violated
@@ -99,7 +98,7 @@ itself inside the same fixed window.
 overshoot lifts the shape off the screen edge and opens a visible gap above
 it. Scale anchored at `.top` cannot.
 
-**Nothing is drawn in the housing band**, except Waveform + Draft's
+**Nothing is drawn in the housing band**, except Edge Glow + Draft's
 recent-word overlay, which is centered on the housing-plus-stage
 silhouette so the line sits in the visible flanks rather than only under
 the camera. Status messages, Compact, Waveform, and Edge Glow still leave

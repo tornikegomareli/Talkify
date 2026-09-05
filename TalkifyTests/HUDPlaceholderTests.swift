@@ -3,7 +3,7 @@ import Testing
 
 @testable import Talkify
 
-/// Compact and Waveform + Draft are built around the live draft, so they
+/// Compact and Edge Glow + Draft are built around the live draft, so they
 /// open with nothing. Three separate paths write the placeholder — opening,
 /// latching, and coming back from a model download — and fixing only the
 /// first left "Listening (latched)" still appearing.
@@ -20,8 +20,8 @@ struct HUDPlaceholderTests {
     store.sessionSettings
   }
 
-  private func ribbon(_ stage: HUDStage, visual: HUDVoiceVisualStyle) -> Bool {
-    DictationHUDShellView.showsRibbon(
+  private func recentDraft(_ stage: HUDStage, visual: HUDVoiceVisualStyle) -> Bool {
+    DictationHUDShellView.showsRecentDraft(
       visual: visual,
       listening: stage.dictationContent.showsVoiceVisual,
       dismissing: stage.dictationContent.isDismissing,
@@ -30,7 +30,7 @@ struct HUDPlaceholderTests {
     )
   }
 
-  @Test(arguments: [HUDVoiceVisualStyle.compact, .waveDraft])
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
   func aDraftVisualOpensWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual
@@ -48,7 +48,7 @@ struct HUDPlaceholderTests {
 
   /// A latched draft visual still says nothing, which is the case that was
   /// reported after the opening text was already handled.
-  @Test(arguments: [HUDVoiceVisualStyle.compact, .waveDraft])
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
   func aDraftVisualLatchesWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual
@@ -117,7 +117,7 @@ struct HUDPlaceholderTests {
 
   @Test func aVolatileGuessShowsBeforeItCommits() {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .waveDraft
+    store.voiceVisual = .glowDraft
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
@@ -127,7 +127,7 @@ struct HUDPlaceholderTests {
 
   @Test func aStatusMessageDoesNotKeepThePreviousGuess() {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .waveDraft
+    store.voiceVisual = .glowDraft
     let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
@@ -137,27 +137,28 @@ struct HUDPlaceholderTests {
   }
 
   /// hide() pins the layout for the retract, then an insert failure claims
-  /// the shape for a message. That message is a new occupant: the ribbon
-  /// stays through shaping and the retract, and leaves with the status line.
-  @Test func aStatusMessageDoesNotKeepTheRibbon() {
+  /// the shape for a message. That message is a new occupant: the recent
+  /// draft stays through shaping and the retract, and leaves with the
+  /// status line.
+  @Test func aStatusMessageDoesNotKeepTheRecentDraft() {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .waveDraft
+    store.voiceVisual = .glowDraft
     let stage = HUDStage(settings: store)
     let hud = DictationHUDController(stage: stage, settings: store)
 
     hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
     hud.showLiveText("the words it is rewriting")
     hud.showShaping(with: "Tighten grammar")
-    #expect(ribbon(stage, visual: .waveDraft))
+    #expect(recentDraft(stage, visual: .glowDraft))
 
     hud.hide()
     #expect(stage.dictationContent.isDismissing)
-    #expect(ribbon(stage, visual: .waveDraft))
+    #expect(recentDraft(stage, visual: .glowDraft))
 
     hud.showMessage("Couldn't insert text")
     #expect(!stage.dictationContent.isDismissing)
     #expect(stage.dictationContent.shapingName == nil)
-    #expect(!ribbon(stage, visual: .waveDraft))
+    #expect(!recentDraft(stage, visual: .glowDraft))
     #expect(hud.textForTesting == "Couldn't insert text")
   }
 }

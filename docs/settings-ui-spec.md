@@ -47,9 +47,9 @@ The content pane must update in place when a navigation item is selected. The se
 
 ### Appearance
 
-- Voice visual: Waveform, Waveform + Draft, Edge Glow, or Compact.
+- Voice visual: Waveform, Edge Glow, Edge Glow + Draft, or Compact.
 - Waveform style, shown only for Waveform.
-- Glow palette, shown for Edge Glow and Waveform + Draft.
+- Glow palette, shown for Edge Glow and Edge Glow + Draft.
 - Glow center, shown only for Edge Glow.
 - Reveal style.
 - Long draft behavior.

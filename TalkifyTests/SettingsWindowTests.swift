@@ -55,23 +55,20 @@ struct SettingsWindowTests {
     #expect(AppearanceSettingsView.showsWaveformOptions(for: .waveform))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glow))
     #expect(!AppearanceSettingsView.showsWaveformOptions(for: .compact))
-    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .waveDraft))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .glowDraft))
     #expect(AppearanceSettingsView.showsGlowPalette(for: .glow))
-    #expect(AppearanceSettingsView.showsGlowPalette(for: .waveDraft))
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .glowDraft))
     #expect(!AppearanceSettingsView.showsGlowPalette(for: .waveform))
     #expect(!AppearanceSettingsView.showsGlowPalette(for: .compact))
     #expect(AppearanceSettingsView.showsGlowCenter(for: .glow))
-    #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveDraft))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .glowDraft))
     #expect(!AppearanceSettingsView.showsGlowCenter(for: .waveform))
     #expect(!AppearanceSettingsView.showsLongDraftBehavior(
-      for: .waveDraft, reduceMotion: false))
+      for: .glowDraft, reduceMotion: false))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
-      for: .waveDraft, reduceMotion: true))
+      for: .glowDraft, reduceMotion: true))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
       for: .compact, reduceMotion: false))
-    #expect(AppearanceSettingsView.showsWaveDraftRibbon(for: .waveDraft))
-    #expect(!AppearanceSettingsView.showsWaveDraftRibbon(for: .waveform))
-    #expect(!AppearanceSettingsView.showsWaveDraftRibbon(for: .glow))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

@@ -8,7 +8,7 @@ struct DropHUDStyle {
   /// The accent for glyphs, the peek bar, and the notice.
   ///
   /// The drop surfaces speak the voice visual's colour: Edge Glow and
-  /// Waveform + Draft lend the palette — the same hue the status ghost takes
+  /// Edge Glow + Draft lend the palette — the same hue the status ghost takes
   /// during those sessions, so one palette means one colour everywhere — and
   /// every other visual keeps the Talkify blue. Settings chrome is unaffected
   /// either way; the palette colours the HUD, never the app (CONTEXT.md).

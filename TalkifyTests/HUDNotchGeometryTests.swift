@@ -142,27 +142,15 @@ struct HUDNotchGeometryTests {
     #expect(tallest <= window.height - HUDNotchGeometry.shadowPadding)
   }
 
-  /// Waveform + Draft has no dedicated visual band: the ribbon lives in the
-  /// text band. Grow Down plus shaping still fits; a concert waveform on top
-  /// of the draft would not.
-  @Test func waveDraftMaximumStackFitsTheFixedWindow() {
+  /// Edge Glow + Draft has no dedicated visual band: the hanging stage
+  /// replaces the ordinary text band. Housing plus that stage plus shaping
+  /// still fits; a concert waveform on top of the draft would not.
+  @Test func glowDraftMaximumStackFitsTheFixedWindow() {
     let window = HUDNotchGeometry.windowFrame(for: notched, clearsMenuBar: false)
-    let content = HUDNotchGeometry.contentSize(
-      for: notched,
-      metrics: .standard,
-      visualBandHeight: HUDMetrics.standard.visualBandHeight,
-      includesTextBand: true,
-      shapingBandHeight: HUDMetrics.standard.shapingBandHeight
-    )
-    let growDown = 32
-      + HUDMetrics.standard.ribbonBandHeight
-      + HUDMetrics.standard.maxTextBandHeight
+    let glowDraft = 32
+      + HUDMetrics.standard.glowDraftStageHeight
       + HUDMetrics.standard.shapingBandHeight
-    #expect(content.height == 32
-      + HUDMetrics.standard.visualBandHeight
-      + HUDMetrics.standard.textBandHeight
-      + HUDMetrics.standard.shapingBandHeight)
-    #expect(growDown <= window.height - HUDNotchGeometry.shadowPadding)
+    #expect(glowDraft <= window.height - HUDNotchGeometry.shadowPadding)
     let concertPlusDraft = 32
       + HUDMetrics.standard.waveBandHeight
       + HUDMetrics.standard.maxTextBandHeight

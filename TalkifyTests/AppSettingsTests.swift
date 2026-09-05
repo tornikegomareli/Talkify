@@ -20,7 +20,6 @@ struct AppSettingsTests {
     #expect(settings.waveformStyle == .chartLine)
     #expect(settings.revealStyle == .slide)
     #expect(settings.longDraftStyle == .growDown)
-    #expect(settings.waveDraftShowsRibbon)
     // Existing users must not be resized by an upgrade.
     #expect(settings.hudScale == Double(HUDMetrics.maximumScale))
     #expect(settings.readAloudVoiceID.isEmpty)
@@ -38,7 +37,6 @@ struct AppSettingsTests {
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
     settings.longDraftStyle = .shrinkToFit
-    settings.waveDraftShowsRibbon = false
     settings.hudScale = 0.75
     settings.readAloudVoiceID = "com.apple.voice.premium.en-US.Zoe"
     let f5Binding = KeyBinding(
@@ -60,7 +58,6 @@ struct AppSettingsTests {
     #expect(reloaded.waveformStyle == .dots)
     #expect(reloaded.revealStyle == .bloom)
     #expect(reloaded.longDraftStyle == .shrinkToFit)
-    #expect(!reloaded.waveDraftShowsRibbon)
     #expect(reloaded.hudScale == 0.75)
     #expect(reloaded.readAloudVoiceID == "com.apple.voice.premium.en-US.Zoe")
     #expect(reloaded.dictationTriggerBinding == rightCommandTrigger)
@@ -83,14 +80,19 @@ struct AppSettingsTests {
     #expect(defaults.object(forKey: "dictationSoundsEnabled") as? Bool == false)
     #expect(defaults.double(forKey: "dictationSoundVolume") == 0.2)
     #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow")
-    settings.voiceVisual = .waveDraft
-    #expect(defaults.string(forKey: "hudVoiceVisual") == "Waveform + Draft")
+    settings.voiceVisual = .glowDraft
+    #expect(defaults.string(forKey: "hudVoiceVisual") == "Edge Glow + Draft")
     #expect(defaults.string(forKey: "hudWaveformStyle") == "Silver")
     #expect(defaults.string(forKey: "hudRevealStyle") == "Drift")
     #expect(defaults.string(forKey: "hudLongDraftStyle") == "Tail Only")
-    settings.waveDraftShowsRibbon = false
-    #expect(defaults.object(forKey: "hudWaveDraftShowsRibbon") as? Bool == false)
     #expect(defaults.string(forKey: "readAloudVoice") == "com.apple.voice.enhanced.en-GB.Jamie")
+  }
+
+  @Test func aFormerWaveformPlusDraftPickBecomesEdgeGlowPlusDraft() {
+    let defaults = freshDefaults()
+    defaults.set("Waveform + Draft", forKey: "hudVoiceVisual")
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.voiceVisual == .glowDraft)
   }
 
   @Test func keyBindingsPersistUnderTheirHistoricalKeys() {
@@ -333,7 +335,6 @@ struct AppSettingsTests {
     settings.waveformStyle = .dots
     settings.revealStyle = .bloom
     settings.longDraftStyle = .tailOnly
-    settings.waveDraftShowsRibbon = false
     settings.glowPalette = .aurora
     settings.glowCenter = .siriOrb
     settings.hudScale = 0.6
@@ -343,7 +344,6 @@ struct AppSettingsTests {
     #expect(snapshot.waveformStyle == .chartLine)
     #expect(snapshot.revealStyle == .slide)
     #expect(snapshot.longDraftStyle == .growDown)
-    #expect(snapshot.waveDraftShowsRibbon)
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
     #expect(snapshot.hudMetrics == .standard)

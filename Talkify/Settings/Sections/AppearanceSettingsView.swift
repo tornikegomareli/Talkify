@@ -10,9 +10,9 @@ struct AppearanceSettingsView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   /// Which conditional rows the selected visual exposes; hidden values
-  /// stay persisted (CONTEXT.md). Waveform + Draft is a designed Chart
-  /// Line, so it does not offer the concert style picker. It takes the
-  /// glow palette (beam, shaping caption, status ghost) but not a center.
+  /// stay persisted (CONTEXT.md). Edge Glow + Draft takes the glow palette
+  /// (beam, shaping caption, status ghost) but not a center or the concert
+  /// waveform styles.
   static func showsWaveformOptions(for visual: HUDVoiceVisualStyle) -> Bool {
     visual == .waveform
   }
@@ -25,18 +25,14 @@ struct AppearanceSettingsView: View {
     visual == .glow
   }
 
-  static func showsWaveDraftRibbon(for visual: HUDVoiceVisualStyle) -> Bool {
-    visual == .waveDraft
-  }
-
-  /// Waveform + Draft uses a recent-word line instead of the global long
+  /// Edge Glow + Draft uses a recent-word line instead of the global long
   /// draft behaviors. Reduce Motion restores the plain band, where the
   /// existing pick still applies.
   static func showsLongDraftBehavior(
     for visual: HUDVoiceVisualStyle,
     reduceMotion: Bool
   ) -> Bool {
-    !(visual == .waveDraft && !reduceMotion)
+    !(visual == .glowDraft && !reduceMotion)
   }
 
   var body: some View {
@@ -80,18 +76,6 @@ struct AppearanceSettingsView: View {
             optionLabel: { $0.rawValue },
             selection: $settings.glowCenter
           )
-        }
-
-        if Self.showsWaveDraftRibbon(for: settings.voiceVisual) {
-          SettingsRow(
-            title: "Chart Line ribbon",
-            description: "The slim waveform under the housing. Off leaves "
-              + "the live draft and the glow."
-          ) {
-            Toggle("Chart Line ribbon", isOn: $settings.waveDraftShowsRibbon)
-              .labelsHidden()
-              .toggleStyle(.switch)
-          }
         }
       }
 

@@ -23,7 +23,6 @@ final class AppSettings {
     static let longDraftStyle = "hudLongDraftStyle"
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
-    static let waveDraftShowsRibbon = "hudWaveDraftShowsRibbon"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let readAloudTranslates = "readAloudTranslates"
@@ -160,13 +159,6 @@ final class AppSettings {
 
   var glowCenter: HUDGlowCenterStyle {
     didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
-  }
-
-  /// Waveform + Draft's slim Chart Line under the housing. Off keeps the
-  /// live draft and the glow. Default on, so an upgrade does not strip
-  /// the ribbon from a pick that already includes it.
-  var waveDraftShowsRibbon: Bool {
-    didSet { defaults.set(waveDraftShowsRibbon, forKey: Keys.waveDraftShowsRibbon) }
   }
 
   /// How large the HUD shape is, as a fraction of the standard size.
@@ -318,14 +310,13 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
-    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
+    voiceVisual = defaults.string(forKey: Keys.voiceVisual).flatMap(HUDVoiceVisualStyle.init(stored:))
+      ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
-    waveDraftShowsRibbon =
-      defaults.object(forKey: Keys.waveDraftShowsRibbon) as? Bool ?? true
     // `double(forKey:)` reads a missing key as zero, which would start every
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
@@ -477,11 +468,10 @@ struct DictationSessionSettings: Equatable {
   let longDraftStyle: HUDLongDraftStyle
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
-  let waveDraftShowsRibbon: Bool
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
-  /// on the status ghost while a file job fills it. Edge Glow and Waveform +
+  /// on the status ghost while a file job fills it. Edge Glow and Edge Glow +
   /// Draft lend the palette's own hue; every other visual keeps Talkify blue.
   /// One definition, so the shape and the menu bar can never drift apart
   /// (CONTEXT.md).
@@ -511,7 +501,6 @@ struct DictationSessionSettings: Equatable {
     longDraftStyle = settings.longDraftStyle
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
-    waveDraftShowsRibbon = settings.waveDraftShowsRibbon
     hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }

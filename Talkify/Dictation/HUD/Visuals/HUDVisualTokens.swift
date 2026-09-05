@@ -10,8 +10,7 @@ enum HUDVisualTokens {
 
   /// The Chart Line treatment's metallic silver: white body cooling into a
   /// faint blue-gray at the ends — the edge glow's palette, no saturated
-  /// hues. Shared so the concert band and the Waveform + Draft ribbon are
-  /// recognisably one treatment rather than two that drifted apart.
+  /// hues. Shared so every Chart Line is recognisably one treatment.
   static let chartLineSilver = LinearGradient(
     colors: [
       Color(red: 0.68, green: 0.74, blue: 0.88).opacity(0.85),
