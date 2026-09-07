@@ -156,12 +156,17 @@ private struct HUDRecentDraftLineLayout: Layout {
 /// Edge Glow + Draft's live draft: one 24-point line of recent words,
 /// centered in the island when it fits. Each word keeps a stable id, so
 /// only a new or departing token slides; a finalization rewrites in place.
-struct HUDRecentDraftText: View {
+struct HUDRecentDraftText: View, Equatable {
   static let pointSize: CGFloat = 24
 
   let committed: String
   let volatile: String
   var scale: CGFloat = 1
+
+  // Audio-level redraws must not tokenize an unchanged transcript again.
+  nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.committed == rhs.committed && lhs.volatile == rhs.volatile && lhs.scale == rhs.scale
+  }
 
   @State private var lastWindow: HUDRecentDraftWindow?
 
@@ -187,7 +192,7 @@ struct HUDRecentDraftText: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .clipped()
-    .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
+    .animation(animate ? .easeOut(duration: 0.10) : nil, value: window.tokenIDs)
     .onChange(of: window) { _, new in
       lastWindow = new
     }

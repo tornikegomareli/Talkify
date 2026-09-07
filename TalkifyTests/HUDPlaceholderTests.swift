@@ -152,6 +152,18 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting == "hello there")
   }
 
+  @Test func withdrawingTheLastGuessClearsTheDraft() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .glowDraft
+    let hud = DictationHUDController(stage: HUDStage(settings: store), settings: store)
+    hud.showListening(on: nil, isLatched: false, settings: session(store))
+    hud.showLiveText("", volatile: "withdrawn guess")
+    #expect(hud.textForTesting == "withdrawn guess")
+    hud.showLiveText("", volatile: "")
+    #expect(hud.textForTesting.isEmpty)
+    hud.hide()
+  }
+
   @Test func aVolatileGuessShowsBeforeItCommits() {
     let store = AppSettings.previewStore()
     store.voiceVisual = .glowDraft

@@ -125,7 +125,7 @@ final class DictationHUDController {
   }
 
   func showLiveText(_ committed: String, volatile: String = "") {
-    guard isListening, !(committed + volatile).isEmpty else { return }
+    guard isListening else { return }
     setDraft(committed, volatile: volatile)
   }
 
