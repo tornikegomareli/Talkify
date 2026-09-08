@@ -12,6 +12,15 @@ final class DictationHUDController {
   /// Levels stopping for this long while listening means the microphone is
   /// dead, which must look different from silence (CONTEXT.md).
   private static let deadMicrophoneAfter = Duration.milliseconds(600)
+  /// How long a session waits for its first buffer before calling the
+  /// microphone dead.
+  ///
+  /// Opening the input makes a Bluetooth headset switch to its hands-free
+  /// profile, which stops the audio engine and costs about 1.4 seconds before
+  /// the first buffer arrives. Judging that by the 600ms that catches a
+  /// microphone which stopped mid-sentence reported every Bluetooth session
+  /// as broken for the second before it started working.
+  private static let firstAudioAfter = Duration.milliseconds(2_500)
 
   private let stage: HUDStage
   private var sessionSettings: DictationSessionSettings
@@ -23,6 +32,9 @@ final class DictationHUDController {
   /// the shaping caption is the case that found it.
   private var hasStoppedListening = false
   private var lastLevelAt = ContinuousClock.now
+  /// Whether this session has had a single buffer yet. Until it has, the
+  /// input may simply still be opening rather than broken.
+  private var hasHeardAudio = false
   private var micWatchdogTask: Task<Void, Never>?
   private var hasPlayedBeginSound = false
   /// Mirrors hasPlayedBeginSound: a shaping phase plays End when speech
@@ -46,6 +58,7 @@ final class DictationHUDController {
       hasPlayedBeginSound = true
       stage.sounds.playBegin(using: sessionSettings.sounds)
     }
+    hasHeardAudio = true
     content.audioLevel = max(Double(level), content.audioLevel * 0.88)
     content.levelHistory.removeFirst()
     // Light EMA against the previous bar calms per-tick jitter without
@@ -205,17 +218,25 @@ final class DictationHUDController {
     content.levelHistory = [Float](repeating: 0, count: HUDWaveformView.barCount)
     content.isAudioAlive = true
     lastLevelAt = ContinuousClock.now
+    hasHeardAudio = false
 
     micWatchdogTask?.cancel()
     micWatchdogTask = Task { [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(for: .milliseconds(300))
         guard let self, !Task.isCancelled else { return }
-        if lastLevelAt.duration(to: .now) > Self.deadMicrophoneAfter {
+        if lastLevelAt.duration(to: .now) > Self.silenceBudget(hasHeardAudio: hasHeardAudio) {
           content.isAudioAlive = false
         }
       }
     }
+  }
+
+  /// How long the visual waits before calling the microphone dead: the short
+  /// budget once audio has been heard, the long one while the input is still
+  /// opening.
+  static func silenceBudget(hasHeardAudio: Bool) -> Duration {
+    hasHeardAudio ? deadMicrophoneAfter : firstAudioAfter
   }
 
   private func stopVoiceVisual() {

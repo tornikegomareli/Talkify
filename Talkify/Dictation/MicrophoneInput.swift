@@ -23,13 +23,31 @@ final class MicrophoneInput: @unchecked Sendable {
     }
   }
 
-  private final class ConverterBox: @unchecked Sendable {
-    let converter: AVAudioConverter
+  /// The converter into the analyzer's format, rebuilt whenever the tap
+  /// starts delivering a different one.
+  ///
+  /// The input format is not fixed for the life of a session: a Bluetooth
+  /// headset switches from A2DP to its 16 kHz hands-free profile the moment
+  /// something opens the microphone, so the first buffers after a route
+  /// change arrive in a format the session did not start with. One box per
+  /// tap, so the audio thread is the only thread that touches it.
+  final class ConverterBox: @unchecked Sendable {
     let outputFormat: AVAudioFormat
+    private var converter: AVAudioConverter?
+    private var inputFormat: AVAudioFormat?
 
-    init(converter: AVAudioConverter, outputFormat: AVAudioFormat) {
-      self.converter = converter
+    init(outputFormat: AVAudioFormat) {
       self.outputFormat = outputFormat
+    }
+
+    func converter(for format: AVAudioFormat) throws -> AVAudioConverter {
+      if let converter, inputFormat == format { return converter }
+      guard let made = AVAudioConverter(from: format, to: outputFormat) else {
+        throw InputError.converterCreationFailed
+      }
+      converter = made
+      inputFormat = format
+      return made
     }
   }
 
@@ -56,7 +74,19 @@ final class MicrophoneInput: @unchecked Sendable {
     }
   }
 
-  private let audioEngine = AVAudioEngine()
+  /// Replaced rather than restarted when the audio route changes: the old
+  /// engine's input chain cannot re-initialise across a Bluetooth profile
+  /// switch, which fails with -10868.
+  private var audioEngine = AVAudioEngine()
+  /// Serialises route recovery off the notification thread.
+  private let recoveryQueue = DispatchQueue(label: "com.tgomareli.Talkify.mic-recovery")
+  private var configurationObserver: (any NSObjectProtocol)?
+  private var analyzerFormat: AVAudioFormat?
+  private var recovering = false
+  /// A route change that arrived while recovering. Dropping it would leave a
+  /// dead engine behind, and a headset settling its profile can post more
+  /// than one.
+  private var recoveryPending = false
   private let analyzerContinuation: AsyncStream<AnalyzerInput>.Continuation
   private let failureHandler: @Sendable (InputError) -> Void
   /// Normalized microphone level (0–1) per tap buffer, for the HUD's
@@ -78,39 +108,128 @@ final class MicrophoneInput: @unchecked Sendable {
   }
 
   func start(outputFormat: AVAudioFormat) throws {
-    let inputNode = audioEngine.inputNode
-    let hardwareFormat = inputNode.inputFormat(forBus: 0)
+    let hardwareFormat = audioEngine.inputNode.inputFormat(forBus: 0)
     guard Self.hasUsableHardwareInput(hardwareFormat) else {
       throw InputError.unavailable
     }
 
-    let inputFormat = inputNode.outputFormat(forBus: 0)
-    guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
-      throw InputError.unavailable
+    stateLock.withLock { analyzerFormat = outputFormat }
+    observeConfigurationChanges(of: audioEngine)
+    do {
+      try startCapturing(on: audioEngine, into: outputFormat)
+    } catch {
+      stopObservingConfigurationChanges()
+      throw error
     }
+    stateLock.withLock { running = true }
+  }
 
-    guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
-      throw InputError.converterCreationFailed
-    }
+  /// Installs the tap and starts the engine.
+  ///
+  /// The tap takes no format. Handing it one captured moments earlier throws
+  /// an Objective-C exception the moment the hardware has moved on ("Failed
+  /// to create tap due to format mismatch"), which Swift cannot catch, so the
+  /// app would die rather than recover. Nil means the bus's live format.
+  private func startCapturing(on engine: AVAudioEngine, into outputFormat: AVAudioFormat) throws {
+    let inputNode = engine.inputNode
+    inputNode.removeTap(onBus: 0)
 
-    let converterBox = ConverterBox(converter: converter, outputFormat: outputFormat)
-    inputNode.installTap(
-      onBus: 0,
-      bufferSize: 1_024,
-      format: inputFormat
-    ) { [weak self] buffer, _ in
+    let converterBox = ConverterBox(outputFormat: outputFormat)
+    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: nil) { [weak self] buffer, _ in
       self?.receive(buffer, converterBox: converterBox)
     }
 
-    audioEngine.prepare()
+    engine.prepare()
     do {
-      try audioEngine.start()
-      stateLock.withLock {
-        running = true
-      }
+      try engine.start()
     } catch {
       inputNode.removeTap(onBus: 0)
       throw error
+    }
+  }
+
+  private func observeConfigurationChanges(of engine: AVAudioEngine) {
+    stopObservingConfigurationChanges()
+    let observer = NotificationCenter.default.addObserver(
+      forName: .AVAudioEngineConfigurationChange,
+      object: engine,
+      queue: nil
+    ) { [weak self] _ in
+      self?.recoverFromRouteChange()
+    }
+    stateLock.withLock { configurationObserver = observer }
+  }
+
+  private func stopObservingConfigurationChanges() {
+    let observer = stateLock.withLock { () -> (any NSObjectProtocol)? in
+      defer { configurationObserver = nil }
+      return configurationObserver
+    }
+    if let observer { NotificationCenter.default.removeObserver(observer) }
+  }
+
+  /// AVAudioEngine stops itself when the audio hardware changes underneath it
+  /// and says so through this notification. Nothing else restarts it, so
+  /// without this a session that began just as a headset switched profile
+  /// listens to an engine that is no longer running: no levels, no words, and
+  /// no error to show for it.
+  private func recoverFromRouteChange() {
+    let shouldRecover = stateLock.withLock { () -> Bool in
+      guard running else { return false }
+      guard !recovering else {
+        recoveryPending = true
+        return false
+      }
+      recovering = true
+      return true
+    }
+    guard shouldRecover else { return }
+    scheduleRecovery()
+  }
+
+  private func scheduleRecovery() {
+    // Off the notification thread. No settle delay: a fresh engine starts
+    // cleanly straight away, and the -10868 that looked like it needed one
+    // came from restarting the old engine rather than from being early.
+    recoveryQueue.async { [weak self] in
+      guard let self else { return }
+      rebuildEngine()
+
+      // A change that arrived mid-rebuild describes hardware the new engine
+      // never saw, so it gets its own pass rather than being dropped.
+      let again = stateLock.withLock { () -> Bool in
+        guard running, recoveryPending else {
+          recovering = false
+          recoveryPending = false
+          return false
+        }
+        recoveryPending = false
+        return true
+      }
+      if again { scheduleRecovery() }
+    }
+  }
+
+  private func rebuildEngine() {
+    let outputFormat = stateLock.withLock { () -> AVAudioFormat? in
+      guard running else { return nil }
+      return analyzerFormat
+    }
+    guard let outputFormat else { return }
+
+    let previous = stateLock.withLock { audioEngine }
+    previous.stop()
+    previous.inputNode.removeTap(onBus: 0)
+
+    let engine = AVAudioEngine()
+    stateLock.withLock { audioEngine = engine }
+    observeConfigurationChanges(of: engine)
+    do {
+      try startCapturing(on: engine, into: outputFormat)
+    } catch {
+      // Nothing else is coming. Ending the session with a reason beats
+      // leaving the shape up in front of a microphone that is not running.
+      reportFailure(.unavailable)
     }
   }
 
@@ -126,8 +245,10 @@ final class MicrophoneInput: @unchecked Sendable {
     }
 
     guard shouldStop else { return }
-    audioEngine.stop()
-    audioEngine.inputNode.removeTap(onBus: 0)
+    stopObservingConfigurationChanges()
+    let engine = stateLock.withLock { audioEngine }
+    engine.stop()
+    engine.inputNode.removeTap(onBus: 0)
   }
 
   private func receive(_ buffer: AVAudioPCMBuffer, converterBox: ConverterBox) {
@@ -160,9 +281,10 @@ final class MicrophoneInput: @unchecked Sendable {
       throw InputError.conversionFailed("Unable to allocate an audio buffer.")
     }
 
+    let converter = try converterBox.converter(for: inputBuffer.format)
     let inputProvider = InputProvider(buffer: inputBuffer)
     var conversionError: NSError?
-    let status = converterBox.converter.convert(
+    let status = converter.convert(
       to: outputBuffer,
       error: &conversionError
     ) { _, inputStatus in
