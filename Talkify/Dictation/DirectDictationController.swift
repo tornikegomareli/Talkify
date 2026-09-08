@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 /// The impure half of Direct Dictation: owns the services, translates
 /// trigger-monitor events into DictationSessionMachine actions, runs the
@@ -628,9 +629,13 @@ final class DirectDictationController {
 
   private func beginRecognition() {
     guard let locale = locale(for: activeSlot) else {
+      AppLog.session.error("no locale resolved for the trigger; refusing to begin")
       fail(message: "Preparing speech…", wasCancelled: false)
       return
     }
+    AppLog.session.info(
+      "session began on \(String(describing: self.activeSlot), privacy: .public) in \(locale.identifier, privacy: .public)"
+    )
 
     sessionStartTask = Task { [weak self] in
       guard let self else { return }
@@ -797,6 +802,9 @@ final class DirectDictationController {
         let outcome = await dependencies.insertText(
           text, focusedTarget, session.insertionDestination
         )
+        AppLog.delivery.info(
+          "session ended: \(String(describing: outcome), privacy: .public), \(UsageMetrics.wordCount(in: spoken), privacy: .public) words in \(speakingDuration, format: .fixed(precision: 1), privacy: .public)s"
+        )
         switch outcome {
         case .inserted, .copiedToClipboard:
           dependencies.playPasteSound()
@@ -812,6 +820,9 @@ final class DirectDictationController {
           dependencies.showMessage("Couldn't insert text", nil)
         }
       } catch {
+        AppLog.delivery.error(
+          "session failed: \(error.localizedDescription, privacy: .public)"
+        )
         fail(message: error.localizedDescription, wasCancelled: false)
       }
       finishTask = nil

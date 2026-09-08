@@ -31,7 +31,12 @@ struct PromptShapingService: Sendable {
   var clock = DeadlineClock.continuous
 
   func shape(_ text: String, with prompt: ShapingPrompt) async -> String {
-    guard client.unavailabilityReason() == nil else { return text }
+    if let reason = client.unavailabilityReason() {
+      AppLog.delivery.notice(
+        "shaping unavailable, inserting as spoken: \(reason, privacy: .public)"
+      )
+      return text
+    }
 
     let respond = client.respond
     let instructions = prompt.instructions
@@ -58,8 +63,15 @@ struct PromptShapingService: Sendable {
       }
     }
 
-    guard let shaped else { return text }
+    guard let shaped else {
+      AppLog.delivery.notice("shaping timed out, inserting as spoken")
+      return text
+    }
     let trimmed = shaped.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? text : trimmed
+    if trimmed.isEmpty {
+      AppLog.delivery.notice("shaping answered with nothing, inserting as spoken")
+      return text
+    }
+    return trimmed
   }
 }

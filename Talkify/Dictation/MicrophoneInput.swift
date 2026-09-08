@@ -1,6 +1,7 @@
-import Accelerate
 import AVFAudio
+import Accelerate
 import Speech
+import os
 
 final class MicrophoneInput: @unchecked Sendable {
   enum InputError: LocalizedError, Sendable {
@@ -119,9 +120,15 @@ final class MicrophoneInput: @unchecked Sendable {
       try startCapturing(on: audioEngine, into: outputFormat)
     } catch {
       stopObservingConfigurationChanges()
+      AppLog.audio.error(
+        "engine failed to start: \(error.localizedDescription, privacy: .public)"
+      )
       throw error
     }
     stateLock.withLock { running = true }
+    AppLog.audio.info(
+      "capturing at \(self.audioEngine.inputNode.outputFormat(forBus: 0).sampleRate, privacy: .public) Hz"
+    )
   }
 
   /// Installs the tap and starts the engine.
@@ -155,6 +162,7 @@ final class MicrophoneInput: @unchecked Sendable {
       object: engine,
       queue: nil
     ) { [weak self] _ in
+      AppLog.audio.notice("audio route changed; the engine has stopped itself")
       self?.recoverFromRouteChange()
     }
     stateLock.withLock { configurationObserver = observer }
@@ -326,6 +334,9 @@ final class MicrophoneInput: @unchecked Sendable {
     }
 
     guard shouldReport else { return }
+    AppLog.audio.error(
+      "microphone failed: \(error.errorDescription ?? "unknown", privacy: .public)"
+    )
     analyzerContinuation.finish()
     failureHandler(error)
   }
