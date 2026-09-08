@@ -128,6 +128,25 @@ struct HUDPlaceholderTests {
     #expect(hud.textForTesting == "Listening…")
   }
 
+  /// A Bluetooth headset costs about 1.4 seconds before its first buffer,
+  /// because opening the input switches its profile and restarts the engine.
+  /// The budget that catches a microphone dying mid-sentence is 600ms, and
+  /// judging the opening by it called every Bluetooth session broken.
+  @Test func theMicrophoneIsNotCalledDeadWhileTheInputIsStillOpening() {
+    #expect(
+      DictationHUDController.silenceBudget(hasHeardAudio: false) > .milliseconds(1_400),
+      "a cold Bluetooth session would be reported as a dead microphone"
+    )
+    #expect(
+      DictationHUDController.silenceBudget(hasHeardAudio: true) == .milliseconds(600),
+      "a microphone that stops mid-sentence still has to show up quickly"
+    )
+    #expect(
+      DictationHUDController.silenceBudget(hasHeardAudio: true)
+        < DictationHUDController.silenceBudget(hasHeardAudio: false)
+    )
+  }
+
   /// The words being rewritten are not a placeholder, so the shaping phase
   /// leaves them where they are.
   @Test func theShapingPhaseKeepsARealDraft() {

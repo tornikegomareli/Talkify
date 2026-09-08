@@ -188,9 +188,10 @@ final class MicrophoneInput: @unchecked Sendable {
   }
 
   private func scheduleRecovery() {
-    // Off the notification thread, and after the hardware has settled: asked
-    // any sooner, the new engine fails to initialise its input chain.
-    recoveryQueue.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+    // Off the notification thread. No settle delay: a fresh engine starts
+    // cleanly straight away, and the -10868 that looked like it needed one
+    // came from restarting the old engine rather than from being early.
+    recoveryQueue.async { [weak self] in
       guard let self else { return }
       rebuildEngine()
 
