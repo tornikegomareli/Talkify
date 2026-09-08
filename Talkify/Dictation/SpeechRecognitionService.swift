@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import Speech
+import os
 
 actor SpeechRecognitionService {
   struct Update: Sendable {
@@ -341,10 +342,16 @@ actor SpeechRecognitionService {
     if let installationRequest = try await AssetInventory.assetInstallationRequest(
       supporting: [transcriber]
     ) {
+      AppLog.speech.info(
+        "downloading the \(locale.identifier, privacy: .public) speech model"
+      )
       let reporter = reportProgress(of: installationRequest.progress, for: locale)
       defer {
         reporter.cancel()
         downloadHandler?(ModelDownload(locale: locale, fraction: nil))
+        AppLog.speech.info(
+          "\(locale.identifier, privacy: .public) speech model download finished"
+        )
       }
       try await installationRequest.downloadAndInstall()
     }
