@@ -30,6 +30,11 @@ struct HUDShapingLabel: View {
   let palette: HUDGlowPalette
   let scale: CGFloat
   let activity: Activity
+  /// False once the shape has retracted. The timeline pauses with it, the
+  /// way every other visual here pauses when its session is not live: a
+  /// running timeline redraws the shader every frame whether or not the
+  /// panel is on screen.
+  let isRevealed: Bool
   let reduceMotion: Bool
 
   @State private var start = Date()
@@ -58,7 +63,7 @@ struct HUDShapingLabel: View {
         .minimumScaleFactor(0.6)
         .foregroundStyle(Color(palette.statusAccent).opacity(0.85))
     } else {
-      TimelineView(.animation) { context in
+      TimelineView(.animation(paused: !isRevealed)) { context in
         let elapsed = context.date.timeIntervalSince(start)
         Text(text)
           .font(font)

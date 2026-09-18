@@ -18,7 +18,8 @@ final class HUDStage {
   /// How long the retract animation needs before the panel can order out.
   /// A perceptual duration rather than the spring's settling time, per
   /// WWDC23 "Animate with springs": don't wait for settling.
-  private static let dismissDuration = Duration.milliseconds(350)
+  /// Internal so a test can wait out the retract rather than guess at it.
+  static let dismissDuration = Duration.milliseconds(350)
   private static let messageDuration = Duration.seconds(2)
 
   /// Who holds the shape. `message` is its own occupant rather than a mode of
@@ -148,6 +149,10 @@ final class HUDStage {
       dictationContent.isDismissing = false
       dictationContent.text = ""
       dictationContent.volatileText = ""
+      // The shaping caption outlived the shape: it is what decides whether
+      // the label is mounted, and the label animates every frame while it is.
+      dictationContent.shapingName = nil
+      dictationContent.shapingChoiceLabel = nil
       dropContent.mode = .none
       dropContent.heldIcon = nil
       dropContent.transcript = nil
