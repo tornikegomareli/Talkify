@@ -173,6 +173,7 @@ struct DictationHUDShellView: View {
           palette: settings.glowPalette,
           scale: metrics.scale,
           activity: label.activity,
+          isRevealed: content.isRevealed,
           reduceMotion: reduceMotion
         )
         .frame(height: metrics.shapingBandHeight)

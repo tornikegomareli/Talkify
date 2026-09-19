@@ -147,6 +147,32 @@ struct HUDPlaceholderTests {
     )
   }
 
+  /// The shaping caption decides whether the HUD mounts a label that
+  /// animates every frame, so state left behind after the shape retracts
+  /// costs about 20% of a CPU for as long as the app stays open.
+  @Test func retractingClearsTheShapingCaption() async throws {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .waveform
+    let stage = HUDStage(settings: store)
+    let hud = DictationHUDController(stage: stage, settings: store)
+
+    hud.showListening(on: CGDirectDisplayID?.none, isLatched: false, settings: session(store))
+    hud.showLiveText("some words")
+    hud.showShaping(with: "Tighten grammar")
+    #expect(stage.dictationContent.shapingName != nil)
+
+    hud.hide()
+    // An event wait, not a time bound. Sleeping for the retract plus a margin
+    // passed alone and failed under a parallel run, which is the flake #82 and
+    // #116 were about; this budget only spends itself on a broken run.
+    for _ in 0..<400 where stage.dictationContent.shapingName != nil {
+      try await Task.sleep(for: .milliseconds(5))
+    }
+
+    #expect(stage.dictationContent.shapingName == nil, "the caption outlived the shape")
+    #expect(stage.dictationContent.shapingChoiceLabel == nil)
+  }
+
   /// The words being rewritten are not a placeholder, so the shaping phase
   /// leaves them where they are.
   @Test func theShapingPhaseKeepsARealDraft() {
