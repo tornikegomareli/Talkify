@@ -12,6 +12,11 @@
   <img src="https://github.com/tornikegomareli/Talkify/actions/workflows/ci.yml/badge.svg" />
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/158302?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-158302" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/158302/daily?language=Swift" alt="tornikegomareli%2FTalkify | Trendshift" width="250" height="55"/></a>
+  <a href="https://trendshift.io/repositories/158302?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-158302" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/158302/weekly?language=Swift" alt="tornikegomareli%2FTalkify | Trendshift" width="250" height="55"/></a>
+</p>
+
 ## Showcase
 
 
