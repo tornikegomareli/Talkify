@@ -257,6 +257,8 @@ private struct SettingsContent: View {
           DictationSettingsView(settings: settings)
         case .promptShaping:
           PromptShapingSettingsView(settings: settings)
+        case .replacements:
+          ReplacementsSettingsView(settings: settings)
         case .dropTranscription:
           DropTranscriptionSettingsView(settings: settings)
         case .readAloud:
