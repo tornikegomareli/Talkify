@@ -196,6 +196,7 @@ struct DictationHUDShellView: View {
             volatile: content.volatileText,
             scale: metrics.scale
           )
+          .equatable()
           .padding(.horizontal, tagInset * metrics.scale)
         }
       }
