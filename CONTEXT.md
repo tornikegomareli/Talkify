@@ -251,6 +251,10 @@ _Avoid_: Transcript history, cloud analytics
 - The clipboard-only destination skips the paste and the clipboard restore; the insert-and-copy destination pastes and leaves the text on the clipboard, skipping the restore
 - The insertion destination is captured in the Dictation session settings snapshot at session start
 - **Direct Dictation** inserts through clipboard paste after Accessibility validates the original target
+- The insertion method is a Settings choice: clipboard paste by default, or simulated typing for apps that refuse pasted text
+- Simulated typing delivers the transcript as chunked Unicode keyboard events; a successful pass never touches the clipboard
+- Simulated typing sends line breaks as Return key events rather than embedding them in the Unicode stream
+- A typing pass stops at the first failed focus validation or unpostable chunk and copies the undelivered remainder to the clipboard, like every failed insertion
 - If an app exposes no focused element, Talkify captures and later validates the frontmost application instead
 - Talkify sends the paste event globally only after the captured focus boundary passes validation
 - Clipboard insertion obtains a complete snapshot within one 600-millisecond acquisition deadline, with one reread permitted if the pasteboard changes during capture

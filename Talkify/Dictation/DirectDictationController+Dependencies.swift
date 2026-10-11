@@ -32,7 +32,8 @@ extension DirectDictationController {
     // Text insertion.
     let captureFocusedTarget: @MainActor () -> TextInsertionService.Target?
     let insertText: @MainActor (
-      String, TextInsertionService.Target?, InsertionDestination
+      String, TextInsertionService.Target?, InsertionDestination,
+      TextInsertionService.InsertionMethod
     ) async -> TextInsertionService.InsertionOutcome
 
     // Permissions and the dialogs that explain them.
@@ -121,7 +122,9 @@ extension DirectDictationController {
           service: TranslationService(client: .live)
         ),
         captureFocusedTarget: { textInsertionService.captureFocusedTarget() },
-        insertText: { await textInsertionService.insert($0, into: $1, destination: $2) },
+        insertText: {
+          await textInsertionService.insert($0, into: $1, destination: $2, method: $3)
+        },
         requestMicrophoneAccess: { await PermissionService.requestMicrophoneAccess() },
         requestSpeechAccess: { await PermissionService.requestSpeechAccess() },
         requestAccessibilityAccess: { PermissionService.requestAccessibilityAccess() },

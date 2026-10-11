@@ -25,6 +25,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -66,6 +67,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -103,6 +105,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -137,6 +140,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -173,6 +177,7 @@ struct TextInsertionServiceTests {
         return true
       },
       waitForPasteRead: {},
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
 
@@ -202,6 +207,7 @@ struct TextInsertionServiceTests {
         pasteboard.clearContents()
         pasteboard.setString("new clipboard", forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -298,6 +304,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         pastedText = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
 
@@ -343,6 +350,7 @@ struct TextInsertionServiceTests {
         return true
       },
       waitForPasteRead: {},
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
 
@@ -382,6 +390,7 @@ struct TextInsertionServiceTests {
         return true
       },
       waitForPasteRead: {},
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
 
@@ -418,6 +427,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         waitedForPasteRead = true
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -445,7 +455,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
 
@@ -475,6 +486,7 @@ struct TextInsertionServiceTests {
         return true
       },
       waitForPasteRead: {},
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert("dictated text", into: makeTarget())
@@ -502,7 +514,8 @@ struct TextInsertionServiceTests {
       },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
 
     let target = service.captureFocusedTarget()
@@ -600,6 +613,7 @@ struct TextInsertionServiceTests {
           return true
         },
         waitForPasteRead: {},
+        postTypingChunk: { _ in true },
         clock: clock.deadlineClock
       ))
     }
@@ -721,6 +735,7 @@ struct TextInsertionServiceTests {
             pastedTexts.withLock { $0.append(text) }
           }
         },
+        postTypingChunk: { _ in true },
         clock: clock.deadlineClock
       ))
     }
@@ -858,7 +873,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -885,7 +901,8 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in false },
       isTargetFocused: { _ in false },
       postPasteShortcut: { true },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -911,7 +928,8 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -945,7 +963,8 @@ struct TextInsertionServiceTests {
       },
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
-      }
+      },
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -977,7 +996,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -1008,7 +1028,8 @@ struct TextInsertionServiceTests {
       postPasteShortcut: { false },
       waitForPasteRead: {
         waitedForPasteRead = true
-      }
+      },
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "dictated text",
@@ -1040,7 +1061,8 @@ struct TextInsertionServiceTests {
         postedPaste = true
         return true
       },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     service.clipboardReadLease.withLock { $0 = true }
     let outcome = await service.insert(
@@ -1074,6 +1096,7 @@ struct TextInsertionServiceTests {
       waitForPasteRead: {
         textAvailableWhileTargetReads = pasteboard.string(forType: .string)
       },
+      postTypingChunk: { _ in true },
       clock: makeHeldClock()
     ))
     let outcome = await service.insert(
@@ -1102,7 +1125,8 @@ struct TextInsertionServiceTests {
       isProcessRunning: { _ in true },
       isTargetFocused: { _ in true },
       postPasteShortcut: { true },
-      waitForPasteRead: {}
+      waitForPasteRead: {},
+      postTypingChunk: { _ in true }
     ))
     let outcome = await service.insert(
       "",
@@ -1114,7 +1138,68 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
-  /// The paste-and-restore write is marked as machine-generated and
+  @Test func typingMethodTypesWithoutTouchingClipboard() async {
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+    pasteboard.setString("previous clipboard", forType: .string)
+    var typedText: String?
+    var postedPaste = false
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: { nil },
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: {
+        postedPaste = true
+        return true
+      },
+      waitForPasteRead: {},
+      postTypingChunk: { text in
+        typedText = text
+        return true
+      }
+    ))
+    let outcome = await service.insert(
+      "dictated text", into: makeTarget(), method: .typing
+    )
+
+    #expect(outcome == .inserted)
+    #expect(typedText == "dictated text")
+    #expect(!postedPaste)
+    #expect(pasteboard.string(forType: .string) == "previous clipboard")
+  }
+
+  @Test func failedTypingLeavesTranscriptOnClipboard() async {
+
+    let pasteboard = makePasteboard()
+    pasteboard.clearContents()
+
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: { nil },
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in true },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      postTypingChunk: { _ in false }
+    ))
+    let outcome = await service.insert(
+      "dictated text", into: makeTarget(), method: .typing
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+
+  }
+
+/// The paste-and-restore write is marked as machine-generated and
   /// short-lived, so a clipboard manager honouring nspasteboard.com's types
   /// keeps every dictated phrase out of its history.
   @Test func theStagedPasteIsMarkedTransient() async {
@@ -1152,8 +1237,7 @@ struct TextInsertionServiceTests {
     #expect(typesWhileStaged.contains("org.nspasteboard.AutoGeneratedType"))
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
-
-  /// Insert and copy means keep it, so what stays behind is an ordinary copy
+/// Insert and copy means keep it, so what stays behind is an ordinary copy
   /// and a clipboard manager should record it like any other.
   @Test func textMeantToStayIsNotMarkedTransient() async {
     let pasteboard = makePasteboard()
@@ -1216,6 +1300,81 @@ struct TextInsertionServiceTests {
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
 
+  @Test func changedTargetReceivesNoTypingEvent() async {
+    let pasteboard = makePasteboard()
+    var postedTyping = false
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: { nil },
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in false },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      postTypingChunk: { _ in
+        postedTyping = true
+        return true
+      }
+    ))
+    let outcome = await service.insert(
+      "dictated text", into: makeTarget(), method: .typing
+    )
+
+    #expect(outcome == .copiedToClipboard)
+    #expect(!postedTyping)
+    #expect(pasteboard.string(forType: .string) == "dictated text")
+  }
+
+  @Test func focusLostMidStreamStopsTypingAndCopiesRemainder() async {
+    let pasteboard = makePasteboard()
+    var focusCheckCount = 0
+    var typedChunks: [String] = []
+    let service = TextInsertionService(dependencies: .init(
+      pasteboard: pasteboard,
+      readClipboardItems: { nil },
+      snapshotTimeout: .milliseconds(100),
+      focusedElement: { nil },
+      frontmostApplication: { nil },
+      isProcessRunning: { _ in true },
+      isTargetFocused: { _ in
+        focusCheckCount += 1
+        // insert() validates the focus boundary once before dispatching,
+        // then typeText revalidates before every chunk.
+        return focusCheckCount < 4
+      },
+      postPasteShortcut: { true },
+      waitForPasteRead: {},
+      postTypingChunk: { chunk in
+        typedChunks.append(chunk)
+        return true
+      }
+    ))
+    let outcome = await service.insert(
+      String(repeating: "a", count: 45),
+      into: makeTarget(),
+      method: .typing
+    )
+
+    // Two 20-character chunks typed, then the focus check failed before
+    // the third: the undelivered remainder lands on the clipboard.
+    #expect(outcome == .copiedToClipboard)
+    #expect(typedChunks == [String(repeating: "a", count: 20), String(repeating: "a", count: 20)])
+    #expect(pasteboard.string(forType: .string) == String(repeating: "a", count: 5))
+  }
+
+  @Test func typingLinesSplitOnEveryBreakAndCollapseCRLF() {
+    #expect(TextInsertionService.typingLines(in: "plain") == ["plain"])
+    #expect(TextInsertionService.typingLines(in: "a\nb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "a\n\nb") == ["a", "", "b"])
+    #expect(TextInsertionService.typingLines(in: "\nlead") == ["", "lead"])
+    #expect(TextInsertionService.typingLines(in: "trail\n") == ["trail", ""])
+    #expect(TextInsertionService.typingLines(in: "a\r\nb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "a\rb") == ["a", "b"])
+    #expect(TextInsertionService.typingLines(in: "\r\n\r\n") == ["", "", ""])
+  }
+
   /// Nothing selected is known, not guessed: Copy that finds nothing leaves
   /// the change count alone, so the old clipboard is never read back as if it
   /// were the selection.
@@ -1261,7 +1420,6 @@ struct TextInsertionServiceTests {
     #expect(copied == nil)
     #expect(pasteboard.string(forType: .string) == "previous clipboard")
   }
-
   /// A clipboard that cannot be captured cannot be put back, so the copy is
   /// never attempted.
   @Test func copyingIsRefusedWhenTheClipboardCannotBeSnapshotted() async {

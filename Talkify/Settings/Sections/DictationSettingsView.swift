@@ -23,6 +23,22 @@ struct DictationSettingsView: View {
           optionLabel: { $0.title },
           selection: $settings.insertionDestination
         )
+
+        SettingsPickerRow(
+          title: "Type for stubborn apps",
+          description: "Typing posts keyboard events instead of pasting — for "
+            + "terminals, VMs, and editors that refuse pasted text. It keeps "
+            + "your clipboard untouched, and a text that cannot be typed "
+            + "lands on the clipboard instead.",
+          options: TextInsertionService.InsertionMethod.allCases,
+          optionLabel: { method in
+            switch method {
+            case .paste: "Paste (default)"
+            case .typing: "Typing"
+            }
+          },
+          selection: $settings.insertionMethod
+        )
       }
 
       SettingsCard(title: "History") {
