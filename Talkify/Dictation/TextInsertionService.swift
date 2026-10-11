@@ -14,6 +14,14 @@ final class TextInsertionService {
     case unavailable
   }
 
+  /// How text reaches an insert destination: clipboard paste, or simulated
+  /// typing for apps that refuse pasted events (terminals, VMs, some
+  /// editors). Typing never touches the clipboard.
+  enum InsertionMethod: String, CaseIterable, Hashable {
+    case paste
+    case typing
+  }
+
   /// Runs the sole leased pasteboard read away from the main actor.
   ///
   /// Apple documents no thread-safety contract for `NSPasteboard`. Background
@@ -72,6 +80,13 @@ final class TextInsertionService {
     let isTargetFocused: @MainActor (Target) -> Bool
     let postPasteShortcut: @MainActor () -> Bool
     let waitForPasteRead: @MainActor () async -> Void
+    /// Posts one chunk of dictated text as Unicode keyboard events, Return
+    /// presses included for line breaks; false when the events cannot post.
+    ///
+    /// Defaulted, like Copy above its neighbours, so the insertion tests that
+    /// never type keep their call sites: refusing to type is what they expect
+    /// and the safe answer besides.
+    var postTypingChunk: @MainActor (String) -> Bool = { _ in false }
     /// Presses Copy in the focused application, for reading a selection
     /// Accessibility will not answer for.
     ///
@@ -118,6 +133,7 @@ final class TextInsertionService {
         waitForPasteRead: {
           try? await Task.sleep(for: .milliseconds(500))
         },
+        postTypingChunk: TextInsertionService.postTypingChunk,
         postCopyShortcut: TextInsertionService.postCopyShortcut,
         copyTimeout: .milliseconds(400),
         clock: .continuous
@@ -165,11 +181,14 @@ final class TextInsertionService {
   ///   - text: The finalized text to deliver.
   ///   - target: The focus boundary captured when Direct Dictation began.
   ///   - destination: Where the session's settings say the text goes.
+  ///   - method: How text reaches an insert destination — paste, or
+  ///     simulated typing for apps that refuse pasted events.
   /// - Returns: The terminal delivery outcome used by the session controller.
   func insert(
     _ text: String,
     into target: Target?,
-    destination: InsertionDestination = .insert
+    destination: InsertionDestination = .insert,
+    method: InsertionMethod = .paste
   ) async -> InsertionOutcome {
     guard !text.isEmpty else { return .inserted }
     guard destination != .clipboardOnly else {
@@ -186,10 +205,43 @@ final class TextInsertionService {
     guard dependencies.isTargetFocused(target) else {
       return copyToClipboard(text)
     }
+    if method == .typing {
+      // Typing never touches the clipboard, so a "both" destination degrades
+      // to the typed delivery plus a plain copy — there is nothing to restore.
+      let typed = typeText(text, into: target)
+      if destination == .both, !text.isEmpty {
+        _ = copyToClipboard(text)
+      }
+      return typed ? .inserted : .copiedToClipboard
+    }
     if destination == .both {
       return await pasteLeavingClipboard(text, into: target)
     }
     return await pasteAndRestoreClipboard(text, into: target)
+  }
+
+  /// Delivers text as chunked Unicode keyboard events, revalidating focus
+  /// before every chunk. A failed focus check or unpostable chunk copies the
+  /// undelivered remainder to the clipboard, like every failed insertion.
+  private func typeText(_ text: String, into target: Target) -> Bool {
+    var start = text.startIndex
+    while start < text.endIndex {
+      guard dependencies.isTargetFocused(target) else {
+        _ = copyToClipboard(String(text[start..<text.endIndex]))
+        return false
+      }
+
+      // Apps read only a few tens of characters per event before
+      // truncating, so the transcript goes out in chunks split on
+      // grapheme boundaries.
+      let end = text.index(start, offsetBy: 20, limitedBy: text.endIndex) ?? text.endIndex
+      guard dependencies.postTypingChunk(String(text[start..<end])) else {
+        _ = copyToClipboard(String(text[start..<text.endIndex]))
+        return false
+      }
+      start = end
+    }
+    return true
   }
 
   /// An AX attribute read as an element.
@@ -423,5 +475,93 @@ private extension CGRect {
   var area: CGFloat {
     guard !isNull else { return 0 }
     return width * height
+  }
+}
+
+extension TextInsertionService {
+  /// Posts one chunk of dictated text. Line breaks within the chunk are
+  /// posted as Return key presses — embedding them in the Unicode stream
+  /// is what apps ignore (CONTEXT.md).
+  static func postTypingChunk(_ chunk: String) -> Bool {
+    guard let source = CGEventSource(stateID: .combinedSessionState) else {
+      return false
+    }
+
+    let lines = typingLines(in: chunk)
+    for (index, line) in lines.enumerated() {
+      // Empty segments still carry the break that follows them, so
+      // leading and consecutive newlines send a Return each without
+      // ever posting an empty Unicode event.
+      if !line.isEmpty {
+        guard postUnicodeString(line, source: source) else {
+          return false
+        }
+      }
+      if index < lines.count - 1 {
+        guard postReturnKey(source: source) else {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  /// Splits a chunk on every Unicode line break, collapsing CRLF into a
+  /// single break. Empty segments are preserved so the caller can turn
+  /// each break into a Return without emitting empty text events.
+  static func typingLines(in chunk: String) -> [String] {
+    var lines: [String] = []
+    var line = ""
+    var index = chunk.startIndex
+    while index < chunk.endIndex {
+      let character = chunk[index]
+      if character.isNewline {
+        let nextIndex = chunk.index(after: index)
+        if character == "\r", nextIndex < chunk.endIndex, chunk[nextIndex] == "\n" {
+          index = nextIndex
+        }
+        lines.append(line)
+        line = ""
+      } else {
+        line.append(character)
+      }
+      index = chunk.index(after: index)
+    }
+    lines.append(line)
+    return lines
+  }
+
+  private static func postUnicodeString(_ string: String, source: CGEventSource) -> Bool {
+    let characters = Array(string.utf16)
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+      return false
+    }
+
+    characters.withUnsafeBufferPointer { buffer in
+      keyDown.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+      keyUp.keyboardSetUnicodeString(
+        stringLength: characters.count,
+        unicodeString: buffer.baseAddress
+      )
+    }
+
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
+  }
+
+  private static func postReturnKey(source: CGEventSource) -> Bool {
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: true),
+       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false) else {
+      return false
+    }
+
+    keyDown.post(tap: .cghidEventTap)
+    keyUp.post(tap: .cghidEventTap)
+    return true
   }
 }

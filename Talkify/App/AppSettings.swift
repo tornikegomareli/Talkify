@@ -28,6 +28,7 @@ final class AppSettings {
     static let readAloudTranslates = "readAloudTranslates"
     static let dictationTriggerBinding = "dictationTriggerBinding"
     static let readAloudBinding = "readAloudBinding"
+    static let insertionMethod = "dictationInsertionMethod"
     static let recognitionLocale = "recognitionLocale"
     static let secondaryRecognitionLocale = "recognitionLocaleSecondary"
     static let secondaryTriggerBinding = "dictationTriggerBindingSecondary"
@@ -200,6 +201,12 @@ final class AppSettings {
     didSet { Self.store(readAloudBinding, in: defaults, key: Keys.readAloudBinding) }
   }
 
+  /// How finalized dictation text reaches the focused app. Paste is the
+  /// historical default; typing exists for apps that refuse pasted text.
+  var insertionMethod: TextInsertionService.InsertionMethod {
+    didSet { defaults.set(insertionMethod.rawValue, forKey: Keys.insertionMethod) }
+  }
+
   /// The dictation language, as a locale identifier; empty means follow the
   /// Mac's own language, which is what every session did before the Language
   /// section existed.
@@ -333,6 +340,7 @@ final class AppSettings {
       key: Keys.readAloudBinding,
       allowsMouseButton: false
     ) ?? .optionEscape
+    insertionMethod = Self.stored(in: defaults, key: Keys.insertionMethod) ?? .paste
     recognitionLocaleIdentifier = defaults.string(forKey: Keys.recognitionLocale) ?? ""
     secondaryRecognitionLocaleIdentifier =
       defaults.string(forKey: Keys.secondaryRecognitionLocale) ?? ""
@@ -445,6 +453,7 @@ enum BindingRole: Hashable, CaseIterable {
 struct DictationSessionSettings: Equatable {
   let sounds: DictationSoundSettings
   let insertionDestination: InsertionDestination
+  let insertionMethod: TextInsertionService.InsertionMethod
   /// The translation this session performs, or nil when it inserts the words
   /// as spoken. Captured with everything else: changing the target
   /// mid-session must not redirect the session already under way (ADR-0004).
@@ -487,6 +496,7 @@ struct DictationSessionSettings: Equatable {
       volume: settings.dictationSoundVolume
     )
     insertionDestination = settings.insertionDestination
+    insertionMethod = settings.insertionMethod
     historyEnabled = settings.dictationHistoryEnabled
     historyFolder = settings.resolvedHistoryFolder
     ducksOtherAudio = settings.duckOtherAudioWhileDictating

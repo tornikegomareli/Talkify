@@ -778,7 +778,7 @@ final class DirectDictationController {
             await recordHistory(spoken: spoken, delivered: nil, session: session)
             // Clipboard-only whatever the session's destination: nothing is
             // pasted, and the words survive where the user can reach them.
-            let rescue = await dependencies.insertText(spoken, nil, .clipboardOnly)
+            let rescue = await dependencies.insertText(spoken, nil, .clipboardOnly, .paste)
             // Ended, not failed: a failure action would drive the machine to
             // cancelling and cancel a session that has already finished.
             send(.sessionEnded)
@@ -800,7 +800,7 @@ final class DirectDictationController {
         await recordHistory(spoken: spoken, delivered: text, session: session)
 
         let outcome = await dependencies.insertText(
-          text, focusedTarget, session.insertionDestination
+          text, focusedTarget, session.insertionDestination, session.insertionMethod
         )
         AppLog.delivery.info(
           "session ended: \(String(describing: outcome), privacy: .public), \(UsageMetrics.wordCount(in: spoken), privacy: .public) words in \(speakingDuration, format: .fixed(precision: 1), privacy: .public)s"

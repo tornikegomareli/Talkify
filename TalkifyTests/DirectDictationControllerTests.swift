@@ -120,7 +120,7 @@ struct DirectDictationControllerTests {
         )
       ),
       captureFocusedTarget: captureFocusedTarget,
-      insertText: { text, _, destination in
+      insertText: { text, _, destination, _ in
         recorder.events.append("insertText")
         recorder.insertedTexts.append(text)
         recorder.insertedDestinations.append(destination)
