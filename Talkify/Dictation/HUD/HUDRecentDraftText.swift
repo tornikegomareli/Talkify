@@ -101,11 +101,35 @@ struct HUDRecentDraftWindow: Equatable {
 /// overflow the leading edge. Independent per-word ellipses are rejected:
 /// they turn an ordinary eight-word glance into fragments.
 enum HUDRecentDraftLine {
-  static func originX(contentWidth: CGFloat, in bounds: CGRect) -> CGFloat {
-    if bounds.width > 0, contentWidth > bounds.width {
+  static func originX(contentWidth: CGFloat, in bounds: CGRect, anchorsTrailing: Bool = false) -> CGFloat {
+    if anchorsTrailing || (bounds.width > 0 && contentWidth > bounds.width) {
       return bounds.maxX - contentWidth
     }
     return bounds.midX - contentWidth / 2
+  }
+
+  /// How many of the oldest tokens have gone wholly past the line's leading
+  /// edge, given each token's width and the room the line has. A line that
+  /// fits is centered and has lost nothing.
+  static func passedCount(tokenWidths: [CGFloat], room: CGFloat) -> Int {
+    let overflow = tokenWidths.reduce(0, +) - room
+    guard overflow > 0 else { return 0 }
+    var passed = 0
+    var width: CGFloat = 0
+    for tokenWidth in tokenWidths {
+      width += tokenWidth
+      guard width <= overflow else { break }
+      passed += 1
+    }
+    return passed
+  }
+
+  /// A token's width at the line's type size, for `passedCount`.
+  @MainActor
+  static func width(of token: String, scale: CGFloat) -> CGFloat {
+    (token as NSString).size(withAttributes: [
+      .font: NSFont.systemFont(ofSize: HUDRecentDraftText.pointSize * scale, weight: .medium),
+    ]).width
   }
 }
 
@@ -113,6 +137,11 @@ enum HUDRecentDraftLine {
 /// separately. Overflow is then one clip of the oldest words, not eight
 /// ellipses.
 private struct HUDRecentDraftLineLayout: Layout {
+  /// Keeps the newest word at the trailing edge even when the line fits, so a
+  /// fed line moves steadily toward its feed point instead of re-centering
+  /// each time it loses a word.
+  var anchorsTrailing = false
+
   func sizeThatFits(
     proposal: ProposedViewSize,
     subviews: Subviews,
@@ -133,7 +162,11 @@ private struct HUDRecentDraftLineLayout: Layout {
   ) {
     let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
     let contentWidth = sizes.reduce(CGFloat.zero) { $0 + $1.width }
-    var x = HUDRecentDraftLine.originX(contentWidth: contentWidth, in: bounds)
+    var x = HUDRecentDraftLine.originX(
+      contentWidth: contentWidth,
+      in: bounds,
+      anchorsTrailing: anchorsTrailing
+    )
     for (subview, size) in zip(subviews, sizes) {
       subview.place(
         at: CGPoint(x: x, y: bounds.midY - size.height / 2),
@@ -166,6 +199,14 @@ struct HUDRecentDraftText: View {
   /// white. One gradient for the line rather than one per word, so the
   /// colors hold still while words slide through them.
   var tint: [Color]?
+  /// Where something at the line's leading side takes the words in, as an
+  /// offset from the line's leading center, or nil to clip them at the edge.
+  /// Set, the line fades out toward that point instead of being cut, and a
+  /// departing word shrinks into it.
+  var feed: CGSize?
+
+  /// How far the line may draw past its leading edge.
+  private var bleed: CGFloat { max(0, -(feed?.width ?? 0)) }
 
   @State private var lastWindow: HUDRecentDraftWindow?
 
@@ -176,7 +217,7 @@ struct HUDRecentDraftText: View {
   var body: some View {
     let window = self.window
     let animate = lastWindow.map(window.advances(from:)) ?? false
-    tinted(line(window))
+    fed(tinted(line(window)))
       .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
       .onChange(of: window) { _, new in
         lastWindow = new
@@ -186,15 +227,44 @@ struct HUDRecentDraftText: View {
   @ViewBuilder
   private func tinted(_ line: some View) -> some View {
     if let tint {
+      // Reaches past the leading edge as far as the line may draw.
       LinearGradient(colors: tint, startPoint: .leading, endPoint: .trailing)
+        .padding(.leading, -bleed)
         .mask { line }
     } else {
       line
     }
   }
 
+  /// With a feed, the words fade from full strength just inside the leading
+  /// edge to nothing at the feed point, so they vanish into it.
+  @ViewBuilder
+  private func fed(_ line: some View) -> some View {
+    if feed != nil {
+      line.mask {
+        HStack(spacing: 0) {
+          LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+            .frame(width: bleed + 10 * scale)
+          Color.black
+        }
+        .padding(.leading, -bleed)
+      }
+    } else {
+      line
+    }
+  }
+
+  private var departure: AnyTransition {
+    guard let feed else { return .move(edge: .leading).combined(with: .opacity) }
+    return .modifier(
+      active: Swallowed(target: feed, progress: 1),
+      identity: Swallowed(target: feed, progress: 0)
+    )
+    .animation(.easeIn(duration: 0.35))
+  }
+
   private func line(_ window: HUDRecentDraftWindow) -> some View {
-    HUDRecentDraftLineLayout {
+    HUDRecentDraftLineLayout(anchorsTrailing: feed != nil) {
       ForEach(window.visibleTokens) { token in
         Text(token.text)
           .font(.system(size: Self.pointSize * scale, weight: .medium))
@@ -203,11 +273,37 @@ struct HUDRecentDraftText: View {
           .fixedSize(horizontal: true, vertical: false)
           .transition(.asymmetric(
             insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .move(edge: .leading).combined(with: .opacity)
+            removal: departure
           ))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .clipped()
+    // A fed line draws past its edge and fades there instead of being cut.
+    .modifier(ClippedUnlessFed(isFed: feed != nil))
+  }
+}
+
+private struct ClippedUnlessFed: ViewModifier {
+  let isFed: Bool
+
+  func body(content: Content) -> some View {
+    if isFed {
+      content
+    } else {
+      content.clipped()
+    }
+  }
+}
+
+/// A departing word shrinking into the feed point as it fades.
+private struct Swallowed: ViewModifier {
+  let target: CGSize
+  let progress: Double
+
+  func body(content: Content) -> some View {
+    content
+      .scaleEffect(1 - 0.8 * progress, anchor: .leading)
+      .offset(x: target.width * 0.8 * progress, y: target.height * progress)
+      .opacity(1 - progress)
   }
 }

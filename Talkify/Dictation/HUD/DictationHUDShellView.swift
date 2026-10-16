@@ -212,7 +212,8 @@ struct DictationHUDShellView: View {
               palette: settings.glowPalette,
               scale: metrics.scale,
               textColors: intelligenceTextColors,
-              showsDraft: settings.intelligenceShowsDraft
+              showsDraft: settings.intelligenceShowsDraft,
+              stageHeight: recentDraftStageHeight
             )
             .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
           } else {
@@ -353,6 +354,24 @@ struct DictationHUDShellView: View {
   }
 
   static let intelligenceDraftLift: CGFloat = 14
+
+  /// Words the ghost has taken in this session: those the recent-word window
+  /// has dropped, and those that have slid wholly past the line's edge into
+  /// it. A word moves from the second count to the first when the window drops
+  /// it, so it is only ever eaten once. Only the ghost bites, so only the
+  /// ghost pays for the measuring.
+  private var intelligenceBites: Int {
+    guard intelligenceExpanded, settings.intelligenceCenter == .ghost else { return 0 }
+    let window = HUDRecentDraftWindow(committed: content.text, volatile: content.volatileText)
+    let widths = window.visibleTokens.map {
+      HUDRecentDraftLine.width(of: $0.text, scale: metrics.scale)
+    }
+    let room = HUDIntelligenceStageView.lineRoom(shapeWidth: size.width, scale: metrics.scale)
+    // Text with no word tokens (punctuation alone) is one visible slice and
+    // no tokens, which must not count as a negative bite.
+    return max(0, window.tokenCount - window.visibleTokens.count)
+      + HUDRecentDraftLine.passedCount(tokenWidths: widths, room: room)
+  }
 
   /// White at the start of the line, warming into the palette, so the words
   /// stay legible on the black stage and still read as the rim's colors.
@@ -540,7 +559,9 @@ struct DictationHUDShellView: View {
           metrics: metrics,
           housingHeight: HUDNotchGeometry.closedSize(for: screen).height,
           stageHeight: recentDraftStageHeight,
-          center: settings.intelligenceCenter
+          center: settings.intelligenceCenter,
+          bites: intelligenceBites,
+          eating: intelligenceExpanded
         )
       }
       .clipShape(housingShape)

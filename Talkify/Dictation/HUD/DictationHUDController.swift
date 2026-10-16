@@ -153,6 +153,7 @@ final class DictationHUDController {
     stopWatchdog()
     content.isAudioAlive = true
     content.audioLevel = 0
+    content.isFinalizing = true
   }
 
   /// The shaping phase: recognition is finished and the chosen prompt is
@@ -212,6 +213,7 @@ final class DictationHUDController {
   /// watchdog.
   private func startVoiceVisual() {
     content.isDismissing = false
+    content.isFinalizing = false
     content.sessionEpoch += 1
     content.showsVoiceVisual = true
     content.audioLevel = 0

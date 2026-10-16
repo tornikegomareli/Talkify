@@ -97,6 +97,45 @@ struct HUDIntelligenceTests {
     #expect(flight.phase - phase < 0.3)
   }
 
+  /// The ghost's arc starts under the camera and ends on its resting place
+  /// exactly, sets off and lands upright, and leans left on the way, because
+  /// the corner is to the left.
+  @Test func theGhostFliesAnArcFromTheCameraToTheCorner() {
+    let start = CGPoint(x: 270, y: 28)
+    let end = CGPoint(x: 30, y: 59)
+    let launch = HUDIntelligenceOrbView.ghostFlight(progress: 0, from: start, to: end, scale: 1)
+    let landing = HUDIntelligenceOrbView.ghostFlight(progress: 1, from: start, to: end, scale: 1)
+    #expect(launch.point == start && abs(launch.lean) < 0.001)
+    #expect(landing.point == end && abs(landing.lean) < 0.001)
+    let midway = HUDIntelligenceOrbView.ghostFlight(progress: 0.5, from: start, to: end, scale: 1)
+    #expect(midway.lean < 0)
+    #expect(midway.point.y > end.y)
+  }
+
+  /// The mouth only opens for a bite, and is widest halfway through it.
+  @Test func aBiteOpensTheMouthOnceAndClosesIt() {
+    let duration = HUDIntelligenceGhostView.chompDuration
+    #expect(HUDIntelligenceGhostView.chomp(at: -0.1) == 0)
+    #expect(HUDIntelligenceGhostView.chomp(at: duration / 2) > 0.99)
+    #expect(HUDIntelligenceGhostView.chomp(at: duration) == 0)
+  }
+
+  /// Speech ending is when Intelligence's center flies home, so the content
+  /// says so, and the next session starts without it.
+  @MainActor
+  @Test func finalizingIsMarkedAndTheNextSessionClearsIt() {
+    let store = AppSettings.previewStore()
+    store.voiceVisual = .intelligence
+    let stage = HUDStage(settings: store)
+    let hud = DictationHUDController(stage: stage, settings: store)
+    hud.showListening(on: nil, isLatched: false, settings: store.sessionSettings)
+    #expect(!stage.dictationContent.isFinalizing)
+    hud.showFinalizing()
+    #expect(stage.dictationContent.isFinalizing)
+    hud.showListening(on: nil, isLatched: false, settings: store.sessionSettings)
+    #expect(!stage.dictationContent.isFinalizing)
+  }
+
   @Test func theGhostBlinksBrieflyAndOtherwiseKeepsItsEyesOpen() {
     let period = HUDIntelligenceGhostView.blinkPeriod
     let blink = HUDIntelligenceGhostView.blinkDuration

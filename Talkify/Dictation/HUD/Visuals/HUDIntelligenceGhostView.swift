@@ -93,14 +93,21 @@ struct HUDIntelligenceGhostView: View {
   let level: Double
   let alive: Bool
   let height: CGFloat
+  /// Words eaten so far. Each change is a bite: the mouth opens as the word
+  /// arrives and the ghost chomps.
+  var bites = 0
+  /// Whether there are words beside it; it watches them while there are.
+  var eating = false
 
   @State private var flight = HUDGhostFlight()
+  @State private var biteStart = Date.distantPast
 
   var body: some View {
     TimelineView(.animation(paused: !alive)) { context in
       let t = context.date.timeIntervalSinceReferenceDate
       let _ = flight.advance(to: context.date, level: alive ? level : 0)
       let pose = HUDGhostPose.at(phase: flight.phase, energy: flight.energy)
+      let chomp = Self.chomp(at: context.date.timeIntervalSince(biteStart))
       let width = height * Self.aspect
       let ghost = HUDGhostShape(sway: pose.hemWave)
       ZStack {
@@ -117,19 +124,29 @@ struct HUDIntelligenceGhostView: View {
             startRadius: 0,
             endRadius: width * 0.6
           ))
-        eyes(at: t, width: width, glance: pose.tilt / 10)
+        eyes(at: t, width: width, glance: eating ? 0.8 : pose.tilt / 10, squint: chomp)
+        mouth(width: width, open: chomp)
       }
       .frame(width: width, height: height)
-      .scaleEffect(x: 1 / pose.stretch, y: pose.stretch, anchor: .bottom)
-      .rotationEffect(.degrees(pose.tilt))
+      .scaleEffect(
+        x: (1 + 0.08 * chomp) / pose.stretch,
+        y: (1 - 0.06 * chomp) * pose.stretch,
+        anchor: .bottom
+      )
+      // Leans toward the words it is eating.
+      .rotationEffect(.degrees(pose.tilt + 6 * chomp))
       .offset(x: pose.x * height, y: pose.y * height)
     }
     .accessibilityHidden(true)
+    .onChange(of: bites) { old, new in
+      if new > old { biteStart = .now }
+    }
   }
 
-  /// The eyes glance the way the ghost leans, so it looks where it flies.
-  private func eyes(at t: TimeInterval, width: CGFloat, glance: Double) -> some View {
-    let openness = alive ? Self.openness(at: t) : 0.4
+  /// The eyes glance the way the ghost leans, so it looks where it flies, or
+  /// toward the words while there are some. They squint as it bites.
+  private func eyes(at t: TimeInterval, width: CGFloat, glance: Double, squint: Double) -> some View {
+    let openness = (alive ? Self.openness(at: t) : 0.4) * (1 - 0.6 * squint)
     return HStack(spacing: width * 0.16) {
       Capsule()
       Capsule()
@@ -138,6 +155,24 @@ struct HUDIntelligenceGhostView: View {
     .frame(width: width * 0.36, height: height * 0.22 * openness * (1 + 0.25 * level))
     .offset(x: glance * width * 0.05, y: -height * 0.08)
   }
+
+  /// A mouth that only exists mid-bite.
+  private func mouth(width: CGFloat, open: Double) -> some View {
+    Ellipse()
+      .fill(.black.opacity(0.88))
+      .frame(width: width * 0.22, height: height * 0.16 * open)
+      .offset(y: height * 0.12)
+      .opacity(open > 0.02 ? 1 : 0)
+  }
+
+  /// How far into a bite the ghost is, `elapsed` seconds after a word reached
+  /// it: the mouth opens fast, holds as the word goes in, and closes.
+  static func chomp(at elapsed: TimeInterval) -> Double {
+    guard elapsed >= 0, elapsed < chompDuration else { return 0 }
+    return sin(.pi * elapsed / chompDuration)
+  }
+
+  static let chompDuration = 0.38
 
   /// How open the eyes are at `t`: fully, apart from a quick blink every few
   /// seconds.

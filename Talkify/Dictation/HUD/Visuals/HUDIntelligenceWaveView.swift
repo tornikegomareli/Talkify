@@ -7,6 +7,10 @@ struct HUDIntelligenceWaveView: View {
   static let barCount = 4
   /// The indicator's full height at full HUD size.
   static let height: CGFloat = 18
+  static let barWidth: CGFloat = 3
+  static let barSpacing: CGFloat = 2.5
+  /// The indicator's width at full HUD size.
+  static let width = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * barSpacing
 
   let content: DictationHUDContent
   let palette: HUDGlowPalette
@@ -19,11 +23,11 @@ struct HUDIntelligenceWaveView: View {
       let t = context.date.timeIntervalSinceReferenceDate
       let level = alive ? content.audioLevel : 0
       let colors = alive ? palette.intelligenceColors : [HUDVisualTokens.deadMicAmber]
-      HStack(spacing: 2.5 * scale) {
+      HStack(spacing: Self.barSpacing * scale) {
         ForEach(0..<Self.barCount, id: \.self) { bar in
           Capsule()
             .fill(LinearGradient(colors: colors, startPoint: .bottom, endPoint: .top))
-            .frame(width: 3 * scale, height: Self.reach(bar: bar, at: t, level: level) * Self.height * scale)
+            .frame(width: Self.barWidth * scale, height: Self.reach(bar: bar, at: t, level: level) * Self.height * scale)
         }
       }
       .frame(height: Self.height * scale)

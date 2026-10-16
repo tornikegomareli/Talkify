@@ -11,6 +11,18 @@ struct HUDIntelligenceStageView: View {
 
   /// The recent-word line's box: its 24-point type and a little air.
   static let draftLineHeight: CGFloat = 30
+  /// Space between the row's three parts.
+  static let spacing: CGFloat = 10
+  /// Room after the voice indicator, at the trailing edge.
+  static let trailingInset: CGFloat = 16
+  /// From the line's leading edge back to the center's middle: how far the
+  /// line fades past its edge as the center takes the words in.
+  static let feedReach = iconReserve + spacing - HUDIntelligenceOrbView.restingInset
+
+  /// The line's width in a shape `width` wide, plus the reach it fades into.
+  static func lineRoom(shapeWidth width: CGFloat, scale: CGFloat) -> CGFloat {
+    width - (iconReserve + 2 * spacing + HUDIntelligenceWaveView.width + trailingInset - feedReach) * scale
+  }
 
   let content: DictationHUDContent
   let palette: HUDGlowPalette
@@ -19,13 +31,15 @@ struct HUDIntelligenceStageView: View {
   let textColors: [Color]
   /// Off, the row keeps saying Listening while words arrive.
   var showsDraft = true
+  /// The stage's height, to find the center's middle beside the line.
+  var stageHeight: CGFloat = 0
 
   private var hasDraft: Bool {
     showsDraft && (!content.text.isEmpty || !content.volatileText.isEmpty)
   }
 
   var body: some View {
-    HStack(spacing: 10 * scale) {
+    HStack(spacing: Self.spacing * scale) {
       Color.clear
         .frame(width: Self.iconReserve * scale)
       ZStack(alignment: .leading) {
@@ -36,7 +50,13 @@ struct HUDIntelligenceStageView: View {
             committed: content.text,
             volatile: content.volatileText,
             scale: scale,
-            tint: textColors
+            tint: textColors,
+            // The center's middle, from the line's leading center: back past
+            // the edge, and down to the stage's center line.
+            feed: CGSize(
+              width: -Self.feedReach * scale,
+              height: stageHeight / 2 - (3 + Self.draftLineHeight / 2) * scale
+            )
           )
           .frame(height: Self.draftLineHeight * scale)
           .frame(maxHeight: .infinity, alignment: .top)
@@ -56,6 +76,6 @@ struct HUDIntelligenceStageView: View {
       .animation(.easeOut(duration: 0.3), value: hasDraft)
       HUDIntelligenceWaveView(content: content, palette: palette, scale: scale)
     }
-    .padding(.trailing, 16 * scale)
+    .padding(.trailing, Self.trailingInset * scale)
   }
 }

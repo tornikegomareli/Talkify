@@ -192,4 +192,21 @@ struct HUDRecentDraftLineTests {
     let bounds = CGRect(x: 10, y: 0, width: 100, height: 40)
     #expect(HUDRecentDraftLine.originX(contentWidth: 140, in: bounds) == -30)
   }
+
+  /// A fed line keeps its newest word at the trailing edge even when it fits,
+  /// so losing a word never re-centers it.
+  @Test func aFedLineStaysOnItsTrailingEdge() {
+    let bounds = CGRect(x: 0, y: 0, width: 120, height: 30)
+    #expect(HUDRecentDraftLine.originX(contentWidth: 40, in: bounds, anchorsTrailing: true) == 80)
+    #expect(HUDRecentDraftLine.originX(contentWidth: 140, in: bounds, anchorsTrailing: true) == -20)
+  }
+
+  /// Only whole tokens count as gone past the edge, oldest first, and a line
+  /// that fits has lost none.
+  @Test func onlyWholeTokensCountAsPassed() {
+    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 200) == 0)
+    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 100) == 0)
+    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 90) == 1)
+    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 50) == 2)
+  }
 }

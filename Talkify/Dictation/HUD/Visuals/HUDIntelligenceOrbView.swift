@@ -42,9 +42,13 @@ struct HUDIntelligenceOrbView: View {
   /// Height of the stage the orb rests in. It grows when the first word
   /// arrives, and the orb stays on its center line.
   let stageHeight: CGFloat
-  /// The orb itself, or Talkify's ghost on the same path, without the liquid
-  /// neck: a ghost floats down rather than drips.
+  /// The orb itself, or Talkify's ghost, which flies its own arc instead of
+  /// dripping.
   var center = HUDIntelligenceCenterStyle.orb
+  /// Words the ghost has eaten so far this session; each new one is a bite.
+  var bites = 0
+  /// Whether there are words beside the ghost to watch.
+  var eating = false
 
   /// The drop's current path, and when it started. Rebuilt from wherever the
   /// drop is whenever listening starts or stops, so a session that ends
@@ -56,7 +60,9 @@ struct HUDIntelligenceOrbView: View {
   @State private var settledEpoch = 0
 
   var body: some View {
-    let listening = content.showsVoiceVisual
+    // Home as soon as speech is over, not only when the shape retracts: the
+    // retract is too quick to watch a flight under it.
+    let listening = content.showsVoiceVisual && !content.isFinalizing
     let alive = content.isAudioAlive
     let _ = settledEpoch
     let running = listening || Date.now.timeIntervalSince(pathStart) < path.duration
@@ -73,13 +79,69 @@ struct HUDIntelligenceOrbView: View {
     .onChange(of: listening, initial: true) { _, listening in
       let now = Date.now
       let current = path.value(time: now.timeIntervalSince(pathStart))
-      path = Self.timeline(emerging: listening, from: current)
+      path = center == .ghost
+        ? Self.ghostTimeline(emerging: listening, from: current)
+        : Self.timeline(emerging: listening, from: current)
       pathStart = now
     }
     .task(id: pathStart) {
       try? await Task.sleep(for: .seconds(path.duration))
       settledEpoch += 1
     }
+  }
+
+  /// The ghost's flight in or out: one eased arc, `fall` running along it from
+  /// under the camera (0) to the corner (1), and `swell` growing it on the
+  /// way. Leaving is the same arc backwards, shrinking into the notch.
+  private static func ghostTimeline(
+    emerging: Bool,
+    from start: HUDIntelligenceDrop
+  ) -> KeyframeTimeline<HUDIntelligenceDrop> {
+    KeyframeTimeline(initialValue: start) {
+      KeyframeTrack(\.fall) {
+        if emerging {
+          // Waits under the camera while the shape reveals, so the whole arc
+          // is flown in plain sight.
+          LinearKeyframe(start.fall, duration: 0.25)
+          SpringKeyframe(1, duration: 1.2, spring: Spring(response: 0.75, dampingRatio: 0.86))
+        } else {
+          SpringKeyframe(0, duration: 0.7, spring: Spring(response: 0.5, dampingRatio: 1))
+        }
+      }
+      KeyframeTrack(\.swell) {
+        if emerging {
+          SpringKeyframe(1, duration: 0.8, spring: Spring(response: 0.5, dampingRatio: 0.85))
+        } else {
+          LinearKeyframe(start.swell, duration: 0.3)
+          SpringKeyframe(0, duration: 0.4, spring: Spring(response: 0.35, dampingRatio: 1))
+        }
+      }
+    }
+  }
+
+  /// A point on the ghost's arc and the lean that goes with it. A cubic curve
+  /// that leaves the camera straight down, sweeps low toward the corner and
+  /// arrives level, so the ghost swoops rather than sliding. The lean follows
+  /// the curve's sideways direction and is zero at both ends, so the ghost
+  /// sets off and lands upright.
+  static func ghostFlight(
+    progress: Double,
+    from start: CGPoint,
+    to end: CGPoint,
+    scale: CGFloat
+  ) -> (point: CGPoint, lean: Double) {
+    let p = min(max(progress, 0), 1)
+    let c1 = CGPoint(x: start.x, y: end.y + 10 * scale)
+    let c2 = CGPoint(x: end.x + 80 * scale, y: end.y + 8 * scale)
+    let u = 1 - p
+    let point = CGPoint(
+      x: u * u * u * start.x + 3 * u * u * p * c1.x + 3 * u * p * p * c2.x + p * p * p * end.x,
+      y: u * u * u * start.y + 3 * u * u * p * c1.y + 3 * u * p * p * c2.y + p * p * p * end.y
+    )
+    let dx = 3 * u * u * (c1.x - start.x) + 6 * u * p * (c2.x - c1.x) + 3 * p * p * (end.x - c2.x)
+    let dy = 3 * u * u * (c1.y - start.y) + 6 * u * p * (c2.y - c1.y) + 3 * p * p * (end.y - c2.y)
+    let speed = max(hypot(dx, dy), 0.001)
+    return (point, Double(dx / speed) * 16 * sin(.pi * p))
   }
 
   /// The drop's path in or out. Each track starts from where the drop is.
@@ -157,8 +219,17 @@ struct HUDIntelligenceOrbView: View {
       .union(CGRect(x: anchor.x - beadRadius, y: anchor.y - beadRadius, width: 2 * beadRadius, height: 2 * beadRadius))
       .insetBy(dx: -join, dy: -join)
     if center == .ghost {
-      HUDIntelligenceGhostView(colors: colors, level: level, alive: alive, height: radius * 2.25)
-        .position(centerPoint)
+      let flight = Self.ghostFlight(progress: drop.fall, from: bud, to: rest, scale: scale)
+      HUDIntelligenceGhostView(
+        colors: colors,
+        level: level,
+        alive: alive,
+        height: radius * 2.25,
+        bites: bites,
+        eating: eating
+      )
+      .rotationEffect(.degrees(flight.lean))
+      .position(flight.point)
     } else {
       ZStack(alignment: .topLeading) {
         Circle()
