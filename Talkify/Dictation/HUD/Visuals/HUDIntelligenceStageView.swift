@@ -9,6 +9,9 @@ struct HUDIntelligenceStageView: View {
   /// Width kept clear for the orb or ghost, from the stage's leading edge.
   static let iconReserve = HUDIntelligenceOrbView.restingInset + HUDIntelligenceOrbView.restingRadius + 8
 
+  /// The recent-word line's box: its 24-point type and a little air.
+  static let draftLineHeight: CGFloat = 30
+
   let content: DictationHUDContent
   let palette: HUDGlowPalette
   let scale: CGFloat
@@ -25,12 +28,17 @@ struct HUDIntelligenceStageView: View {
         .frame(width: Self.iconReserve * scale)
       ZStack(alignment: .leading) {
         if hasDraft {
+          // In the stage's upper part, above the orb's center line, so the
+          // oldest words never run into it.
           HUDRecentDraftText(
             committed: content.text,
             volatile: content.volatileText,
             scale: scale,
             tint: textColors
           )
+          .frame(height: Self.draftLineHeight * scale)
+          .frame(maxHeight: .infinity, alignment: .top)
+          .padding(.top, 3 * scale)
           .transition(.blurReplace)
         } else if content.showsVoiceVisual {
           // Part of the visual, not a placeholder draft: it names the state

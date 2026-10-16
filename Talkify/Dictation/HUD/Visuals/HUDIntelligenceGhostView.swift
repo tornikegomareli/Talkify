@@ -57,7 +57,7 @@ struct HUDIntelligenceGhostView: View {
         ghost
           .fill(colors[1])
           .blur(radius: height * 0.3)
-          .opacity(0.45 + 0.4 * level)
+          .opacity(0.4 + 0.2 * level)
         HUDIntelligenceMesh(colors: colors, moving: alive)
           .mask(ghost)
         ghost

@@ -39,6 +39,9 @@ struct HUDIntelligenceOrbView: View {
   let metrics: HUDMetrics
   /// Height of the housing strip the orb drips out of.
   let housingHeight: CGFloat
+  /// Height of the stage the orb rests in. It grows when the first word
+  /// arrives, and the orb stays on its center line.
+  let stageHeight: CGFloat
   /// The orb itself, or Talkify's ghost on the same path, without the liquid
   /// neck: a ghost floats down rather than drips.
   var center = HUDIntelligenceCenterStyle.orb
@@ -138,7 +141,7 @@ struct HUDIntelligenceOrbView: View {
     let bud = CGPoint(x: size.width / 2, y: housingHeight - 4 * scale)
     let rest = CGPoint(
       x: Self.restingInset * scale,
-      y: housingHeight + metrics.glowDraftStageHeight / 2
+      y: housingHeight + stageHeight / 2
     )
     let radius = Self.restingRadius * scale * drop.swell * (1 + 0.14 * level)
     let centerPoint = CGPoint(
@@ -162,7 +165,7 @@ struct HUDIntelligenceOrbView: View {
           .fill(colors[1])
           .frame(width: radius * 2.8, height: radius * 2.8)
           .blur(radius: 10 * scale)
-          .opacity(0.45 + 0.45 * level)
+          .opacity(0.4 + 0.2 * level)
           .position(centerPoint)
         HUDIntelligenceMesh(colors: colors, moving: alive)
           .frame(width: box.width, height: box.height)

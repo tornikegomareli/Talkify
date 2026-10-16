@@ -34,12 +34,12 @@ struct HUDIntelligenceRimView: View {
         let spin = spinningGradient(colors: colors, degrees: turn, in: proxy.size)
         ZStack {
           spin
-            .mask(outline.stroke(lineWidth: (12 + 10 * level) * metrics.scale))
+            .mask(outline.stroke(lineWidth: (12 + 4 * level) * metrics.scale))
             .blur(radius: 7 * metrics.scale)
           spin
             .mask(outline.stroke(lineWidth: 1.6 * metrics.scale))
         }
-        .opacity(0.55 + 0.45 * level)
+        .opacity(0.55 + 0.2 * level)
       }
     }
     // Fades with the session like the beam, so the rim drains as the

@@ -52,7 +52,7 @@ struct DictationHUDShellView: View {
       // in the declared size or Slide parks short of hiding the island.
       visualBandHeight: visualBandHeight
         + (showsRecentDraft
-          ? metrics.glowDraftStageHeight - metrics.textBandHeight : 0),
+          ? recentDraftStageHeight - metrics.textBandHeight : 0),
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
@@ -267,7 +267,7 @@ struct DictationHUDShellView: View {
   private var textBand: some View {
     if showsRecentDraft {
       Color.clear
-        .frame(height: metrics.glowDraftStageHeight)
+        .frame(height: recentDraftStageHeight)
     } else {
       Group {
         if showsLeadingDraft {
@@ -342,6 +342,14 @@ struct DictationHUDShellView: View {
   }
 
   static let intelligenceListeningWidth: CGFloat = 300
+
+  /// The hanging stage under the housing. Intelligence's grows a little when
+  /// the first word arrives, so the line can sit above the orb's center line.
+  private var recentDraftStageHeight: CGFloat {
+    metrics.glowDraftStageHeight + (intelligenceExpanded ? Self.intelligenceDraftLift * metrics.scale : 0)
+  }
+
+  static let intelligenceDraftLift: CGFloat = 14
 
   /// White at the start of the line, warming into the palette, so the words
   /// stay legible on the black stage and still read as the rim's colors.
@@ -528,6 +536,7 @@ struct DictationHUDShellView: View {
           palette: settings.glowPalette,
           metrics: metrics,
           housingHeight: HUDNotchGeometry.closedSize(for: screen).height,
+          stageHeight: recentDraftStageHeight,
           center: settings.intelligenceCenter
         )
       }
@@ -547,7 +556,9 @@ struct DictationHUDShellView: View {
         content: content,
         settings: settings,
         metrics: metrics,
-        topFilletRadius: filletSize
+        topFilletRadius: filletSize,
+        voiceGain: showsIntelligence ? 0.3 : 1,
+        strength: showsIntelligence ? 0.8 : 1
       )
     }
   }
