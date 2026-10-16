@@ -44,7 +44,7 @@ struct DictationHUDShellView: View {
   }
 
   private var size: CGSize {
-    HUDNotchGeometry.contentSize(
+    var size = HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
       // Edge Glow + Draft has no visual band; its hanging stage is 40
@@ -52,10 +52,19 @@ struct DictationHUDShellView: View {
       // in the declared size or Slide parks short of hiding the island.
       visualBandHeight: visualBandHeight
         + (showsRecentDraft
-          ? metrics.glowDraftStageHeight - metrics.textBandHeight : 0),
+          ? recentDraftStageHeight - metrics.textBandHeight : 0),
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
+    if showsFlyingGhost {
+      size.width = Self.flyingGhostWidth(
+        expanded: ghostExpanded,
+        fullWidth: size.width,
+        screen: screen,
+        metrics: metrics
+      )
+    }
+    return size
   }
 
   /// Whether the shape carries the shaping label's strip. Derived from the
@@ -89,7 +98,7 @@ struct DictationHUDShellView: View {
     guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     switch settings.voiceVisual {
-    case .compact, .glowDraft, .intelligence: return 0
+    case .compact, .glowDraft, .flyingGhost: return 0
     case .waveform, .glow: return metrics.waveBandHeight
     }
   }
@@ -159,10 +168,13 @@ struct DictationHUDShellView: View {
       overlays: {
         particleCloud
         siriOrb
-        intelligence
+        flyingGhost
         edgeGlow
       }
     )
+    // The island's own morph spring, decoded from SpringBoard, so Flying Ghost
+    // widens for the first word the way the island grows for an activity.
+    .animation(.spring(HUDFlyingGhostView.islandSpring), value: ghostExpanded)
   }
 
   private var bands: some View {
@@ -192,18 +204,31 @@ struct DictationHUDShellView: View {
     stackedBands
       .overlay {
         if showsRecentDraft {
-          HUDRecentDraftText(
-            committed: content.text,
-            volatile: content.volatileText,
-            scale: metrics.scale,
-            tint: showsIntelligence ? intelligenceTextColors : nil
-          )
-          .padding(.horizontal, recentDraftInset * metrics.scale)
+          if showsFlyingGhost {
+            // Under the housing rather than centered on the island: the row
+            // lines up with the orb, which rests on the stage's center line.
+            HUDFlyingGhostStageView(
+              content: content,
+              palette: settings.glowPalette,
+              scale: metrics.scale,
+              textColors: ghostTextColors,
+              showsDraft: settings.flyingGhostShowsDraft,
+              stageHeight: recentDraftStageHeight
+            )
+            .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
+          } else {
+            HUDRecentDraftText(
+              committed: content.text,
+              volatile: content.volatileText,
+              scale: metrics.scale
+            )
+            .padding(.horizontal, tagInset * metrics.scale)
+          }
         }
       }
-      // Intelligence's orb rests on the leading edge, so its tag moves to the
-      // trailing one.
-      .overlay(alignment: showsIntelligence ? .trailing : .leading) {
+      // Flying Ghost's ghost and voice indicator hold both ends of the stage, so
+      // its tag sits in the housing strip's trailing flank instead.
+      .overlay(alignment: showsFlyingGhost ? .topTrailing : .leading) {
         if showsRecentDraft { languageTag }
       }
   }
@@ -244,7 +269,7 @@ struct DictationHUDShellView: View {
   private var textBand: some View {
     if showsRecentDraft {
       Color.clear
-        .frame(height: metrics.glowDraftStageHeight)
+        .frame(height: recentDraftStageHeight)
     } else {
       Group {
         if showsLeadingDraft {
@@ -291,23 +316,81 @@ struct DictationHUDShellView: View {
     visual.showsRecentDraftLine && !reduceMotion && (listening || dismissing || shaping)
   }
 
-  private var showsIntelligence: Bool {
-    settings.voiceVisual == .intelligence && !reduceMotion
+  private var showsFlyingGhost: Bool {
+    settings.voiceVisual == .flyingGhost && !reduceMotion
   }
 
-  /// The draft's inset on each side. Intelligence keeps the words clear of
-  /// its orb on both sides, so a line that fits stays centered.
-  private var recentDraftInset: CGFloat {
-    showsIntelligence ? max(tagInset, Self.intelligenceOrbReserve) : tagInset
+  /// Whether Flying Ghost has words to show. The island holds its listening
+  /// width until the first word, then widens for the line.
+  private var ghostExpanded: Bool {
+    ghostHasDraft && !content.isFinalizing
   }
 
-  /// The orb's diameter plus air on either side of it.
-  private static let intelligenceOrbReserve: CGFloat = 60
+  /// Whether Flying Ghost has a live draft to show. When speech ends the
+  /// draft leaves first and the island eases back, then the center flies home.
+  private var ghostHasDraft: Bool {
+    showsFlyingGhost
+      && settings.flyingGhostShowsDraft
+      && (!content.text.isEmpty || !content.volatileText.isEmpty)
+  }
+
+  /// Flying Ghost's width: room for the ghost, "Listening" and the voice
+  /// indicator until the first word, then the whole shape. Never narrower than
+  /// the housing it grows from, and never wider than the full shape.
+  static func flyingGhostWidth(
+    expanded: Bool,
+    fullWidth: CGFloat,
+    screen: HUDScreenSnapshot,
+    metrics: HUDMetrics
+  ) -> CGFloat {
+    guard !expanded else { return fullWidth }
+    let listening = max(
+      flyingGhostListeningWidth * metrics.scale,
+      HUDNotchGeometry.minimumShapeWidth(for: screen)
+    )
+    return min(listening, fullWidth)
+  }
+
+  static let flyingGhostListeningWidth: CGFloat = 300
+
+  /// The hanging stage under the housing. Flying Ghost's grows a little when
+  /// the first word arrives, so the line can sit above the orb's center line.
+  private var recentDraftStageHeight: CGFloat {
+    metrics.glowDraftStageHeight + (ghostExpanded ? Self.ghostDraftLift * metrics.scale : 0)
+  }
+
+  static let ghostDraftLift: CGFloat = 14
+
+  /// Words the ghost has taken in this session: those whose front has reached
+  /// its mouth, and those the recent-word window has dropped since, which had
+  /// all reached it first. A word moves from one count to the other, so it is
+  /// only ever eaten once. Only the ghost bites, so only the ghost pays for
+  /// the measuring.
+  private var ghostBites: Int {
+    guard ghostExpanded else { return 0 }
+    let window = HUDRecentDraftWindow(
+      committed: content.text,
+      volatile: content.volatileText,
+      limit: HUDRecentDraftText.fedWordLimit
+    )
+    let widths = window.visibleTokens.map {
+      HUDRecentDraftLine.width(of: $0.text, scale: metrics.scale)
+    }
+    let room = HUDFlyingGhostStageView.lineRoom(shapeWidth: size.width, scale: metrics.scale)
+    // Text with no word tokens (punctuation alone) is one visible slice and
+    // no tokens, which must not count as a negative bite.
+    return max(0, window.tokenCount - window.visibleTokens.count)
+      + HUDRecentDraftLine.reachedCount(
+        tokenWidths: widths,
+        room: room,
+        mouth: HUDRecentDraftText.mouthInset * metrics.scale
+      )
+  }
 
   /// White at the start of the line, warming into the palette, so the words
   /// stay legible on the black stage and still read as the rim's colors.
-  private var intelligenceTextColors: [Color] {
-    [.white] + settings.glowPalette.intelligenceColors.prefix(3).map { $0.mix(with: .white, by: 0.4) }
+  private var ghostTextColors: [Color] {
+    [.white] + settings.glowPalette.ghostColors.prefix(3).map { $0.mix(with: .white, by: 0.4) }
   }
 
   /// The room the language tag needs on each side.
@@ -347,11 +430,12 @@ struct DictationHUDShellView: View {
   private var languageTag: some View {
     if let tag = content.languageTag {
       tagCapsule(tag)
-        .padding(showsIntelligence && showsRecentDraft ? .trailing : .leading, 12 * metrics.scale)
+        .padding(showsFlyingGhost && showsRecentDraft ? .trailing : .leading, 12 * metrics.scale)
         // Edge Glow + Draft overlays the tag on the whole island, so it
-        // shares the draft's vertical center. Other visuals pin it below
-        // the housing from the shell.
-        .padding(.top, showsRecentDraft ? 0 : tagTopInset)
+        // shares the draft's vertical center; Flying Ghost hangs it in the
+        // housing strip's flank. Other visuals pin it below the housing from
+        // the shell.
+        .padding(.top, showsRecentDraft ? (showsFlyingGhost ? 8 * metrics.scale : 0) : tagTopInset)
         .allowsHitTesting(false)
     }
   }
@@ -474,20 +558,23 @@ struct DictationHUDShellView: View {
     }
   }
 
-  /// Intelligence: the palette rim inside the shape and the orb that drips
+  /// Flying Ghost: the palette rim inside the shape and the ghost that flies
   /// out of the notch. Both are clipped to the shape, and both stay mounted
-  /// while the visual is selected so they can drain and flow back after the
+  /// while the visual is selected so they can drain and fly home after the
   /// session ends.
   @ViewBuilder
-  private var intelligence: some View {
-    if showsIntelligence {
+  private var flyingGhost: some View {
+    if showsFlyingGhost {
       ZStack {
-        HUDIntelligenceRimView(content: content, palette: settings.glowPalette, metrics: metrics)
-        HUDIntelligenceOrbView(
+        HUDFlyingGhostRimView(content: content, palette: settings.glowPalette, metrics: metrics)
+        HUDFlyingGhostView(
           content: content,
           palette: settings.glowPalette,
           metrics: metrics,
-          housingHeight: HUDNotchGeometry.closedSize(for: screen).height
+          housingHeight: HUDNotchGeometry.closedSize(for: screen).height,
+          stageHeight: recentDraftStageHeight,
+          bites: ghostBites,
+          eating: ghostHasDraft
         )
       }
       .clipShape(housingShape)
@@ -506,7 +593,9 @@ struct DictationHUDShellView: View {
         content: content,
         settings: settings,
         metrics: metrics,
-        topFilletRadius: filletSize
+        topFilletRadius: filletSize,
+        voiceGain: showsFlyingGhost ? 0.3 : 1,
+        strength: showsFlyingGhost ? 0.8 * settings.glowPalette.ghostGlowBalance : 1
       )
     }
   }
@@ -549,12 +638,12 @@ struct DictationHUDShellView: View {
   HUDShellPreviewHarness(visual: .glowDraft)
 }
 
-#Preview("Intelligence · session cycle") {
-  HUDShellPreviewHarness(visual: .intelligence, simulatesSessionCycle: true)
+#Preview("Flying Ghost · session cycle") {
+  HUDShellPreviewHarness(visual: .flyingGhost, simulatesSessionCycle: true)
 }
 
-#Preview("Intelligence · dead mic") {
-  HUDShellPreviewHarness(visual: .intelligence, micAlive: false)
+#Preview("Flying Ghost · dead mic") {
+  HUDShellPreviewHarness(visual: .flyingGhost, micAlive: false)
 }
 
 #Preview("Edge Glow + Draft · dead mic") {

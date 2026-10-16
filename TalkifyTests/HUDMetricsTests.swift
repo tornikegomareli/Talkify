@@ -38,7 +38,7 @@ struct HUDMetricsTests {
   @Test func draftVisualsAndReduceMotionGiveUpTheSmallestSizes() {
     #expect(HUDMetrics.minimumScale(for: .compact, reduceMotion: false) == 0.4)
     #expect(HUDMetrics.minimumScale(for: .glowDraft, reduceMotion: false) == 0.4)
-    #expect(HUDMetrics.minimumScale(for: .intelligence, reduceMotion: false) == 0.4)
+    #expect(HUDMetrics.minimumScale(for: .flyingGhost, reduceMotion: false) == 0.4)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .glow, reduceMotion: false) == 0.2)
     #expect(HUDMetrics.minimumScale(for: .waveform, reduceMotion: true) == 0.4)
@@ -134,17 +134,17 @@ struct HUDShellMetricsTests {
       reduceMotion: false))
   }
 
-  /// Intelligence is built on the same hanging stage, so it keeps the line
+  /// Flying Ghost is built on the same hanging stage, so it keeps the line
   /// on the same terms, and Reduce Motion takes it away the same way.
-  @Test func intelligenceKeepsTheRecentDraftLine() {
+  @Test func flyingGhostKeepsTheRecentDraftLine() {
     #expect(DictationHUDShellView.showsRecentDraft(
-      visual: .intelligence, listening: true, dismissing: false, shaping: false,
+      visual: .flyingGhost, listening: true, dismissing: false, shaping: false,
       reduceMotion: false))
     #expect(DictationHUDShellView.showsRecentDraft(
-      visual: .intelligence, listening: false, dismissing: true, shaping: false,
+      visual: .flyingGhost, listening: false, dismissing: true, shaping: false,
       reduceMotion: false))
     #expect(!DictationHUDShellView.showsRecentDraft(
-      visual: .intelligence, listening: true, dismissing: false, shaping: false,
+      visual: .flyingGhost, listening: true, dismissing: false, shaping: false,
       reduceMotion: true))
   }
 

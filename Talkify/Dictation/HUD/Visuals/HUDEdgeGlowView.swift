@@ -34,6 +34,12 @@ struct HUDEdgeGlowView: View {
   let settings: DictationSessionSettings
   let metrics: HUDMetrics
   let topFilletRadius: CGFloat
+  /// How strongly the voice swells the beam, 1 for Edge Glow's own feel.
+  /// Flying Ghost answers the voice with its rim and ghost as well, so its
+  /// beam swells less or the three together flare too hard.
+  var voiceGain: Double = 1
+  /// The beam's brightness at rest and in speech, 1 for Edge Glow's own feel.
+  var strength: Double = 1
 
   /// The beam's own dimensions follow the HUD size: the same 6pt stroke and
   /// 28pt spill read as a much heavier beam once the shape is smaller.
@@ -69,9 +75,10 @@ struct HUDEdgeGlowView: View {
         // brightness — resting near the gist's constant 3.0 so the
         // halo never starves, flaring with speech — and body, the
         // strokes swelling up to double.
-        let amplitude = alive ? 1.8 + 1.2 * level : 1.5
-        let lineWidth = Self.lineWidth * Double(metrics.scale) * (1 + level)
-        let blurRadius = Self.blurRadius * Double(metrics.scale) * (1 + 0.5 * level)
+        let voice = level * voiceGain
+        let amplitude = (alive ? 1.8 + 1.2 * voice : 1.5) * strength
+        let lineWidth = Self.lineWidth * Double(metrics.scale) * (1 + voice)
+        let blurRadius = Self.blurRadius * Double(metrics.scale) * (1 + 0.5 * voice)
         let origin = Self.sweepOrigin(
           at: sweepElapsed(at: context.date),
           in: size,

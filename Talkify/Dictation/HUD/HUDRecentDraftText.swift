@@ -101,11 +101,40 @@ struct HUDRecentDraftWindow: Equatable {
 /// overflow the leading edge. Independent per-word ellipses are rejected:
 /// they turn an ordinary eight-word glance into fragments.
 enum HUDRecentDraftLine {
-  static func originX(contentWidth: CGFloat, in bounds: CGRect) -> CGFloat {
-    if bounds.width > 0, contentWidth > bounds.width {
+  static func originX(contentWidth: CGFloat, in bounds: CGRect, anchorsTrailing: Bool = false) -> CGFloat {
+    if anchorsTrailing || (bounds.width > 0 && contentWidth > bounds.width) {
       return bounds.maxX - contentWidth
     }
     return bounds.midX - contentWidth / 2
+  }
+
+  /// How far a word is into being swallowed, 0 to 1, from where its front is:
+  /// none until it reaches the mouth, all of it by the feed point.
+  nonisolated static func swallowProgress(wordLeadingX x: CGFloat, mouth: CGFloat, feedX: CGFloat) -> Double {
+    guard mouth > feedX else { return 0 }
+    return Double(min(max((mouth - x) / (mouth - feedX), 0), 1))
+  }
+
+  /// How many tokens have reached the mouth on a line held to its trailing
+  /// edge: those whose front lies left of `mouth`, measured in line
+  /// coordinates where the line's room ends at `room`.
+  static func reachedCount(tokenWidths: [CGFloat], room: CGFloat, mouth: CGFloat) -> Int {
+    var front = room - tokenWidths.reduce(0, +)
+    var reached = 0
+    for width in tokenWidths {
+      guard front < mouth else { break }
+      reached += 1
+      front += width
+    }
+    return reached
+  }
+
+  /// A token's width at the line's type size, for `reachedCount`.
+  @MainActor
+  static func width(of token: String, scale: CGFloat) -> CGFloat {
+    (token as NSString).size(withAttributes: [
+      .font: NSFont.systemFont(ofSize: HUDRecentDraftText.pointSize * scale, weight: .medium),
+    ]).width
   }
 }
 
@@ -113,6 +142,11 @@ enum HUDRecentDraftLine {
 /// separately. Overflow is then one clip of the oldest words, not eight
 /// ellipses.
 private struct HUDRecentDraftLineLayout: Layout {
+  /// Keeps the newest word at the trailing edge even when the line fits, so a
+  /// fed line moves steadily toward its feed point instead of re-centering
+  /// each time it loses a word.
+  var anchorsTrailing = false
+
   func sizeThatFits(
     proposal: ProposedViewSize,
     subviews: Subviews,
@@ -133,7 +167,11 @@ private struct HUDRecentDraftLineLayout: Layout {
   ) {
     let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
     let contentWidth = sizes.reduce(CGFloat.zero) { $0 + $1.width }
-    var x = HUDRecentDraftLine.originX(contentWidth: contentWidth, in: bounds)
+    var x = HUDRecentDraftLine.originX(
+      contentWidth: contentWidth,
+      in: bounds,
+      anchorsTrailing: anchorsTrailing
+    )
     for (subview, size) in zip(subviews, sizes) {
       subview.place(
         at: CGPoint(x: x, y: bounds.midY - size.height / 2),
@@ -158,6 +196,13 @@ private struct HUDRecentDraftLineLayout: Layout {
 /// only a new or departing token slides; a finalization rewrites in place.
 struct HUDRecentDraftText: View {
   static let pointSize: CGFloat = 24
+  /// A fed line keeps more words than the glance does. A word leaves a fed
+  /// line by being eaten, so the window must not drop one that is still on
+  /// its way to the feed point.
+  static let fedWordLimit = 24
+  /// Where swallowing begins, measured in from the line's leading edge: a word
+  /// whose front reaches here has reached the mouth.
+  static let mouthInset: CGFloat = 8
 
   let committed: String
   let volatile: String
@@ -166,27 +211,48 @@ struct HUDRecentDraftText: View {
   /// white. One gradient for the line rather than one per word, so the
   /// colors hold still while words slide through them.
   var tint: [Color]?
+  /// Where something at the line's leading side takes the words in, as an
+  /// offset from the line's leading center, or nil to clip them at the edge.
+  /// Set, the line holds its trailing edge, and each word is swallowed as it
+  /// arrives: from the moment its front reaches the mouth it shrinks toward
+  /// the feed point, dips to it, and fades.
+  var feed: CGSize?
+
+  /// How far the line may draw past its leading edge.
+  private var bleed: CGFloat { max(0, -(feed?.width ?? 0)) }
 
   @State private var lastWindow: HUDRecentDraftWindow?
 
   private var window: HUDRecentDraftWindow {
-    HUDRecentDraftWindow(committed: committed, volatile: volatile)
+    HUDRecentDraftWindow(
+      committed: committed,
+      volatile: volatile,
+      limit: feed == nil ? HUDRecentDraftWindow.wordLimit : Self.fedWordLimit
+    )
   }
 
   var body: some View {
     let window = self.window
-    let animate = lastWindow.map(window.advances(from:)) ?? false
+    let advances = lastWindow.map(window.advances(from:)) ?? false
     tinted(line(window))
-      .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
+      .animation(advances ? motion : nil, value: window.tokenIDs)
       .onChange(of: window) { _, new in
         lastWindow = new
       }
   }
 
+  /// A fed line glides each push on a soft spring, so the words move toward
+  /// the mouth as a stream rather than in steps.
+  private var motion: Animation {
+    feed == nil ? .easeOut(duration: 0.14) : .spring(response: 0.45, dampingFraction: 1)
+  }
+
   @ViewBuilder
   private func tinted(_ line: some View) -> some View {
     if let tint {
+      // Reaches past the leading edge as far as the line may draw.
       LinearGradient(colors: tint, startPoint: .leading, endPoint: .trailing)
+        .padding(.leading, -bleed)
         .mask { line }
     } else {
       line
@@ -194,20 +260,61 @@ struct HUDRecentDraftText: View {
   }
 
   private func line(_ window: HUDRecentDraftWindow) -> some View {
-    HUDRecentDraftLineLayout {
+    HUDRecentDraftLineLayout(anchorsTrailing: feed != nil) {
       ForEach(window.visibleTokens) { token in
-        Text(token.text)
-          .font(.system(size: Self.pointSize * scale, weight: .medium))
-          .foregroundStyle(.white)
-          .lineLimit(1)
-          .fixedSize(horizontal: true, vertical: false)
-          .transition(.asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .move(edge: .leading).combined(with: .opacity)
-          ))
+        swallowed(
+          Text(token.text)
+            .font(.system(size: Self.pointSize * scale, weight: .medium))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+        )
+        .transition(.asymmetric(
+          insertion: .move(edge: .trailing).combined(with: .opacity),
+          // A fed line's departing word has already been eaten.
+          removal: feed == nil ? .move(edge: .leading).combined(with: .opacity) : .opacity
+        ))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .clipped()
+    .coordinateSpace(.named(Self.lineSpace))
+    // A fed line draws past its edge, where its words are swallowed.
+    .modifier(ClippedUnlessFed(isFed: feed != nil))
+  }
+
+  /// Swallowing follows the word's place in the line, so it happens as the
+  /// word arrives at the mouth, however fast or slow the line is moving.
+  @ViewBuilder
+  private func swallowed(_ word: some View) -> some View {
+    if let feed {
+      let mouth = Self.mouthInset * scale
+      word.visualEffect { content, proxy in
+        let progress = HUDRecentDraftLine.swallowProgress(
+          wordLeadingX: proxy.frame(in: .named(Self.lineSpace)).minX,
+          mouth: mouth,
+          feedX: feed.width
+        )
+        return content
+          .scaleEffect(1 - 0.75 * progress, anchor: .leading)
+          .offset(y: feed.height * progress)
+          .opacity(1 - progress)
+      }
+    } else {
+      word
+    }
+  }
+
+  private static let lineSpace = "HUDRecentDraftLine"
+}
+
+private struct ClippedUnlessFed: ViewModifier {
+  let isFed: Bool
+
+  func body(content: Content) -> some View {
+    if isFed {
+      content
+    } else {
+      content.clipped()
+    }
   }
 }

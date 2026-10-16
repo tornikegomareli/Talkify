@@ -23,6 +23,7 @@ final class AppSettings {
     static let longDraftStyle = "hudLongDraftStyle"
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
+    static let flyingGhostShowsDraft = "hudFlyingGhostShowsDraft"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let readAloudTranslates = "readAloudTranslates"
@@ -137,6 +138,13 @@ final class AppSettings {
     shapingPrompts = ShapingPrompt.defaults
   }
 
+  /// A voice visual stored under a name it has since lost. Flying Ghost
+  /// shipped in 0.9.0 as "Intelligence"; reading that back as anything else
+  /// would silently drop the user's pick.
+  static func renamedVoiceVisual(_ stored: String?) -> HUDVoiceVisualStyle? {
+    stored == "Intelligence" ? .flyingGhost : nil
+  }
+
   var voiceVisual: HUDVoiceVisualStyle {
     didSet { defaults.set(voiceVisual.rawValue, forKey: Keys.voiceVisual) }
   }
@@ -159,6 +167,12 @@ final class AppSettings {
 
   var glowCenter: HUDGlowCenterStyle {
     didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
+  }
+
+  /// Whether Flying Ghost widens into the live draft once words arrive. Off,
+  /// it stays at its listening width for the whole session.
+  var flyingGhostShowsDraft: Bool {
+    didSet { defaults.set(flyingGhostShowsDraft, forKey: Keys.flyingGhostShowsDraft) }
   }
 
   /// How large the HUD shape is, as a fraction of the standard size.
@@ -310,12 +324,17 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
-    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
+    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual)
+      ?? Self.renamedVoiceVisual(defaults.string(forKey: Keys.voiceVisual))
+      ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
+    // `bool(forKey:)` reads a missing key as false, which would hide the draft
+    // from everyone who never touched the toggle, so absence is checked directly.
+    flyingGhostShowsDraft = defaults.object(forKey: Keys.flyingGhostShowsDraft) as? Bool ?? true
     // `double(forKey:)` reads a missing key as zero, which would start every
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
@@ -467,6 +486,7 @@ struct DictationSessionSettings: Equatable {
   let longDraftStyle: HUDLongDraftStyle
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
+  let flyingGhostShowsDraft: Bool
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
@@ -500,6 +520,7 @@ struct DictationSessionSettings: Equatable {
     longDraftStyle = settings.longDraftStyle
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
+    flyingGhostShowsDraft = settings.flyingGhostShowsDraft
     hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }

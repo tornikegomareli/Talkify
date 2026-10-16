@@ -92,11 +92,15 @@ enum HUDNotchGeometry {
   /// everyone on the default mode.
   static func minimumScale(for screen: HUDScreenSnapshot) -> CGFloat {
     guard hasMeasuredNotch(for: screen) else { return HUDMetrics.minimumScale }
-    let needed = closedSize(for: screen).width
-      + filletSize(for: screen) * 2
-      + housingShoulder * 2
-    let scale = needed / HUDMetrics.standard.contentWidth
+    let scale = minimumShapeWidth(for: screen) / HUDMetrics.standard.contentWidth
     return min(max(scale, HUDMetrics.minimumScale), HUDMetrics.maximumScale)
+  }
+
+  /// The narrowest a shape can be on this display and still read as the
+  /// housing growing rather than a tab under it: the housing, its fillets, and
+  /// a shoulder each side.
+  static func minimumShapeWidth(for screen: HUDScreenSnapshot) -> CGFloat {
+    closedSize(for: screen).width + filletSize(for: screen) * 2 + housingShoulder * 2
   }
 
   /// Size of the concave corner that flares the shape into the bezel, and

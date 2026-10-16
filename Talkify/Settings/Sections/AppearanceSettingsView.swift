@@ -25,7 +25,7 @@ struct AppearanceSettingsView: View {
     visual == .glow
   }
 
-  /// Edge Glow + Draft and Intelligence use a recent-word line instead of
+  /// Edge Glow + Draft and Flying Ghost use a recent-word line instead of
   /// the global long draft behaviors. Reduce Motion restores the plain band,
   /// where the existing pick still applies.
   static func showsLongDraftBehavior(
@@ -76,6 +76,18 @@ struct AppearanceSettingsView: View {
             optionLabel: { $0.rawValue },
             selection: $settings.glowCenter
           )
+        }
+
+        if settings.voiceVisual == .flyingGhost {
+          SettingsRow(
+            title: "Show live draft",
+            description: "Widen into your words as you speak, for the ghost to eat. "
+              + "Off, the ghost stays small and the shape says Listening"
+          ) {
+            Toggle("Show live draft", isOn: $settings.flyingGhostShowsDraft)
+              .labelsHidden()
+              .toggleStyle(.switch)
+          }
         }
       }
 

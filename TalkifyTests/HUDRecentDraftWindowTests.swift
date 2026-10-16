@@ -192,4 +192,29 @@ struct HUDRecentDraftLineTests {
     let bounds = CGRect(x: 10, y: 0, width: 100, height: 40)
     #expect(HUDRecentDraftLine.originX(contentWidth: 140, in: bounds) == -30)
   }
+
+  /// A fed line keeps its newest word at the trailing edge even when it fits,
+  /// so losing a word never re-centers it.
+  @Test func aFedLineStaysOnItsTrailingEdge() {
+    let bounds = CGRect(x: 0, y: 0, width: 120, height: 30)
+    #expect(HUDRecentDraftLine.originX(contentWidth: 40, in: bounds, anchorsTrailing: true) == 80)
+    #expect(HUDRecentDraftLine.originX(contentWidth: 140, in: bounds, anchorsTrailing: true) == -20)
+  }
+
+  /// On a line held to its trailing edge, a word has reached the mouth once
+  /// its front is left of it, oldest first, and a short line reaches nothing.
+  @Test func wordsReachTheMouthOldestFirst() {
+    // Room 100: the line [30, 40, 50] starts at -20, so fronts sit at -20, 10, 50.
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 100, mouth: 8) == 1)
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 100, mouth: 12) == 2)
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 200, mouth: 8) == 0)
+  }
+
+  /// A word is untouched until its front reaches the mouth and wholly
+  /// swallowed by the feed point.
+  @Test func swallowingRunsFromTheMouthToTheFeedPoint() {
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: 20, mouth: 8, feedX: -32) == 0)
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: -12, mouth: 8, feedX: -32) == 0.5)
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: -50, mouth: 8, feedX: -32) == 1)
+  }
 }
