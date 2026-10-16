@@ -24,6 +24,7 @@ final class AppSettings {
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
     static let intelligenceCenter = "hudIntelligenceCenter"
+    static let intelligenceShowsDraft = "hudIntelligenceShowsDraft"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let readAloudTranslates = "readAloudTranslates"
@@ -164,6 +165,12 @@ final class AppSettings {
 
   var intelligenceCenter: HUDIntelligenceCenterStyle {
     didSet { defaults.set(intelligenceCenter.rawValue, forKey: Keys.intelligenceCenter) }
+  }
+
+  /// Whether Intelligence widens into the live draft once words arrive. Off,
+  /// it stays at its listening width for the whole session.
+  var intelligenceShowsDraft: Bool {
+    didSet { defaults.set(intelligenceShowsDraft, forKey: Keys.intelligenceShowsDraft) }
   }
 
   /// How large the HUD shape is, as a fraction of the standard size.
@@ -322,6 +329,9 @@ final class AppSettings {
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
     intelligenceCenter = Self.stored(in: defaults, key: Keys.intelligenceCenter) ?? .orb
+    // `bool(forKey:)` reads a missing key as false, which would hide the draft
+    // from everyone who never touched the toggle, so absence is checked directly.
+    intelligenceShowsDraft = defaults.object(forKey: Keys.intelligenceShowsDraft) as? Bool ?? true
     // `double(forKey:)` reads a missing key as zero, which would start every
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
@@ -474,6 +484,7 @@ struct DictationSessionSettings: Equatable {
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
   let intelligenceCenter: HUDIntelligenceCenterStyle
+  let intelligenceShowsDraft: Bool
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
@@ -508,6 +519,7 @@ struct DictationSessionSettings: Equatable {
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
     intelligenceCenter = settings.intelligenceCenter
+    intelligenceShowsDraft = settings.intelligenceShowsDraft
     hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }

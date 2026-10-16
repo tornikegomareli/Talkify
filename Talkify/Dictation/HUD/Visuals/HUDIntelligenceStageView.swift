@@ -17,9 +17,11 @@ struct HUDIntelligenceStageView: View {
   let scale: CGFloat
   /// The recent-word line's colors, leading to trailing.
   let textColors: [Color]
+  /// Off, the row keeps saying Listening while words arrive.
+  var showsDraft = true
 
   private var hasDraft: Bool {
-    !content.text.isEmpty || !content.volatileText.isEmpty
+    showsDraft && (!content.text.isEmpty || !content.volatileText.isEmpty)
   }
 
   var body: some View {

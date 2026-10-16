@@ -35,10 +35,56 @@ struct HUDGhostShape: Shape {
   }
 }
 
+/// The ghost's flight: a phase that advances with time at a speed set by the
+/// voice, and an energy that follows the voice smoothly. Integrating the phase,
+/// rather than multiplying the clock by a speed, is what lets the voice speed
+/// the flight up without the ghost jumping to a new point on its path.
+@MainActor
+final class HUDGhostFlight {
+  private(set) var phase = 0.0
+  private(set) var energy = 0.0
+  private var last: Date?
+
+  func advance(to date: Date, level: Double) {
+    // Capped so a pause (a dead microphone, a hidden HUD) resumes in place.
+    let dt = min(last.map { date.timeIntervalSince($0) } ?? 0, 0.1)
+    last = date
+    energy += (level - energy) * min(1, dt * 3)
+    phase += dt * (1 + 1.6 * energy)
+  }
+}
+
+/// Where the ghost is on its flight path, as fractions of its height and in
+/// degrees. A figure-eight drift, a lean into the sideways motion, a stretch
+/// along the vertical one, and a hem wave that travels instead of swinging.
+/// More voice widens the path and deepens the lean.
+struct HUDGhostPose: Equatable {
+  var x: Double
+  var y: Double
+  var tilt: Double
+  var stretch: Double
+  var hemWave: Double
+
+  static func at(phase: Double, energy: Double) -> HUDGhostPose {
+    let sideways = 0.9 * phase
+    let upDown = 1.8 * phase + 0.6
+    return HUDGhostPose(
+      x: (0.06 + 0.1 * energy) * sin(sideways),
+      y: (0.045 + 0.07 * energy) * sin(upDown),
+      // The lean follows the sideways velocity, the derivative of x.
+      tilt: (3 + 7 * energy) * cos(sideways),
+      // A little taller while rising or falling fastest.
+      stretch: 1 + (0.02 + 0.04 * energy) * cos(upDown),
+      hemWave: -3.2 * phase
+    )
+  }
+}
+
 /// The ghost Intelligence can show in place of the orb, filled with the
-/// palette's moving mesh. It blinks, glances side to side, floats, sways its
-/// hem, and opens its eyes wider while the user speaks. On a dead microphone it
-/// stops in amber with its eyes half shut.
+/// palette's moving mesh. It flies a gentle figure-eight that widens with the
+/// voice, leans into its motion, flutters its hem, blinks, and opens its eyes
+/// wider while the user speaks. On a dead microphone it stops in amber with
+/// its eyes half shut.
 struct HUDIntelligenceGhostView: View {
   /// Width over height, as in the app icon.
   static let aspect: CGFloat = 0.8
@@ -48,11 +94,15 @@ struct HUDIntelligenceGhostView: View {
   let alive: Bool
   let height: CGFloat
 
+  @State private var flight = HUDGhostFlight()
+
   var body: some View {
     TimelineView(.animation(paused: !alive)) { context in
       let t = context.date.timeIntervalSinceReferenceDate
+      let _ = flight.advance(to: context.date, level: alive ? level : 0)
+      let pose = HUDGhostPose.at(phase: flight.phase, energy: flight.energy)
       let width = height * Self.aspect
-      let ghost = HUDGhostShape(sway: alive ? 0.5 * sin(t * 2.3) : 0)
+      let ghost = HUDGhostShape(sway: pose.hemWave)
       ZStack {
         ghost
           .fill(colors[1])
@@ -67,24 +117,26 @@ struct HUDIntelligenceGhostView: View {
             startRadius: 0,
             endRadius: width * 0.6
           ))
-        eyes(at: t, width: width)
+        eyes(at: t, width: width, glance: pose.tilt / 10)
       }
       .frame(width: width, height: height)
-      .offset(y: alive ? -height * 0.04 * sin(t * 2.0) : 0)
+      .scaleEffect(x: 1 / pose.stretch, y: pose.stretch, anchor: .bottom)
+      .rotationEffect(.degrees(pose.tilt))
+      .offset(x: pose.x * height, y: pose.y * height)
     }
     .accessibilityHidden(true)
   }
 
-  private func eyes(at t: TimeInterval, width: CGFloat) -> some View {
+  /// The eyes glance the way the ghost leans, so it looks where it flies.
+  private func eyes(at t: TimeInterval, width: CGFloat, glance: Double) -> some View {
     let openness = alive ? Self.openness(at: t) : 0.4
-    let glance = alive ? sin(t * 0.6) * width * 0.05 : 0
     return HStack(spacing: width * 0.16) {
       Capsule()
       Capsule()
     }
     .foregroundStyle(.black.opacity(0.88))
     .frame(width: width * 0.36, height: height * 0.22 * openness * (1 + 0.25 * level))
-    .offset(x: glance, y: -height * 0.08)
+    .offset(x: glance * width * 0.05, y: -height * 0.08)
   }
 
   /// How open the eyes are at `t`: fully, apart from a quick blink every few

@@ -211,7 +211,8 @@ struct DictationHUDShellView: View {
               content: content,
               palette: settings.glowPalette,
               scale: metrics.scale,
-              textColors: intelligenceTextColors
+              textColors: intelligenceTextColors,
+              showsDraft: settings.intelligenceShowsDraft
             )
             .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
           } else {
@@ -321,7 +322,9 @@ struct DictationHUDShellView: View {
   /// Whether Intelligence has words to show. The island holds its listening
   /// width until the first word, then widens for the line.
   private var intelligenceExpanded: Bool {
-    showsIntelligence && (!content.text.isEmpty || !content.volatileText.isEmpty)
+    showsIntelligence
+      && settings.intelligenceShowsDraft
+      && (!content.text.isEmpty || !content.volatileText.isEmpty)
   }
 
   /// Intelligence's width: room for the orb, "Listening" and the voice

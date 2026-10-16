@@ -331,6 +331,7 @@ struct AppSettingsTests {
     settings.glowPalette = .aurora
     settings.glowCenter = .siriOrb
     settings.intelligenceCenter = .ghost
+    settings.intelligenceShowsDraft = false
     settings.hudScale = 0.6
 
     #expect(snapshot.sounds.set == .synth8)
@@ -341,6 +342,7 @@ struct AppSettingsTests {
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
     #expect(snapshot.intelligenceCenter == .orb)
+    #expect(snapshot.intelligenceShowsDraft)
     #expect(snapshot.hudMetrics == .standard)
   }
 

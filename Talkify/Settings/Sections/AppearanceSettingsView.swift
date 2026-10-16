@@ -90,6 +90,16 @@ struct AppearanceSettingsView: View {
             optionLabel: { $0.rawValue },
             selection: $settings.intelligenceCenter
           )
+
+          SettingsRow(
+            title: "Show live draft",
+            description: "Widen into your words as you speak. Off, Intelligence "
+              + "stays small and says Listening"
+          ) {
+            Toggle("Show live draft", isOn: $settings.intelligenceShowsDraft)
+              .labelsHidden()
+              .toggleStyle(.switch)
+          }
         }
       }
 
