@@ -1098,6 +1098,40 @@ struct DirectDictationControllerTests {
     controller.stop()
   }
 
+  /// The rescue drops shaping but keeps the replacements: the user typed that
+  /// spelling, so it is the one the clipboard has to end up holding.
+  @Test func aFailedTranslationCopiesTheReplacedSpelling() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.translationTargetIdentifier = "es"
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "Calman", to: "Kalman")
+    ]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "Calman shipped" },
+        translateBody: { _ in throw TranslationFailure.timedOut }
+      )
+    )
+    await prepareWithTranslation(controller, prewarmed: prewarmed)
+
+    controller.handle(.triggerPressed(.translate))
+    controller.handle(.triggerReleased(.translate))
+    await waitUntil("Session never latched") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.handle(.triggerPressed(.translate))
+    await waitUntil("Rescue never happened") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["Kalman shipped"])
+    #expect(recorder.insertedDestinations == [.clipboardOnly])
+    controller.stop()
+  }
+
   /// The trap: routing the failure through fail() would drive the machine to
   /// cancelling and cancel a session that has already finished.
   @Test func aFailedTranslationEndsTheSessionRatherThanCancellingIt() async {
@@ -1337,6 +1371,149 @@ struct DirectDictationControllerTests {
     #expect(recorder.insertedTexts == ["shaped raw words"])
     #expect(historyEntries.withLock { $0 }.map(\.text) == ["raw words"])
     #expect(shapedPromptIDs.withLock { $0 } == ["tighten-grammar"])
+    controller.stop()
+  }
+
+  /// A spelling replacement rewrites the recognized word before insertion,
+  /// and history still keeps what the Speech Model produced.
+  @Test func finishAppliesSpellingReplacementsBeforeInsertion() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let historyEntries = OSAllocatedUnfairLock<[HistoryEntry]>(
+      initialState: []
+    )
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.dictationHistoryEnabled = true
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "Calman", to: "Kalman"),
+    ]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "ship Calman friday" },
+        historyEntries: historyEntries
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["ship Kalman friday"])
+    #expect(historyEntries.withLock { $0 }.map(\.text) == ["ship Calman friday"])
+    controller.stop()
+  }
+
+  /// Shaping sees the replaced spelling, not the misspelling the Speech
+  /// Model produced.
+  @Test func spellingReplacementsRunBeforeShaping() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapedInput = OSAllocatedUnfairLock<String?>(initialState: nil)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "Calman", to: "Kalman"),
+    ]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "ship calman friday" },
+        shapeText: { text, _ in
+          shapedInput.withLock { $0 = text }
+          return "shaped"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(shapedInput.withLock { $0 } == "ship Kalman friday")
+    #expect(recorder.insertedTexts == ["shaped"])
+    controller.stop()
+  }
+
+  /// Editing the list mid-session must not rewrite the session already
+  /// under way (ADR-0004).
+  @Test func spellingReplacementsFollowTheSessionSnapshot() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "Calman", to: "Kalman"),
+    ]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "Calman" }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    settings.spellingReplacements = []
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(recorder.insertedTexts == ["Kalman"])
+    controller.stop()
+  }
+
+  /// A row with no replacement yet is incomplete, so it must not delete
+  /// the word or hand an empty transcript to shaping.
+  @Test func anIncompleteReplacementLeavesTheRecognizedWordAlone() async {
+    let recorder = Recorder()
+    let prewarmed = OSAllocatedUnfairLock(initialState: false)
+    let shapedInput = OSAllocatedUnfairLock<String?>(initialState: nil)
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.promptShapingEnabled = true
+    settings.promptShapingPromptID = "tighten-grammar"
+    settings.spellingReplacements = [
+      SpellingReplacement(id: "1", from: "Calman", to: ""),
+    ]
+    let controller = makeController(
+      settings: settings,
+      dependencies: makeDependencies(
+        recorder: recorder,
+        prewarmed: prewarmed,
+        finishRecognition: { "Calman" },
+        shapeText: { text, _ in
+          shapedInput.withLock { $0 = text }
+          return "shaped"
+        }
+      )
+    )
+    await prepare(controller, prewarmed: prewarmed)
+
+    controller.toggleFromMenu()
+    await waitUntil("Session never reached recording") {
+      controller.sessionStateForTesting == .recording(.latched)
+    }
+    controller.toggleFromMenu()
+    await waitUntil("Finish never delivered") { !recorder.insertedTexts.isEmpty }
+
+    #expect(shapedInput.withLock { $0 } == "Calman")
+    #expect(recorder.insertedTexts == ["shaped"])
     controller.stop()
   }
 
