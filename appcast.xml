@@ -15,6 +15,17 @@
           and keeps the five most recent.
         -->
         <item>
+            <title>0.9.0</title>
+            <pubDate>Sat, 17 Oct 2026 00:29:18 +0400</pubDate>
+            <link>https://usetalkify.app</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/tornikegomareli/Talkify/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>204</sparkle:version>
+            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v0.9.0/Talkify-v0.9.0.zip" length="9045980" type="application/octet-stream" sparkle:edSignature="7dc/vQpJ/uDn9B12WQOFUOURq2912aiKEtot46t5fRkzWM2blca+9de8DEfGlxmhfHnBGEtRycMn3OkEf5syAQ=="/>
+        </item>
+        <item>
             <title>0.8.3</title>
             <pubDate>Sat, 19 Sep 2026 12:06:53 +0400</pubDate>
             <link>https://usetalkify.app</link>
@@ -57,17 +68,6 @@
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v0.8.0/Talkify-v0.8.0.zip" length="8993053" type="application/octet-stream" sparkle:edSignature="DWiqk579t2rSXcHRI16tr7Pqcepx/BqzNX4zSxMI3JIrlsxLuloGXj+iUeB4Tz5r3qcDRxWAVY4IjFKWGGctDA=="/>
-        </item>
-        <item>
-            <title>0.7.1</title>
-            <pubDate>Fri, 28 Aug 2026 00:57:27 +0400</pubDate>
-            <link>https://usetalkify.app</link>
-            <sparkle:fullReleaseNotesLink>https://github.com/tornikegomareli/Talkify/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>178</sparkle:version>
-            <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v0.7.1/Talkify-v0.7.1.zip" length="8919993" type="application/octet-stream" sparkle:edSignature="fafQ2p8ehLmuEVw00wfquMsYsto2ahn7OEHT2gmFrirTgCcrUB4ZcH6pO1PQK5xYPhTrGrYQMSpK+NOjKMV5Dg=="/>
         </item>
     </channel>
 </rss>
