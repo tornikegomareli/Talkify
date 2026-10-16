@@ -323,6 +323,12 @@ struct DictationHUDShellView: View {
   /// Whether Intelligence has words to show. The island holds its listening
   /// width until the first word, then widens for the line.
   private var intelligenceExpanded: Bool {
+    intelligenceHasDraft && !content.isFinalizing
+  }
+
+  /// Whether Intelligence has a live draft to show. When speech ends the
+  /// draft leaves first and the island eases back, then the center flies home.
+  private var intelligenceHasDraft: Bool {
     showsIntelligence
       && settings.intelligenceShowsDraft
       && (!content.text.isEmpty || !content.volatileText.isEmpty)
@@ -355,14 +361,18 @@ struct DictationHUDShellView: View {
 
   static let intelligenceDraftLift: CGFloat = 14
 
-  /// Words the ghost has taken in this session: those the recent-word window
-  /// has dropped, and those that have slid wholly past the line's edge into
-  /// it. A word moves from the second count to the first when the window drops
-  /// it, so it is only ever eaten once. Only the ghost bites, so only the
-  /// ghost pays for the measuring.
+  /// Words the ghost has taken in this session: those whose front has reached
+  /// its mouth, and those the recent-word window has dropped since, which had
+  /// all reached it first. A word moves from one count to the other, so it is
+  /// only ever eaten once. Only the ghost bites, so only the ghost pays for
+  /// the measuring.
   private var intelligenceBites: Int {
     guard intelligenceExpanded, settings.intelligenceCenter == .ghost else { return 0 }
-    let window = HUDRecentDraftWindow(committed: content.text, volatile: content.volatileText)
+    let window = HUDRecentDraftWindow(
+      committed: content.text,
+      volatile: content.volatileText,
+      limit: HUDRecentDraftText.fedWordLimit
+    )
     let widths = window.visibleTokens.map {
       HUDRecentDraftLine.width(of: $0.text, scale: metrics.scale)
     }
@@ -370,7 +380,11 @@ struct DictationHUDShellView: View {
     // Text with no word tokens (punctuation alone) is one visible slice and
     // no tokens, which must not count as a negative bite.
     return max(0, window.tokenCount - window.visibleTokens.count)
-      + HUDRecentDraftLine.passedCount(tokenWidths: widths, room: room)
+      + HUDRecentDraftLine.reachedCount(
+        tokenWidths: widths,
+        room: room,
+        mouth: HUDRecentDraftText.mouthInset * metrics.scale
+      )
   }
 
   /// White at the start of the line, warming into the palette, so the words
@@ -561,7 +575,7 @@ struct DictationHUDShellView: View {
           stageHeight: recentDraftStageHeight,
           center: settings.intelligenceCenter,
           bites: intelligenceBites,
-          eating: intelligenceExpanded
+          eating: intelligenceHasDraft
         )
       }
       .clipShape(housingShape)

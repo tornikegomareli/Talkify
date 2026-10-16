@@ -108,23 +108,28 @@ enum HUDRecentDraftLine {
     return bounds.midX - contentWidth / 2
   }
 
-  /// How many of the oldest tokens have gone wholly past the line's leading
-  /// edge, given each token's width and the room the line has. A line that
-  /// fits is centered and has lost nothing.
-  static func passedCount(tokenWidths: [CGFloat], room: CGFloat) -> Int {
-    let overflow = tokenWidths.reduce(0, +) - room
-    guard overflow > 0 else { return 0 }
-    var passed = 0
-    var width: CGFloat = 0
-    for tokenWidth in tokenWidths {
-      width += tokenWidth
-      guard width <= overflow else { break }
-      passed += 1
-    }
-    return passed
+  /// How far a word is into being swallowed, 0 to 1, from where its front is:
+  /// none until it reaches the mouth, all of it by the feed point.
+  nonisolated static func swallowProgress(wordLeadingX x: CGFloat, mouth: CGFloat, feedX: CGFloat) -> Double {
+    guard mouth > feedX else { return 0 }
+    return Double(min(max((mouth - x) / (mouth - feedX), 0), 1))
   }
 
-  /// A token's width at the line's type size, for `passedCount`.
+  /// How many tokens have reached the mouth on a line held to its trailing
+  /// edge: those whose front lies left of `mouth`, measured in line
+  /// coordinates where the line's room ends at `room`.
+  static func reachedCount(tokenWidths: [CGFloat], room: CGFloat, mouth: CGFloat) -> Int {
+    var front = room - tokenWidths.reduce(0, +)
+    var reached = 0
+    for width in tokenWidths {
+      guard front < mouth else { break }
+      reached += 1
+      front += width
+    }
+    return reached
+  }
+
+  /// A token's width at the line's type size, for `reachedCount`.
   @MainActor
   static func width(of token: String, scale: CGFloat) -> CGFloat {
     (token as NSString).size(withAttributes: [
@@ -191,6 +196,13 @@ private struct HUDRecentDraftLineLayout: Layout {
 /// only a new or departing token slides; a finalization rewrites in place.
 struct HUDRecentDraftText: View {
   static let pointSize: CGFloat = 24
+  /// A fed line keeps more words than the glance does. A word leaves a fed
+  /// line by being eaten, so the window must not drop one that is still on
+  /// its way to the feed point.
+  static let fedWordLimit = 24
+  /// Where swallowing begins, measured in from the line's leading edge: a word
+  /// whose front reaches here has reached the mouth.
+  static let mouthInset: CGFloat = 8
 
   let committed: String
   let volatile: String
@@ -201,8 +213,9 @@ struct HUDRecentDraftText: View {
   var tint: [Color]?
   /// Where something at the line's leading side takes the words in, as an
   /// offset from the line's leading center, or nil to clip them at the edge.
-  /// Set, the line fades out toward that point instead of being cut, and a
-  /// departing word shrinks into it.
+  /// Set, the line holds its trailing edge, and each word is swallowed as it
+  /// arrives: from the moment its front reaches the mouth it shrinks toward
+  /// the feed point, dips to it, and fades.
   var feed: CGSize?
 
   /// How far the line may draw past its leading edge.
@@ -211,17 +224,27 @@ struct HUDRecentDraftText: View {
   @State private var lastWindow: HUDRecentDraftWindow?
 
   private var window: HUDRecentDraftWindow {
-    HUDRecentDraftWindow(committed: committed, volatile: volatile)
+    HUDRecentDraftWindow(
+      committed: committed,
+      volatile: volatile,
+      limit: feed == nil ? HUDRecentDraftWindow.wordLimit : Self.fedWordLimit
+    )
   }
 
   var body: some View {
     let window = self.window
-    let animate = lastWindow.map(window.advances(from:)) ?? false
-    fed(tinted(line(window)))
-      .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
+    let advances = lastWindow.map(window.advances(from:)) ?? false
+    tinted(line(window))
+      .animation(advances ? motion : nil, value: window.tokenIDs)
       .onChange(of: window) { _, new in
         lastWindow = new
       }
+  }
+
+  /// A fed line glides each push on a soft spring, so the words move toward
+  /// the mouth as a stream rather than in steps.
+  private var motion: Animation {
+    feed == nil ? .easeOut(duration: 0.14) : .spring(response: 0.45, dampingFraction: 1)
   }
 
   @ViewBuilder
@@ -236,51 +259,52 @@ struct HUDRecentDraftText: View {
     }
   }
 
-  /// With a feed, the words fade from full strength just inside the leading
-  /// edge to nothing at the feed point, so they vanish into it.
-  @ViewBuilder
-  private func fed(_ line: some View) -> some View {
-    if feed != nil {
-      line.mask {
-        HStack(spacing: 0) {
-          LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
-            .frame(width: bleed + 10 * scale)
-          Color.black
-        }
-        .padding(.leading, -bleed)
-      }
-    } else {
-      line
-    }
-  }
-
-  private var departure: AnyTransition {
-    guard let feed else { return .move(edge: .leading).combined(with: .opacity) }
-    return .modifier(
-      active: Swallowed(target: feed, progress: 1),
-      identity: Swallowed(target: feed, progress: 0)
-    )
-    .animation(.easeIn(duration: 0.35))
-  }
-
   private func line(_ window: HUDRecentDraftWindow) -> some View {
     HUDRecentDraftLineLayout(anchorsTrailing: feed != nil) {
       ForEach(window.visibleTokens) { token in
-        Text(token.text)
-          .font(.system(size: Self.pointSize * scale, weight: .medium))
-          .foregroundStyle(.white)
-          .lineLimit(1)
-          .fixedSize(horizontal: true, vertical: false)
-          .transition(.asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: departure
-          ))
+        swallowed(
+          Text(token.text)
+            .font(.system(size: Self.pointSize * scale, weight: .medium))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+        )
+        .transition(.asymmetric(
+          insertion: .move(edge: .trailing).combined(with: .opacity),
+          // A fed line's departing word has already been eaten.
+          removal: feed == nil ? .move(edge: .leading).combined(with: .opacity) : .opacity
+        ))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    // A fed line draws past its edge and fades there instead of being cut.
+    .coordinateSpace(.named(Self.lineSpace))
+    // A fed line draws past its edge, where its words are swallowed.
     .modifier(ClippedUnlessFed(isFed: feed != nil))
   }
+
+  /// Swallowing follows the word's place in the line, so it happens as the
+  /// word arrives at the mouth, however fast or slow the line is moving.
+  @ViewBuilder
+  private func swallowed(_ word: some View) -> some View {
+    if let feed {
+      let mouth = Self.mouthInset * scale
+      word.visualEffect { content, proxy in
+        let progress = HUDRecentDraftLine.swallowProgress(
+          wordLeadingX: proxy.frame(in: .named(Self.lineSpace)).minX,
+          mouth: mouth,
+          feedX: feed.width
+        )
+        return content
+          .scaleEffect(1 - 0.75 * progress, anchor: .leading)
+          .offset(y: feed.height * progress)
+          .opacity(1 - progress)
+      }
+    } else {
+      word
+    }
+  }
+
+  private static let lineSpace = "HUDRecentDraftLine"
 }
 
 private struct ClippedUnlessFed: ViewModifier {
@@ -292,18 +316,5 @@ private struct ClippedUnlessFed: ViewModifier {
     } else {
       content.clipped()
     }
-  }
-}
-
-/// A departing word shrinking into the feed point as it fades.
-private struct Swallowed: ViewModifier {
-  let target: CGSize
-  let progress: Double
-
-  func body(content: Content) -> some View {
-    content
-      .scaleEffect(1 - 0.8 * progress, anchor: .leading)
-      .offset(x: target.width * 0.8 * progress, y: target.height * progress)
-      .opacity(1 - progress)
   }
 }

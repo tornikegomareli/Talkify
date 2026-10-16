@@ -23,6 +23,12 @@ struct HUDIntelligenceDrop {
 /// Mounted whenever Intelligence is selected, not only while listening, so the
 /// flow back into the notch can play after `showsVoiceVisual` flips false.
 struct HUDIntelligenceOrbView: View {
+  /// The shortest keyframe the timelines use. A zero-length keyframe leaves
+  /// its track without a value, which hid the center entirely.
+  static let minimumKeyframe: TimeInterval = 0.001
+  /// How long the center waits, when speech ends, for the draft to blur away
+  /// and the island to ease back before it flies home.
+  static let draftExitHold: TimeInterval = 0.35
   /// The island's morph spring, decoded from SpringBoard
   /// (SBSystemApertureTransitionSettings: damping ratio 0.816, response 0.512).
   static let islandSpring = Spring(response: 0.512, dampingRatio: 0.816)
@@ -53,7 +59,7 @@ struct HUDIntelligenceOrbView: View {
   /// The drop's current path, and when it started. Rebuilt from wherever the
   /// drop is whenever listening starts or stops, so a session that ends
   /// mid-drip reverses from that point instead of jumping.
-  @State private var path = Self.timeline(emerging: false, from: HUDIntelligenceDrop())
+  @State private var path = Self.timeline(emerging: false, from: HUDIntelligenceDrop(), after: 0)
   @State private var pathStart = Date.distantPast
   /// Bumped once a path has finished, so the timeline below re-reads its
   /// pause state and stops drawing after the drop is back in the notch.
@@ -79,9 +85,11 @@ struct HUDIntelligenceOrbView: View {
     .onChange(of: listening, initial: true) { _, listening in
       let now = Date.now
       let current = path.value(time: now.timeIntervalSince(pathStart))
+      // With a draft on screen the words leave first, then the center.
+      let hold = !listening && eating ? Self.draftExitHold : 0
       path = center == .ghost
-        ? Self.ghostTimeline(emerging: listening, from: current)
-        : Self.timeline(emerging: listening, from: current)
+        ? Self.ghostTimeline(emerging: listening, from: current, after: hold)
+        : Self.timeline(emerging: listening, from: current, after: hold)
       pathStart = now
     }
     .task(id: pathStart) {
@@ -95,10 +103,12 @@ struct HUDIntelligenceOrbView: View {
   /// way. Leaving is the same arc backwards, shrinking into the notch.
   private static func ghostTimeline(
     emerging: Bool,
-    from start: HUDIntelligenceDrop
+    from start: HUDIntelligenceDrop,
+    after hold: TimeInterval
   ) -> KeyframeTimeline<HUDIntelligenceDrop> {
     KeyframeTimeline(initialValue: start) {
       KeyframeTrack(\.fall) {
+        LinearKeyframe(start.fall, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           // Waits under the camera while the shape reveals, so the whole arc
           // is flown in plain sight.
@@ -109,6 +119,7 @@ struct HUDIntelligenceOrbView: View {
         }
       }
       KeyframeTrack(\.swell) {
+        LinearKeyframe(start.swell, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           SpringKeyframe(1, duration: 0.8, spring: Spring(response: 0.5, dampingRatio: 0.85))
         } else {
@@ -147,10 +158,12 @@ struct HUDIntelligenceOrbView: View {
   /// The drop's path in or out. Each track starts from where the drop is.
   private static func timeline(
     emerging: Bool,
-    from start: HUDIntelligenceDrop
+    from start: HUDIntelligenceDrop,
+    after hold: TimeInterval
   ) -> KeyframeTimeline<HUDIntelligenceDrop> {
     KeyframeTimeline(initialValue: start) {
       KeyframeTrack(\.swell) {
+        LinearKeyframe(start.swell, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           SpringKeyframe(1, duration: 0.6, spring: islandSpring)
         } else {
@@ -159,6 +172,7 @@ struct HUDIntelligenceOrbView: View {
         }
       }
       KeyframeTrack(\.fall) {
+        LinearKeyframe(start.fall, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           SpringKeyframe(1, duration: 0.8, spring: islandSpring)
         } else {
@@ -170,6 +184,7 @@ struct HUDIntelligenceOrbView: View {
       // released, so the neck thins and snaps as the orb moves away.
       // Leaving, it returns first so the orb has something to flow into.
       KeyframeTrack(\.bead) {
+        LinearKeyframe(start.bead, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           LinearKeyframe(1, duration: 0.12)
           LinearKeyframe(1, duration: 0.16)
@@ -180,6 +195,7 @@ struct HUDIntelligenceOrbView: View {
         }
       }
       KeyframeTrack(\.glide) {
+        LinearKeyframe(start.glide, duration: max(hold, Self.minimumKeyframe))
         if emerging {
           LinearKeyframe(start.glide, duration: 0.3)
           SpringKeyframe(1, duration: 0.9, spring: Spring(response: 0.55, dampingRatio: 0.78))

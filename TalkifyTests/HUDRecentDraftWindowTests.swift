@@ -201,12 +201,20 @@ struct HUDRecentDraftLineTests {
     #expect(HUDRecentDraftLine.originX(contentWidth: 140, in: bounds, anchorsTrailing: true) == -20)
   }
 
-  /// Only whole tokens count as gone past the edge, oldest first, and a line
-  /// that fits has lost none.
-  @Test func onlyWholeTokensCountAsPassed() {
-    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 200) == 0)
-    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 100) == 0)
-    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 90) == 1)
-    #expect(HUDRecentDraftLine.passedCount(tokenWidths: [30, 40, 50], room: 50) == 2)
+  /// On a line held to its trailing edge, a word has reached the mouth once
+  /// its front is left of it, oldest first, and a short line reaches nothing.
+  @Test func wordsReachTheMouthOldestFirst() {
+    // Room 100: the line [30, 40, 50] starts at -20, so fronts sit at -20, 10, 50.
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 100, mouth: 8) == 1)
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 100, mouth: 12) == 2)
+    #expect(HUDRecentDraftLine.reachedCount(tokenWidths: [30, 40, 50], room: 200, mouth: 8) == 0)
+  }
+
+  /// A word is untouched until its front reaches the mouth and wholly
+  /// swallowed by the feed point.
+  @Test func swallowingRunsFromTheMouthToTheFeedPoint() {
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: 20, mouth: 8, feedX: -32) == 0)
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: -12, mouth: 8, feedX: -32) == 0.5)
+    #expect(HUDRecentDraftLine.swallowProgress(wordLeadingX: -50, mouth: 8, feedX: -32) == 1)
   }
 }

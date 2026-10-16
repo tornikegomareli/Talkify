@@ -19,9 +19,9 @@ struct HUDIntelligenceStageView: View {
   /// line fades past its edge as the center takes the words in.
   static let feedReach = iconReserve + spacing - HUDIntelligenceOrbView.restingInset
 
-  /// The line's width in a shape `width` wide, plus the reach it fades into.
+  /// The line's width in a shape `width` wide.
   static func lineRoom(shapeWidth width: CGFloat, scale: CGFloat) -> CGFloat {
-    width - (iconReserve + 2 * spacing + HUDIntelligenceWaveView.width + trailingInset - feedReach) * scale
+    width - (iconReserve + 2 * spacing + HUDIntelligenceWaveView.width + trailingInset) * scale
   }
 
   let content: DictationHUDContent
@@ -34,8 +34,11 @@ struct HUDIntelligenceStageView: View {
   /// The stage's height, to find the center's middle beside the line.
   var stageHeight: CGFloat = 0
 
+  /// When speech ends the draft leaves first, before the center flies home.
   private var hasDraft: Bool {
-    showsDraft && (!content.text.isEmpty || !content.volatileText.isEmpty)
+    showsDraft
+      && !content.isFinalizing
+      && (!content.text.isEmpty || !content.volatileText.isEmpty)
   }
 
   var body: some View {
@@ -62,9 +65,9 @@ struct HUDIntelligenceStageView: View {
           .frame(maxHeight: .infinity, alignment: .top)
           .padding(.top, 3 * scale)
           .transition(.blurReplace)
-        } else if content.showsVoiceVisual {
-          // Part of the visual, not a placeholder draft: it names the state
-          // until there are words to show, and never returns once there are.
+        } else if !showsDraft, content.showsVoiceVisual {
+          // With the draft off nothing else names the state, so it says so.
+          // With the draft on the row stays empty until the first word.
           Text("Listening")
             .font(.system(size: 15 * scale, weight: .medium))
             .foregroundStyle(.white.opacity(0.7))
