@@ -31,6 +31,12 @@ enum HUDShaderWarmUp {
       .layerEffect
     ),
     (
+      ShaderLibrary.intelligenceDrop(
+        .float2(CGPoint.zero), .float(1), .float2(CGPoint.zero), .float(1), .float(1), .float(0.5)
+      ),
+      .layerEffect
+    ),
+    (
       ShaderLibrary.ripple(
         .float2(CGPoint.zero), .float(0), .float(3), .float(6), .float(6), .float(1200)
       ),

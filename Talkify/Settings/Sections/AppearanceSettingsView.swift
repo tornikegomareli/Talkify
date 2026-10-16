@@ -25,14 +25,14 @@ struct AppearanceSettingsView: View {
     visual == .glow
   }
 
-  /// Edge Glow + Draft uses a recent-word line instead of the global long
-  /// draft behaviors. Reduce Motion restores the plain band, where the
-  /// existing pick still applies.
+  /// Edge Glow + Draft and Intelligence use a recent-word line instead of
+  /// the global long draft behaviors. Reduce Motion restores the plain band,
+  /// where the existing pick still applies.
   static func showsLongDraftBehavior(
     for visual: HUDVoiceVisualStyle,
     reduceMotion: Bool
   ) -> Bool {
-    !(visual == .glowDraft && !reduceMotion)
+    !(visual.showsRecentDraftLine && !reduceMotion)
   }
 
   var body: some View {

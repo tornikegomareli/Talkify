@@ -162,6 +162,10 @@ struct HUDRecentDraftText: View {
   let committed: String
   let volatile: String
   var scale: CGFloat = 1
+  /// Colors laid across the whole line, leading to trailing, or nil for
+  /// white. One gradient for the line rather than one per word, so the
+  /// colors hold still while words slide through them.
+  var tint: [Color]?
 
   @State private var lastWindow: HUDRecentDraftWindow?
 
@@ -172,6 +176,24 @@ struct HUDRecentDraftText: View {
   var body: some View {
     let window = self.window
     let animate = lastWindow.map(window.advances(from:)) ?? false
+    tinted(line(window))
+      .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
+      .onChange(of: window) { _, new in
+        lastWindow = new
+      }
+  }
+
+  @ViewBuilder
+  private func tinted(_ line: some View) -> some View {
+    if let tint {
+      LinearGradient(colors: tint, startPoint: .leading, endPoint: .trailing)
+        .mask { line }
+    } else {
+      line
+    }
+  }
+
+  private func line(_ window: HUDRecentDraftWindow) -> some View {
     HUDRecentDraftLineLayout {
       ForEach(window.visibleTokens) { token in
         Text(token.text)
@@ -187,9 +209,5 @@ struct HUDRecentDraftText: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .clipped()
-    .animation(animate ? .easeOut(duration: 0.14) : nil, value: window.tokenIDs)
-    .onChange(of: window) { _, new in
-      lastWindow = new
-    }
   }
 }

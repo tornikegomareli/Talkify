@@ -89,7 +89,7 @@ struct DictationHUDShellView: View {
     guard keepsVisualLayout else { return 0 }
     if reduceMotion { return metrics.visualBandHeight }
     switch settings.voiceVisual {
-    case .compact, .glowDraft: return 0
+    case .compact, .glowDraft, .intelligence: return 0
     case .waveform, .glow: return metrics.waveBandHeight
     }
   }
@@ -159,6 +159,7 @@ struct DictationHUDShellView: View {
       overlays: {
         particleCloud
         siriOrb
+        intelligence
         edgeGlow
       }
     )
@@ -194,12 +195,15 @@ struct DictationHUDShellView: View {
           HUDRecentDraftText(
             committed: content.text,
             volatile: content.volatileText,
-            scale: metrics.scale
+            scale: metrics.scale,
+            tint: showsIntelligence ? intelligenceTextColors : nil
           )
-          .padding(.horizontal, tagInset * metrics.scale)
+          .padding(.horizontal, recentDraftInset * metrics.scale)
         }
       }
-      .overlay(alignment: .leading) {
+      // Intelligence's orb rests on the leading edge, so its tag moves to the
+      // trailing one.
+      .overlay(alignment: showsIntelligence ? .trailing : .leading) {
         if showsRecentDraft { languageTag }
       }
   }
@@ -284,7 +288,26 @@ struct DictationHUDShellView: View {
     shaping: Bool,
     reduceMotion: Bool
   ) -> Bool {
-    visual == .glowDraft && !reduceMotion && (listening || dismissing || shaping)
+    visual.showsRecentDraftLine && !reduceMotion && (listening || dismissing || shaping)
+  }
+
+  private var showsIntelligence: Bool {
+    settings.voiceVisual == .intelligence && !reduceMotion
+  }
+
+  /// The draft's inset on each side. Intelligence keeps the words clear of
+  /// its orb on both sides, so a line that fits stays centered.
+  private var recentDraftInset: CGFloat {
+    showsIntelligence ? max(tagInset, Self.intelligenceOrbReserve) : tagInset
+  }
+
+  /// The orb's diameter plus air on either side of it.
+  private static let intelligenceOrbReserve: CGFloat = 60
+
+  /// White at the start of the line, warming into the palette, so the words
+  /// stay legible on the black stage and still read as the rim's colors.
+  private var intelligenceTextColors: [Color] {
+    [.white] + settings.glowPalette.intelligenceColors.prefix(3).map { $0.mix(with: .white, by: 0.4) }
   }
 
   /// The room the language tag needs on each side.
@@ -324,7 +347,7 @@ struct DictationHUDShellView: View {
   private var languageTag: some View {
     if let tag = content.languageTag {
       tagCapsule(tag)
-        .padding(.leading, 12 * metrics.scale)
+        .padding(showsIntelligence && showsRecentDraft ? .trailing : .leading, 12 * metrics.scale)
         // Edge Glow + Draft overlays the tag on the whole island, so it
         // shares the draft's vertical center. Other visuals pin it below
         // the housing from the shell.
@@ -451,6 +474,26 @@ struct DictationHUDShellView: View {
     }
   }
 
+  /// Intelligence: the palette rim inside the shape and the orb that drips
+  /// out of the notch. Both are clipped to the shape, and both stay mounted
+  /// while the visual is selected so they can drain and flow back after the
+  /// session ends.
+  @ViewBuilder
+  private var intelligence: some View {
+    if showsIntelligence {
+      ZStack {
+        HUDIntelligenceRimView(content: content, palette: settings.glowPalette, metrics: metrics)
+        HUDIntelligenceOrbView(
+          content: content,
+          palette: settings.glowPalette,
+          metrics: metrics,
+          housingHeight: HUDNotchGeometry.closedSize(for: screen).height
+        )
+      }
+      .clipShape(housingShape)
+    }
+  }
+
   /// The edge-glow voice visual: an origin glow blooming from the notch
   /// housing along the open silhouette, breathing with the voice
   /// (HUDEdgeGlowView). Mounted whenever the variant is selected — not only
@@ -504,6 +547,14 @@ struct DictationHUDShellView: View {
 
 #Preview("Edge Glow + Draft") {
   HUDShellPreviewHarness(visual: .glowDraft)
+}
+
+#Preview("Intelligence · session cycle") {
+  HUDShellPreviewHarness(visual: .intelligence, simulatesSessionCycle: true)
+}
+
+#Preview("Intelligence · dead mic") {
+  HUDShellPreviewHarness(visual: .intelligence, micAlive: false)
 }
 
 #Preview("Edge Glow + Draft · dead mic") {

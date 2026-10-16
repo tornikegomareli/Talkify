@@ -30,7 +30,7 @@ struct HUDPlaceholderTests {
     )
   }
 
-  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft, .intelligence])
   func aDraftVisualOpensWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual
@@ -48,7 +48,7 @@ struct HUDPlaceholderTests {
 
   /// A latched draft visual still says nothing, which is the case that was
   /// reported after the opening text was already handled.
-  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft])
+  @Test(arguments: [HUDVoiceVisualStyle.compact, .glowDraft, .intelligence])
   func aDraftVisualLatchesWithNoText(visual: HUDVoiceVisualStyle) {
     let store = AppSettings.previewStore()
     store.voiceVisual = visual

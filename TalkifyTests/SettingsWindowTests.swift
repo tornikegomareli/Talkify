@@ -69,6 +69,15 @@ struct SettingsWindowTests {
       for: .glowDraft, reduceMotion: true))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
       for: .compact, reduceMotion: false))
+    // Intelligence is colored by the glow palette and has its own center,
+    // and like Edge Glow + Draft it replaces the long-draft behaviors.
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .intelligence))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .intelligence))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .intelligence))
+    #expect(!AppearanceSettingsView.showsLongDraftBehavior(
+      for: .intelligence, reduceMotion: false))
+    #expect(AppearanceSettingsView.showsLongDraftBehavior(
+      for: .intelligence, reduceMotion: true))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {
