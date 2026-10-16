@@ -108,6 +108,20 @@ enum HUDGlowPalette: String, CaseIterable {
     }
   }
 
+  /// Four colors for Intelligence: they turn around its rim and move through
+  /// its orb's mesh, so both read as the beam's palette. Mono has one color,
+  /// so its orb is a lit pearl and its rim a plain light.
+  var intelligenceColors: [Color] {
+    switch self {
+    case .spectrum: [.blue, .purple, .pink, Color(red: 1.0, green: 0.55, blue: 0.4)]
+    case .silver: [.white, Color(red: 0.62, green: 0.72, blue: 1.0), .white, Color(red: 0.75, green: 0.78, blue: 0.95)]
+    case .aurora: [.mint, .teal, .green, .cyan]
+    case .sunset: [.orange, .red, .pink, .purple]
+    case .ocean: [.blue, .cyan, .indigo, Color(red: 0.0, green: 0.1, blue: 0.45)]
+    case .mono: [.white, .white, .white, .white]
+    }
+  }
+
   /// The particle cloud's colors, cycled across the motes.
   var particleColors: [SIMD4<Float>] {
     switch self {

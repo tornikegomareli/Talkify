@@ -1,7 +1,7 @@
 /// The voice-reactive visual shown while listening, user-selectable from
-/// Settings. Waveform and Edge Glow replace the draft text; Compact and
-/// Edge Glow + Draft keep it. Reduce Motion overrides all of them with a
-/// quiet level meter.
+/// Settings. Waveform and Edge Glow replace the draft text; Compact,
+/// Edge Glow + Draft and Intelligence keep it. Reduce Motion overrides all of
+/// them with a quiet level meter.
 enum HUDVoiceVisualStyle: String, CaseIterable {
   /// A Metal shader waveform that fills the HUD's visual band.
   case waveform = "Waveform"
@@ -18,15 +18,26 @@ enum HUDVoiceVisualStyle: String, CaseIterable {
   /// live draft text inside the shape (HUDCompactIndicatorView); the shape
   /// grows with the draft.
   case compact = "Compact"
+  /// Edge Glow + Draft's island and recent-word line, with a rim of the
+  /// palette turning inside the shape and an orb that drips out of the notch
+  /// on session start and flows back into it at the end. The words take the
+  /// palette too.
+  case intelligence = "Intelligence"
 
   /// Compact and Edge Glow + Draft are built around the live draft, so a
   /// placeholder would be words nobody spoke.
   var showsDraftWhileListening: Bool {
-    self == .compact || self == .glowDraft
+    self == .compact || self == .glowDraft || self == .intelligence
   }
 
   /// The beam, start ripple, shaping caption, and status-ghost accent.
   var usesEdgeGlow: Bool {
-    self == .glow || self == .glowDraft
+    self == .glow || self == .glowDraft || self == .intelligence
+  }
+
+  /// The centered recent-word line on its hanging stage, in place of the
+  /// draft band and its long-draft behaviors.
+  var showsRecentDraftLine: Bool {
+    self == .glowDraft || self == .intelligence
   }
 }
