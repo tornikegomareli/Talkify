@@ -16,7 +16,8 @@ struct AppSettingsTests {
     #expect(settings.soundSet == .synth8)
     #expect(settings.dictationSoundsEnabled)
     #expect(settings.dictationSoundVolume == 0.5)
-    #expect(settings.voiceVisual == .waveform)
+    #expect(settings.voiceVisual == .flyingGhost)
+    #expect(settings.glowPalette == .intelligence)
     #expect(settings.waveformStyle == .chartLine)
     #expect(settings.revealStyle == .slide)
     #expect(settings.longDraftStyle == .growDown)
@@ -316,7 +317,27 @@ struct AppSettingsTests {
 
     let settings = AppSettings(defaults: defaults)
     #expect(settings.soundSet == .synth8)
+    #expect(settings.voiceVisual == .flyingGhost)
+  }
+
+  /// An update must not change the look of someone who never picked one.
+  @Test func anUpdateKeepsTheOldLook() {
+    let defaults = freshDefaults()
+    defaults.set(true, forKey: "SUHasLaunchedBefore")
+    let settings = AppSettings(defaults: defaults)
     #expect(settings.voiceVisual == .waveform)
+    #expect(settings.glowPalette == .spectrum)
+  }
+
+  /// Sparkle marks the install after the first launch, so the second launch
+  /// must read back the look the first one chose.
+  @Test func aFreshInstallKeepsItsLookAfterTheFirstLaunch() {
+    let defaults = freshDefaults()
+    _ = AppSettings(defaults: defaults)
+    defaults.set(true, forKey: "SUHasLaunchedBefore")
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.voiceVisual == .flyingGhost)
+    #expect(settings.glowPalette == .intelligence)
   }
 
   /// Flying Ghost shipped in 0.9.0 as "Intelligence"; a pick stored under
@@ -342,11 +363,11 @@ struct AppSettingsTests {
     settings.hudScale = 0.6
 
     #expect(snapshot.sounds.set == .synth8)
-    #expect(snapshot.voiceVisual == .waveform)
+    #expect(snapshot.voiceVisual == .flyingGhost)
     #expect(snapshot.waveformStyle == .chartLine)
     #expect(snapshot.revealStyle == .slide)
     #expect(snapshot.longDraftStyle == .growDown)
-    #expect(snapshot.glowPalette == .spectrum)
+    #expect(snapshot.glowPalette == .intelligence)
     #expect(snapshot.glowCenter == .particles)
     #expect(snapshot.flyingGhostShowsDraft)
     #expect(snapshot.hudMetrics == .standard)

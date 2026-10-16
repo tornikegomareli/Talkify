@@ -43,6 +43,9 @@ final class AppSettings {
     static let promptShapingEnabled = "dictationPromptShapingEnabled"
     static let promptShapingPrompt = "dictationPromptShapingPrompt"
     static let shapingPrompts = "dictationShapingPrompts"
+    /// Sparkle's own key, set once the app has launched before. It tells an
+    /// update from a fresh install.
+    static let hasLaunchedBefore = "SUHasLaunchedBefore"
   }
 
   @ObservationIgnored
@@ -324,13 +327,19 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
+    // A fresh install opens on Flying Ghost in Intelligence. An install from
+    // before 1.0.0 keeps the look it had, Waveform in Spectrum. Settings load
+    // before Sparkle starts, so its launch mark is still unset on a first
+    // launch. The pick is stored at once, so later launches read it back.
+    let isUpdate = defaults.bool(forKey: Keys.hasLaunchedBefore)
     voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual)
       ?? Self.renamedVoiceVisual(defaults.string(forKey: Keys.voiceVisual))
-      ?? .waveform
+      ?? (isUpdate ? .waveform : .flyingGhost)
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
-    glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
+    glowPalette = Self.stored(in: defaults, key: Keys.glowPalette)
+      ?? (isUpdate ? .spectrum : .intelligence)
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
     // `bool(forKey:)` reads a missing key as false, which would hide the draft
     // from everyone who never touched the toggle, so absence is checked directly.
@@ -366,6 +375,13 @@ final class AppSettings {
       allowsMouseButton: true
     ) ?? .rightCommandTrigger
     translationTargetIdentifier = defaults.string(forKey: Keys.translationTarget) ?? ""
+    // Stores the look picked above for a new install or an update.
+    if defaults.object(forKey: Keys.voiceVisual) == nil {
+      defaults.set(voiceVisual.rawValue, forKey: Keys.voiceVisual)
+    }
+    if defaults.object(forKey: Keys.glowPalette) == nil {
+      defaults.set(glowPalette.rawValue, forKey: Keys.glowPalette)
+    }
   }
 
   private static func stored<Value: RawRepresentable<String>>(
