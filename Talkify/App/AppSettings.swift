@@ -23,6 +23,7 @@ final class AppSettings {
     static let longDraftStyle = "hudLongDraftStyle"
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
+    static let intelligenceCenter = "hudIntelligenceCenter"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let readAloudTranslates = "readAloudTranslates"
@@ -159,6 +160,10 @@ final class AppSettings {
 
   var glowCenter: HUDGlowCenterStyle {
     didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
+  }
+
+  var intelligenceCenter: HUDIntelligenceCenterStyle {
+    didSet { defaults.set(intelligenceCenter.rawValue, forKey: Keys.intelligenceCenter) }
   }
 
   /// How large the HUD shape is, as a fraction of the standard size.
@@ -316,6 +321,7 @@ final class AppSettings {
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
+    intelligenceCenter = Self.stored(in: defaults, key: Keys.intelligenceCenter) ?? .orb
     // `double(forKey:)` reads a missing key as zero, which would start every
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
@@ -467,6 +473,7 @@ struct DictationSessionSettings: Equatable {
   let longDraftStyle: HUDLongDraftStyle
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
+  let intelligenceCenter: HUDIntelligenceCenterStyle
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
@@ -500,6 +507,7 @@ struct DictationSessionSettings: Equatable {
     longDraftStyle = settings.longDraftStyle
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
+    intelligenceCenter = settings.intelligenceCenter
     hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }

@@ -330,6 +330,7 @@ struct AppSettingsTests {
     settings.longDraftStyle = .tailOnly
     settings.glowPalette = .aurora
     settings.glowCenter = .siriOrb
+    settings.intelligenceCenter = .ghost
     settings.hudScale = 0.6
 
     #expect(snapshot.sounds.set == .synth8)
@@ -339,6 +340,7 @@ struct AppSettingsTests {
     #expect(snapshot.longDraftStyle == .growDown)
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
+    #expect(snapshot.intelligenceCenter == .orb)
     #expect(snapshot.hudMetrics == .standard)
   }
 

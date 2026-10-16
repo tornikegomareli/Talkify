@@ -78,6 +78,9 @@ struct SettingsWindowTests {
       for: .intelligence, reduceMotion: false))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
       for: .intelligence, reduceMotion: true))
+    #expect(AppearanceSettingsView.showsIntelligenceCenter(for: .intelligence))
+    #expect(!AppearanceSettingsView.showsIntelligenceCenter(for: .glow))
+    #expect(!AppearanceSettingsView.showsIntelligenceCenter(for: .glowDraft))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

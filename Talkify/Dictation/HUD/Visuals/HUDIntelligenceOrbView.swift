@@ -39,6 +39,9 @@ struct HUDIntelligenceOrbView: View {
   let metrics: HUDMetrics
   /// Height of the housing strip the orb drips out of.
   let housingHeight: CGFloat
+  /// The orb itself, or Talkify's ghost on the same path, without the liquid
+  /// neck: a ghost floats down rather than drips.
+  var center = HUDIntelligenceCenterStyle.orb
 
   /// The drop's current path, and when it started. Rebuilt from wherever the
   /// drop is whenever listening starts or stops, so a session that ends
@@ -123,7 +126,9 @@ struct HUDIntelligenceOrbView: View {
   }
 
   /// The drop at one point of its life: a soft halo, the mesh body cut to the
-  /// liquid outline, and a highlight that makes it read as a sphere.
+  /// liquid outline, and a highlight that makes it read as a sphere. The ghost
+  /// takes the same place and size and keeps its own silhouette.
+  @ViewBuilder
   private func orb(drop: HUDIntelligenceDrop, in size: CGSize, level: Double, alive: Bool) -> some View {
     let scale = metrics.scale
     let colors = alive
@@ -136,7 +141,7 @@ struct HUDIntelligenceOrbView: View {
       y: housingHeight + metrics.glowDraftStageHeight / 2
     )
     let radius = Self.restingRadius * scale * drop.swell * (1 + 0.14 * level)
-    let center = CGPoint(
+    let centerPoint = CGPoint(
       x: bud.x + (rest.x - bud.x) * drop.glide,
       y: bud.y + (rest.y - bud.y) * drop.fall
     )
@@ -145,42 +150,47 @@ struct HUDIntelligenceOrbView: View {
     // The neck's reach: closer than this, the orb and the bead share one
     // outline. Below the gap they end at, so the drop really lets go.
     let join = 10 * scale
-    let box = CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius)
+    let box = CGRect(x: centerPoint.x - radius, y: centerPoint.y - radius, width: 2 * radius, height: 2 * radius)
       .union(CGRect(x: anchor.x - beadRadius, y: anchor.y - beadRadius, width: 2 * beadRadius, height: 2 * beadRadius))
       .insetBy(dx: -join, dy: -join)
-    return ZStack(alignment: .topLeading) {
-      Circle()
-        .fill(colors[1])
-        .frame(width: radius * 2.8, height: radius * 2.8)
-        .blur(radius: 10 * scale)
-        .opacity(0.45 + 0.45 * level)
-        .position(center)
-      HUDIntelligenceMesh(colors: colors, moving: alive)
-        .frame(width: box.width, height: box.height)
-        .layerEffect(
-          ShaderLibrary.intelligenceDrop(
-            .float2(CGPoint(x: center.x - box.minX, y: center.y - box.minY)),
-            .float(radius),
-            .float2(CGPoint(x: anchor.x - box.minX, y: anchor.y - box.minY)),
-            .float(beadRadius),
-            .float(join),
-            .float(pixel)
-          ),
-          maxSampleOffset: .zero
-        )
-        .saturation(1.25)
-        .brightness(0.12 * level)
-        .position(x: box.midX, y: box.midY)
-      Circle()
-        .fill(RadialGradient(
-          colors: [.white.opacity(0.42), .white.opacity(0)],
-          center: .center,
-          startRadius: 0,
-          endRadius: radius * 0.5
-        ))
-        .frame(width: radius, height: radius)
-        .position(x: center.x - radius * 0.3, y: center.y - radius * 0.32)
-        .brightness(0.2 * level)
+    if center == .ghost {
+      HUDIntelligenceGhostView(colors: colors, level: level, alive: alive, height: radius * 2.25)
+        .position(centerPoint)
+    } else {
+      ZStack(alignment: .topLeading) {
+        Circle()
+          .fill(colors[1])
+          .frame(width: radius * 2.8, height: radius * 2.8)
+          .blur(radius: 10 * scale)
+          .opacity(0.45 + 0.45 * level)
+          .position(centerPoint)
+        HUDIntelligenceMesh(colors: colors, moving: alive)
+          .frame(width: box.width, height: box.height)
+          .layerEffect(
+            ShaderLibrary.intelligenceDrop(
+              .float2(CGPoint(x: centerPoint.x - box.minX, y: centerPoint.y - box.minY)),
+              .float(radius),
+              .float2(CGPoint(x: anchor.x - box.minX, y: anchor.y - box.minY)),
+              .float(beadRadius),
+              .float(join),
+              .float(pixel)
+            ),
+            maxSampleOffset: .zero
+          )
+          .saturation(1.25)
+          .brightness(0.12 * level)
+          .position(x: box.midX, y: box.midY)
+        Circle()
+          .fill(RadialGradient(
+            colors: [.white.opacity(0.42), .white.opacity(0)],
+            center: .center,
+            startRadius: 0,
+            endRadius: radius * 0.5
+          ))
+          .frame(width: radius, height: radius)
+          .position(x: centerPoint.x - radius * 0.3, y: centerPoint.y - radius * 0.32)
+          .brightness(0.2 * level)
+      }
     }
   }
 }

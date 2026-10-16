@@ -44,7 +44,7 @@ struct DictationHUDShellView: View {
   }
 
   private var size: CGSize {
-    HUDNotchGeometry.contentSize(
+    var size = HUDNotchGeometry.contentSize(
       for: screen,
       metrics: metrics,
       // Edge Glow + Draft has no visual band; its hanging stage is 40
@@ -56,6 +56,15 @@ struct DictationHUDShellView: View {
       includesTextBand: showsTextBand,
       shapingBandHeight: showsShapingLabel ? metrics.shapingBandHeight : 0
     )
+    if showsIntelligence {
+      size.width = Self.intelligenceWidth(
+        expanded: intelligenceExpanded,
+        fullWidth: size.width,
+        screen: screen,
+        metrics: metrics
+      )
+    }
+    return size
   }
 
   /// Whether the shape carries the shaping label's strip. Derived from the
@@ -163,6 +172,9 @@ struct DictationHUDShellView: View {
         edgeGlow
       }
     )
+    // The island's own morph spring, decoded from SpringBoard, so Intelligence
+    // widens for the first word the way the island grows for an activity.
+    .animation(.spring(HUDIntelligenceOrbView.islandSpring), value: intelligenceExpanded)
   }
 
   private var bands: some View {
@@ -192,18 +204,29 @@ struct DictationHUDShellView: View {
     stackedBands
       .overlay {
         if showsRecentDraft {
-          HUDRecentDraftText(
-            committed: content.text,
-            volatile: content.volatileText,
-            scale: metrics.scale,
-            tint: showsIntelligence ? intelligenceTextColors : nil
-          )
-          .padding(.horizontal, recentDraftInset * metrics.scale)
+          if showsIntelligence {
+            // Under the housing rather than centered on the island: the row
+            // lines up with the orb, which rests on the stage's center line.
+            HUDIntelligenceStageView(
+              content: content,
+              palette: settings.glowPalette,
+              scale: metrics.scale,
+              textColors: intelligenceTextColors
+            )
+            .padding(.top, HUDNotchGeometry.closedSize(for: screen).height)
+          } else {
+            HUDRecentDraftText(
+              committed: content.text,
+              volatile: content.volatileText,
+              scale: metrics.scale
+            )
+            .padding(.horizontal, tagInset * metrics.scale)
+          }
         }
       }
-      // Intelligence's orb rests on the leading edge, so its tag moves to the
-      // trailing one.
-      .overlay(alignment: showsIntelligence ? .trailing : .leading) {
+      // Intelligence's orb and voice indicator hold both ends of the stage, so
+      // its tag sits in the housing strip's trailing flank instead.
+      .overlay(alignment: showsIntelligence ? .topTrailing : .leading) {
         if showsRecentDraft { languageTag }
       }
   }
@@ -295,14 +318,30 @@ struct DictationHUDShellView: View {
     settings.voiceVisual == .intelligence && !reduceMotion
   }
 
-  /// The draft's inset on each side. Intelligence keeps the words clear of
-  /// its orb on both sides, so a line that fits stays centered.
-  private var recentDraftInset: CGFloat {
-    showsIntelligence ? max(tagInset, Self.intelligenceOrbReserve) : tagInset
+  /// Whether Intelligence has words to show. The island holds its listening
+  /// width until the first word, then widens for the line.
+  private var intelligenceExpanded: Bool {
+    showsIntelligence && (!content.text.isEmpty || !content.volatileText.isEmpty)
   }
 
-  /// The orb's diameter plus air on either side of it.
-  private static let intelligenceOrbReserve: CGFloat = 60
+  /// Intelligence's width: room for the orb, "Listening" and the voice
+  /// indicator until the first word, then the whole shape. Never narrower than
+  /// the housing it grows from, and never wider than the full shape.
+  static func intelligenceWidth(
+    expanded: Bool,
+    fullWidth: CGFloat,
+    screen: HUDScreenSnapshot,
+    metrics: HUDMetrics
+  ) -> CGFloat {
+    guard !expanded else { return fullWidth }
+    let listening = max(
+      intelligenceListeningWidth * metrics.scale,
+      HUDNotchGeometry.minimumShapeWidth(for: screen)
+    )
+    return min(listening, fullWidth)
+  }
+
+  static let intelligenceListeningWidth: CGFloat = 300
 
   /// White at the start of the line, warming into the palette, so the words
   /// stay legible on the black stage and still read as the rim's colors.
@@ -349,9 +388,10 @@ struct DictationHUDShellView: View {
       tagCapsule(tag)
         .padding(showsIntelligence && showsRecentDraft ? .trailing : .leading, 12 * metrics.scale)
         // Edge Glow + Draft overlays the tag on the whole island, so it
-        // shares the draft's vertical center. Other visuals pin it below
-        // the housing from the shell.
-        .padding(.top, showsRecentDraft ? 0 : tagTopInset)
+        // shares the draft's vertical center; Intelligence hangs it in the
+        // housing strip's flank. Other visuals pin it below the housing from
+        // the shell.
+        .padding(.top, showsRecentDraft ? (showsIntelligence ? 8 * metrics.scale : 0) : tagTopInset)
         .allowsHitTesting(false)
     }
   }
@@ -487,7 +527,8 @@ struct DictationHUDShellView: View {
           content: content,
           palette: settings.glowPalette,
           metrics: metrics,
-          housingHeight: HUDNotchGeometry.closedSize(for: screen).height
+          housingHeight: HUDNotchGeometry.closedSize(for: screen).height,
+          center: settings.intelligenceCenter
         )
       }
       .clipShape(housingShape)
@@ -551,6 +592,10 @@ struct DictationHUDShellView: View {
 
 #Preview("Intelligence · session cycle") {
   HUDShellPreviewHarness(visual: .intelligence, simulatesSessionCycle: true)
+}
+
+#Preview("Intelligence · ghost") {
+  HUDShellPreviewHarness(visual: .intelligence, intelligenceCenter: .ghost, simulatesSessionCycle: true)
 }
 
 #Preview("Intelligence · dead mic") {
