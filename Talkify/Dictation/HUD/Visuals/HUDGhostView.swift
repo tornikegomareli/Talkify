@@ -80,12 +80,12 @@ struct HUDGhostPose: Equatable {
   }
 }
 
-/// The ghost Intelligence can show in place of the orb, filled with the
+/// Flying Ghost's ghost, Talkify's logo filled with the
 /// palette's moving mesh. It flies a gentle figure-eight that widens with the
 /// voice, leans into its motion, flutters its hem, blinks, and opens its eyes
 /// wider while the user speaks. On a dead microphone it stops in amber with
 /// its eyes half shut.
-struct HUDIntelligenceGhostView: View {
+struct HUDGhostView: View {
   /// Width over height, as in the app icon.
   static let aspect: CGFloat = 0.8
 
@@ -98,6 +98,8 @@ struct HUDIntelligenceGhostView: View {
   var bites = 0
   /// Whether there are words beside it; it watches them while there are.
   var eating = false
+  /// The palette's glow balance, so the halo reads the same in every palette.
+  var glowBalance = 1.0
 
   @State private var flight = HUDGhostFlight()
   @State private var biteStart = Date.distantPast
@@ -114,8 +116,8 @@ struct HUDIntelligenceGhostView: View {
         ghost
           .fill(colors[1])
           .blur(radius: height * 0.3)
-          .opacity(0.4 + 0.2 * level)
-        HUDIntelligenceMesh(colors: colors, moving: alive)
+          .opacity((0.4 + 0.2 * level) * glowBalance)
+        HUDGhostMesh(colors: colors, moving: alive)
           .mask(ghost)
         ghost
           .fill(RadialGradient(
@@ -184,4 +186,33 @@ struct HUDIntelligenceGhostView: View {
 
   static let blinkPeriod = 3.4
   static let blinkDuration = 0.16
+}
+
+struct HUDGhostMesh: View {
+  let colors: [Color]
+  let moving: Bool
+
+  var body: some View {
+    TimelineView(.animation(paused: !moving)) { context in
+      let t = Float(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1000)) * 1.6
+      let c = colors
+      MeshGradient(
+        width: 3,
+        height: 3,
+        points: Self.points(at: t),
+        // Interleaved so no color owns the center or a whole edge.
+        colors: [c[0], c[2], c[1], c[3], c[1], c[2], c[1], c[0], c[3]]
+      )
+    }
+  }
+
+  private static func points(at t: Float) -> [SIMD2<Float>] {
+    [
+      SIMD2(0, 0), SIMD2(0.5 + 0.15 * sin(t * 0.8), 0), SIMD2(1, 0),
+      SIMD2(0, 0.5 + 0.2 * sin(t * 0.9)),
+      SIMD2(0.5 + 0.22 * sin(t * 0.7), 0.5 + 0.22 * cos(t * 0.85)),
+      SIMD2(1, 0.5 + 0.2 * cos(t * 1.1)),
+      SIMD2(0, 1), SIMD2(0.5 + 0.18 * cos(t * 0.6), 1), SIMD2(1, 1),
+    ]
+  }
 }

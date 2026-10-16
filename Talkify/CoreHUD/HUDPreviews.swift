@@ -44,7 +44,6 @@ struct HUDShellPreviewHarness: View {
   var visual: HUDVoiceVisualStyle?
   var waveformStyle = HUDWaveformStyle.chartLine
   var glowCenter = HUDGlowCenterStyle.particles
-  var intelligenceCenter = HUDIntelligenceCenterStyle.orb
   var longDraft = HUDLongDraftStyle.growDown
   /// The HUD size, as a fraction of the standard shape.
   var hudScale = 1.0
@@ -77,7 +76,6 @@ struct HUDShellPreviewHarness: View {
         settings.voiceVisual = visual
         settings.waveformStyle = waveformStyle
         settings.glowCenter = glowCenter
-        settings.intelligenceCenter = intelligenceCenter
         content.showsVoiceVisual = true
         content.isAudioAlive = micAlive
         guard micAlive else { return }

@@ -25,11 +25,7 @@ struct AppearanceSettingsView: View {
     visual == .glow
   }
 
-  static func showsIntelligenceCenter(for visual: HUDVoiceVisualStyle) -> Bool {
-    visual == .intelligence
-  }
-
-  /// Edge Glow + Draft and Intelligence use a recent-word line instead of
+  /// Edge Glow + Draft and Flying Ghost use a recent-word line instead of
   /// the global long draft behaviors. Reduce Motion restores the plain band,
   /// where the existing pick still applies.
   static func showsLongDraftBehavior(
@@ -82,21 +78,13 @@ struct AppearanceSettingsView: View {
           )
         }
 
-        if Self.showsIntelligenceCenter(for: settings.voiceVisual) {
-          SettingsPickerRow(
-            title: "Intelligence center",
-            description: "What drips out of the notch and sits beside your words",
-            options: HUDIntelligenceCenterStyle.allCases,
-            optionLabel: { $0.rawValue },
-            selection: $settings.intelligenceCenter
-          )
-
+        if settings.voiceVisual == .flyingGhost {
           SettingsRow(
             title: "Show live draft",
-            description: "Widen into your words as you speak. Off, Intelligence "
-              + "stays small and says Listening"
+            description: "Widen into your words as you speak, for the ghost to eat. "
+              + "Off, the ghost stays small and the shape says Listening"
           ) {
-            Toggle("Show live draft", isOn: $settings.intelligenceShowsDraft)
+            Toggle("Show live draft", isOn: $settings.flyingGhostShowsDraft)
               .labelsHidden()
               .toggleStyle(.switch)
           }

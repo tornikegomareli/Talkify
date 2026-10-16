@@ -1,20 +1,21 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 import Testing
 @testable import Talkify
 
-/// Intelligence's pure rules: how wide the island is before and after the
+/// Flying Ghost's pure rules: how wide the island is before and after the
 /// first word, how high its voice indicator reaches, and when the ghost blinks.
-struct HUDIntelligenceTests {
+struct HUDFlyingGhostTests {
   private let notched = HUDPreviewScreen.notched
   private let external = HUDPreviewScreen.external
 
   @Test func theIslandListensNarrowAndWidensForTheFirstWord() {
     let metrics = HUDMetrics.standard
     let full = metrics.contentWidth
-    let listening = DictationHUDShellView.intelligenceWidth(
+    let listening = DictationHUDShellView.flyingGhostWidth(
       expanded: false, fullWidth: full, screen: notched, metrics: metrics)
-    let speaking = DictationHUDShellView.intelligenceWidth(
+    let speaking = DictationHUDShellView.flyingGhostWidth(
       expanded: true, fullWidth: full, screen: notched, metrics: metrics)
 
     #expect(listening < speaking)
@@ -25,7 +26,7 @@ struct HUDIntelligenceTests {
   /// or it reads as a tab under the notch.
   @Test func theListeningIslandNeverNarrowsPastTheHousing() {
     let metrics = HUDMetrics(scale: 0.4)
-    let width = DictationHUDShellView.intelligenceWidth(
+    let width = DictationHUDShellView.flyingGhostWidth(
       expanded: false, fullWidth: metrics.contentWidth, screen: notched, metrics: metrics)
 
     #expect(width >= HUDNotchGeometry.minimumShapeWidth(for: notched))
@@ -34,21 +35,21 @@ struct HUDIntelligenceTests {
 
   @Test func aSimulatedNotchListensAtTheScaledWidth() {
     let metrics = HUDMetrics.standard
-    let width = DictationHUDShellView.intelligenceWidth(
+    let width = DictationHUDShellView.flyingGhostWidth(
       expanded: false, fullWidth: metrics.contentWidth, screen: external, metrics: metrics)
 
-    #expect(width == DictationHUDShellView.intelligenceListeningWidth)
+    #expect(width == DictationHUDShellView.flyingGhostListeningWidth)
   }
 
   /// Silence leaves the bars resting low, never flat, and no voice drives
   /// them past their full height.
   @Test func theVoiceIndicatorRestsInSilenceAndStaysInBounds() {
-    for bar in 0..<HUDIntelligenceWaveView.barCount {
+    for bar in 0..<HUDFlyingGhostWaveView.barCount {
       for t in stride(from: 0.0, to: 4.0, by: 0.05) {
-        #expect(HUDIntelligenceWaveView.reach(bar: bar, at: t, level: 0)
-          == HUDIntelligenceWaveView.restingReach)
-        let loud = HUDIntelligenceWaveView.reach(bar: bar, at: t, level: 1)
-        #expect(loud >= HUDIntelligenceWaveView.restingReach)
+        #expect(HUDFlyingGhostWaveView.reach(bar: bar, at: t, level: 0)
+          == HUDFlyingGhostWaveView.restingReach)
+        let loud = HUDFlyingGhostWaveView.reach(bar: bar, at: t, level: 1)
+        #expect(loud >= HUDFlyingGhostWaveView.restingReach)
         #expect(loud <= 1)
       }
     }
@@ -103,29 +104,29 @@ struct HUDIntelligenceTests {
   @Test func theGhostFliesAnArcFromTheCameraToTheCorner() {
     let start = CGPoint(x: 270, y: 28)
     let end = CGPoint(x: 30, y: 59)
-    let launch = HUDIntelligenceOrbView.ghostFlight(progress: 0, from: start, to: end, scale: 1)
-    let landing = HUDIntelligenceOrbView.ghostFlight(progress: 1, from: start, to: end, scale: 1)
+    let launch = HUDFlyingGhostView.flight(progress: 0, from: start, to: end, scale: 1)
+    let landing = HUDFlyingGhostView.flight(progress: 1, from: start, to: end, scale: 1)
     #expect(launch.point == start && abs(launch.lean) < 0.001)
     #expect(landing.point == end && abs(landing.lean) < 0.001)
-    let midway = HUDIntelligenceOrbView.ghostFlight(progress: 0.5, from: start, to: end, scale: 1)
+    let midway = HUDFlyingGhostView.flight(progress: 0.5, from: start, to: end, scale: 1)
     #expect(midway.lean < 0)
     #expect(midway.point.y > end.y)
   }
 
   /// The mouth only opens for a bite, and is widest halfway through it.
   @Test func aBiteOpensTheMouthOnceAndClosesIt() {
-    let duration = HUDIntelligenceGhostView.chompDuration
-    #expect(HUDIntelligenceGhostView.chomp(at: -0.1) == 0)
-    #expect(HUDIntelligenceGhostView.chomp(at: duration / 2) > 0.99)
-    #expect(HUDIntelligenceGhostView.chomp(at: duration) == 0)
+    let duration = HUDGhostView.chompDuration
+    #expect(HUDGhostView.chomp(at: -0.1) == 0)
+    #expect(HUDGhostView.chomp(at: duration / 2) > 0.99)
+    #expect(HUDGhostView.chomp(at: duration) == 0)
   }
 
-  /// Speech ending is when Intelligence's center flies home, so the content
+  /// Speech ending is when Flying Ghost's ghost flies home, so the content
   /// says so, and the next session starts without it.
   @MainActor
   @Test func finalizingIsMarkedAndTheNextSessionClearsIt() {
     let store = AppSettings.previewStore()
-    store.voiceVisual = .intelligence
+    store.voiceVisual = .flyingGhost
     let stage = HUDStage(settings: store)
     let hud = DictationHUDController(stage: stage, settings: store)
     hud.showListening(on: nil, isLatched: false, settings: store.sessionSettings)
@@ -136,11 +137,40 @@ struct HUDIntelligenceTests {
     #expect(!stage.dictationContent.isFinalizing)
   }
 
+  /// Every palette gives the ghost the same kind of color set: five colors
+  /// with a real spread of lightness, so the mesh moves visibly and the effect
+  /// looks the same whichever palette is picked.
+  @Test(arguments: HUDGlowPalette.allCases)
+  func everyPaletteGivesTheGhostTheSameKindOfColors(palette: HUDGlowPalette) {
+    let lightness = palette.ghostColors.map { color in
+      let resolved = color.resolve(in: EnvironmentValues())
+      return 0.2126 * Double(resolved.red) + 0.7152 * Double(resolved.green) + 0.0722 * Double(resolved.blue)
+    }
+    #expect(lightness.count == 5)
+    #expect(lightness.max()! - lightness.min()! > 0.2)
+  }
+
+  /// The glow is balanced by lightness: the reference palette is unscaled,
+  /// a lighter palette is always dimmed more than a deeper one, and no
+  /// palette leaves the bounds.
+  @Test func lighterPalettesGlowLessSoAllReadTheSame() {
+    #expect(abs(HUDGlowPalette.intelligence.ghostGlowBalance - 1) < 0.0001)
+    let byLightness = HUDGlowPalette.allCases.sorted {
+      HUDGlowPalette.averageLightness(of: $0.ghostColors) < HUDGlowPalette.averageLightness(of: $1.ghostColors)
+    }
+    for (deeper, lighter) in zip(byLightness, byLightness.dropFirst()) {
+      #expect(deeper.ghostGlowBalance >= lighter.ghostGlowBalance)
+    }
+    for palette in HUDGlowPalette.allCases {
+      #expect(HUDGlowPalette.ghostGlowBalanceRange.contains(palette.ghostGlowBalance))
+    }
+  }
+
   @Test func theGhostBlinksBrieflyAndOtherwiseKeepsItsEyesOpen() {
-    let period = HUDIntelligenceGhostView.blinkPeriod
-    let blink = HUDIntelligenceGhostView.blinkDuration
-    #expect(HUDIntelligenceGhostView.openness(at: period + blink / 2) < 0.2)
-    #expect(HUDIntelligenceGhostView.openness(at: period + blink * 2) == 1)
-    #expect(HUDIntelligenceGhostView.openness(at: period / 2) == 1)
+    let period = HUDGhostView.blinkPeriod
+    let blink = HUDGhostView.blinkDuration
+    #expect(HUDGhostView.openness(at: period + blink / 2) < 0.2)
+    #expect(HUDGhostView.openness(at: period + blink * 2) == 1)
+    #expect(HUDGhostView.openness(at: period / 2) == 1)
   }
 }

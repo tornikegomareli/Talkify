@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Intelligence's voice indicator: four capsules in the palette at the stage's
+/// Flying Ghost's voice indicator: four capsules in the palette at the stage's
 /// trailing edge, reaching higher the louder the voice. Silence leaves them
 /// resting low rather than flat, and a dead microphone stops them in amber.
-struct HUDIntelligenceWaveView: View {
+struct HUDFlyingGhostWaveView: View {
   static let barCount = 4
   /// The indicator's full height at full HUD size.
   static let height: CGFloat = 18
@@ -22,7 +22,7 @@ struct HUDIntelligenceWaveView: View {
     TimelineView(.animation(minimumInterval: 1 / 30, paused: !listening || !alive)) { context in
       let t = context.date.timeIntervalSinceReferenceDate
       let level = alive ? content.audioLevel : 0
-      let colors = alive ? palette.intelligenceColors : [HUDVisualTokens.deadMicAmber]
+      let colors = alive ? palette.ghostColors : [HUDVisualTokens.deadMicAmber]
       HStack(spacing: Self.barSpacing * scale) {
         ForEach(0..<Self.barCount, id: \.self) { bar in
           Capsule()

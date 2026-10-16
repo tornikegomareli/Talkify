@@ -69,18 +69,15 @@ struct SettingsWindowTests {
       for: .glowDraft, reduceMotion: true))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
       for: .compact, reduceMotion: false))
-    // Intelligence is colored by the glow palette and has its own center,
-    // and like Edge Glow + Draft it replaces the long-draft behaviors.
-    #expect(AppearanceSettingsView.showsGlowPalette(for: .intelligence))
-    #expect(!AppearanceSettingsView.showsGlowCenter(for: .intelligence))
-    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .intelligence))
+    // Flying Ghost is colored by the glow palette, has no glow center, and
+    // like Edge Glow + Draft it replaces the long-draft behaviors.
+    #expect(AppearanceSettingsView.showsGlowPalette(for: .flyingGhost))
+    #expect(!AppearanceSettingsView.showsGlowCenter(for: .flyingGhost))
+    #expect(!AppearanceSettingsView.showsWaveformOptions(for: .flyingGhost))
     #expect(!AppearanceSettingsView.showsLongDraftBehavior(
-      for: .intelligence, reduceMotion: false))
+      for: .flyingGhost, reduceMotion: false))
     #expect(AppearanceSettingsView.showsLongDraftBehavior(
-      for: .intelligence, reduceMotion: true))
-    #expect(AppearanceSettingsView.showsIntelligenceCenter(for: .intelligence))
-    #expect(!AppearanceSettingsView.showsIntelligenceCenter(for: .glow))
-    #expect(!AppearanceSettingsView.showsIntelligenceCenter(for: .glowDraft))
+      for: .flyingGhost, reduceMotion: true))
   }
 
   @Test func releaseMetadataExcludesUnlicensedOptions() {

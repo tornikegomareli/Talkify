@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Intelligence's row under the housing: room for the orb or ghost at the
+/// Flying Ghost's row under the housing: room for the ghost at the
 /// leading edge, "Listening" until the first word and then the live
 /// recent-word line, and the voice indicator at the trailing edge. The shell
 /// widens the island when the first word arrives, so the line has the room
 /// "Listening" did not need.
-struct HUDIntelligenceStageView: View {
-  /// Width kept clear for the orb or ghost, from the stage's leading edge.
-  static let iconReserve = HUDIntelligenceOrbView.restingInset + HUDIntelligenceOrbView.restingRadius + 8
+struct HUDFlyingGhostStageView: View {
+  /// Width kept clear for the ghost, from the stage's leading edge.
+  static let iconReserve = HUDFlyingGhostView.restingInset + HUDFlyingGhostView.restingRadius + 8
 
   /// The recent-word line's box: its 24-point type and a little air.
   static let draftLineHeight: CGFloat = 30
@@ -17,11 +17,11 @@ struct HUDIntelligenceStageView: View {
   static let trailingInset: CGFloat = 16
   /// From the line's leading edge back to the center's middle: how far the
   /// line fades past its edge as the center takes the words in.
-  static let feedReach = iconReserve + spacing - HUDIntelligenceOrbView.restingInset
+  static let feedReach = iconReserve + spacing - HUDFlyingGhostView.restingInset
 
   /// The line's width in a shape `width` wide.
   static func lineRoom(shapeWidth width: CGFloat, scale: CGFloat) -> CGFloat {
-    width - (iconReserve + 2 * spacing + HUDIntelligenceWaveView.width + trailingInset) * scale
+    width - (iconReserve + 2 * spacing + HUDFlyingGhostWaveView.width + trailingInset) * scale
   }
 
   let content: DictationHUDContent
@@ -77,7 +77,7 @@ struct HUDIntelligenceStageView: View {
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
       .animation(.easeOut(duration: 0.3), value: hasDraft)
-      HUDIntelligenceWaveView(content: content, palette: palette, scale: scale)
+      HUDFlyingGhostWaveView(content: content, palette: palette, scale: scale)
     }
     .padding(.trailing, Self.trailingInset * scale)
   }

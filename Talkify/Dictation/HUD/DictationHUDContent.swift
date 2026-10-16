@@ -33,7 +33,7 @@ final class DictationHUDContent {
   /// shape that is already sliding away.
   var isDismissing = false
   /// True once speech has stopped and the recognized text is pending. The
-  /// visual comes to rest here; Intelligence's center flies home, so its
+  /// visual comes to rest here; Flying Ghost's ghost flies home, so its
   /// flight is seen before the shape retracts over it.
   var isFinalizing = false
   /// Bumped once per session start; one-shot effects (the ripple) trigger

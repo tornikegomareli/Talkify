@@ -23,8 +23,7 @@ final class AppSettings {
     static let longDraftStyle = "hudLongDraftStyle"
     static let glowPalette = "hudGlowPalette"
     static let glowCenter = "hudGlowCenter"
-    static let intelligenceCenter = "hudIntelligenceCenter"
-    static let intelligenceShowsDraft = "hudIntelligenceShowsDraft"
+    static let flyingGhostShowsDraft = "hudFlyingGhostShowsDraft"
     static let hudScale = "hudScale"
     static let readAloudVoice = "readAloudVoice"
     static let readAloudTranslates = "readAloudTranslates"
@@ -139,6 +138,13 @@ final class AppSettings {
     shapingPrompts = ShapingPrompt.defaults
   }
 
+  /// A voice visual stored under a name it has since lost. Flying Ghost
+  /// shipped in 0.9.0 as "Intelligence"; reading that back as anything else
+  /// would silently drop the user's pick.
+  static func renamedVoiceVisual(_ stored: String?) -> HUDVoiceVisualStyle? {
+    stored == "Intelligence" ? .flyingGhost : nil
+  }
+
   var voiceVisual: HUDVoiceVisualStyle {
     didSet { defaults.set(voiceVisual.rawValue, forKey: Keys.voiceVisual) }
   }
@@ -163,14 +169,10 @@ final class AppSettings {
     didSet { defaults.set(glowCenter.rawValue, forKey: Keys.glowCenter) }
   }
 
-  var intelligenceCenter: HUDIntelligenceCenterStyle {
-    didSet { defaults.set(intelligenceCenter.rawValue, forKey: Keys.intelligenceCenter) }
-  }
-
-  /// Whether Intelligence widens into the live draft once words arrive. Off,
+  /// Whether Flying Ghost widens into the live draft once words arrive. Off,
   /// it stays at its listening width for the whole session.
-  var intelligenceShowsDraft: Bool {
-    didSet { defaults.set(intelligenceShowsDraft, forKey: Keys.intelligenceShowsDraft) }
+  var flyingGhostShowsDraft: Bool {
+    didSet { defaults.set(flyingGhostShowsDraft, forKey: Keys.flyingGhostShowsDraft) }
   }
 
   /// How large the HUD shape is, as a fraction of the standard size.
@@ -322,16 +324,17 @@ final class AppSettings {
     promptShapingPromptID = defaults.string(forKey: Keys.promptShapingPrompt)
       ?? ShapingPrompt.defaults[0].id
     shapingPrompts = Self.storedShapingPrompts(in: defaults) ?? ShapingPrompt.defaults
-    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual) ?? .waveform
+    voiceVisual = Self.stored(in: defaults, key: Keys.voiceVisual)
+      ?? Self.renamedVoiceVisual(defaults.string(forKey: Keys.voiceVisual))
+      ?? .waveform
     waveformStyle = Self.stored(in: defaults, key: Keys.waveformStyle) ?? .chartLine
     revealStyle = Self.stored(in: defaults, key: Keys.revealStyle) ?? .slide
     longDraftStyle = Self.stored(in: defaults, key: Keys.longDraftStyle) ?? .growDown
     glowPalette = Self.stored(in: defaults, key: Keys.glowPalette) ?? .spectrum
     glowCenter = Self.stored(in: defaults, key: Keys.glowCenter) ?? .particles
-    intelligenceCenter = Self.stored(in: defaults, key: Keys.intelligenceCenter) ?? .orb
     // `bool(forKey:)` reads a missing key as false, which would hide the draft
     // from everyone who never touched the toggle, so absence is checked directly.
-    intelligenceShowsDraft = defaults.object(forKey: Keys.intelligenceShowsDraft) as? Bool ?? true
+    flyingGhostShowsDraft = defaults.object(forKey: Keys.flyingGhostShowsDraft) as? Bool ?? true
     // `double(forKey:)` reads a missing key as zero, which would start every
     // existing user at the smallest HUD, so absence is checked directly.
     hudScale = defaults.object(forKey: Keys.hudScale) as? Double
@@ -483,8 +486,7 @@ struct DictationSessionSettings: Equatable {
   let longDraftStyle: HUDLongDraftStyle
   let glowPalette: HUDGlowPalette
   let glowCenter: HUDGlowCenterStyle
-  let intelligenceCenter: HUDIntelligenceCenterStyle
-  let intelligenceShowsDraft: Bool
+  let flyingGhostShowsDraft: Bool
   let hudMetrics: HUDMetrics
 
   /// The colour a Drop Transcription wears — on the HUD's target and card, and
@@ -518,8 +520,7 @@ struct DictationSessionSettings: Equatable {
     longDraftStyle = settings.longDraftStyle
     glowPalette = settings.glowPalette
     glowCenter = settings.glowCenter
-    intelligenceCenter = settings.intelligenceCenter
-    intelligenceShowsDraft = settings.intelligenceShowsDraft
+    flyingGhostShowsDraft = settings.flyingGhostShowsDraft
     hudMetrics = HUDMetrics(scale: CGFloat(settings.hudScale))
   }
 }

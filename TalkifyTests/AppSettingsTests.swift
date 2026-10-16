@@ -319,6 +319,14 @@ struct AppSettingsTests {
     #expect(settings.voiceVisual == .waveform)
   }
 
+  /// Flying Ghost shipped in 0.9.0 as "Intelligence"; a pick stored under
+  /// that name must come back as Flying Ghost, not fall back to Waveform.
+  @Test func aVoiceVisualStoredUnderItsOldNameIsKept() {
+    let defaults = freshDefaults()
+    defaults.set("Intelligence", forKey: "hudVoiceVisual")
+    #expect(AppSettings(defaults: defaults).voiceVisual == .flyingGhost)
+  }
+
   @Test func sessionSnapshotDoesNotChangeWithStoredSettings() {
     let settings = AppSettings(defaults: freshDefaults())
     let snapshot = settings.sessionSettings
@@ -330,8 +338,7 @@ struct AppSettingsTests {
     settings.longDraftStyle = .tailOnly
     settings.glowPalette = .aurora
     settings.glowCenter = .siriOrb
-    settings.intelligenceCenter = .ghost
-    settings.intelligenceShowsDraft = false
+    settings.flyingGhostShowsDraft = false
     settings.hudScale = 0.6
 
     #expect(snapshot.sounds.set == .synth8)
@@ -341,8 +348,7 @@ struct AppSettingsTests {
     #expect(snapshot.longDraftStyle == .growDown)
     #expect(snapshot.glowPalette == .spectrum)
     #expect(snapshot.glowCenter == .particles)
-    #expect(snapshot.intelligenceCenter == .orb)
-    #expect(snapshot.intelligenceShowsDraft)
+    #expect(snapshot.flyingGhostShowsDraft)
     #expect(snapshot.hudMetrics == .standard)
   }
 

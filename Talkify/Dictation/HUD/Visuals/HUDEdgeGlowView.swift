@@ -35,7 +35,7 @@ struct HUDEdgeGlowView: View {
   let metrics: HUDMetrics
   let topFilletRadius: CGFloat
   /// How strongly the voice swells the beam, 1 for Edge Glow's own feel.
-  /// Intelligence answers the voice with its rim and orb as well, so its
+  /// Flying Ghost answers the voice with its rim and ghost as well, so its
   /// beam swells less or the three together flare too hard.
   var voiceGain: Double = 1
   /// The beam's brightness at rest and in speech, 1 for Edge Glow's own feel.

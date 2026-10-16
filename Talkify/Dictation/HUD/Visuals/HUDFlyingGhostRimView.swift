@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Intelligence's rim: the palette turning around the inside of the shape's
+/// Flying Ghost's rim: the palette turning around the inside of the shape's
 /// open silhouette, a soft band and a crisp line, brighter and wider while the
 /// user speaks. The shell clips it to the shape, so only the inner half of
 /// each stroke shows and the beam keeps the outside.
@@ -8,7 +8,7 @@ import SwiftUI
 /// The colors turn by rotating a gradient that is drawn once. Filling a path
 /// with a conic gradient every frame rasterizes it on the CPU; a rotation is
 /// a transform the render server applies.
-struct HUDIntelligenceRimView: View {
+struct HUDFlyingGhostRimView: View {
   /// Degrees per second the colors travel around the rim.
   static let turnRate = 40.0
 
@@ -27,7 +27,7 @@ struct HUDIntelligenceRimView: View {
           inset: 0
         )
         let colors = alive
-          ? palette.intelligenceColors
+          ? palette.ghostColors
           : [HUDVisualTokens.deadMicAmber]
         let turn = context.date.timeIntervalSinceReferenceDate
           .truncatingRemainder(dividingBy: 360 / Self.turnRate) * Self.turnRate
@@ -39,7 +39,8 @@ struct HUDIntelligenceRimView: View {
           spin
             .mask(outline.stroke(lineWidth: 1.6 * metrics.scale))
         }
-        .opacity(0.55 + 0.2 * level)
+        // Balanced per palette, so a light palette's rim is not brighter.
+        .opacity((0.55 + 0.2 * level) * palette.ghostGlowBalance)
       }
     }
     // Fades with the session like the beam, so the rim drains as the
@@ -62,6 +63,6 @@ struct HUDIntelligenceRimView: View {
   }
 }
 
-#Preview("Intelligence") {
-  HUDShellPreviewHarness(visual: .intelligence)
+#Preview("Flying Ghost") {
+  HUDShellPreviewHarness(visual: .flyingGhost)
 }
