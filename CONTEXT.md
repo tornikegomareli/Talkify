@@ -399,7 +399,8 @@ _Avoid_: Transcript history, cloud analytics
 - Development Settings exposes Siri Orb for feel testing; production Settings must exclude it until the artwork is replaced or licensed.
 - Development Settings presents experimental options like normal choices; it does not add warning labels.
 - Publish filtering uses centralized `isShippable` metadata rather than view-specific exclusions
-- Defaults remain production-safe: Synth8, Waveform, Chart Line, and Particles; experimental choices are opt-in only
+- Defaults remain production-safe: Synth8, Flying Ghost in the Intelligence palette, Chart Line, and Particles; experimental choices are opt-in only
+- A fresh install opens on Flying Ghost in Intelligence; an install from before 1.0.0 that never picked a voice visual or palette keeps Waveform in Spectrum. Sparkle's launch mark tells the two apart, and the first launch stores its pick
 - Development builds preserve stored experimental choices; fallback migration is deferred until the publishing decision
 - The first Settings group is labeled `SETTINGS`; future groups use the same compact uppercase navigation style
 - The custom Settings surface is a borderless AppKit window hosting SwiftUI, not a sheet attached to the status menu
