@@ -26,17 +26,6 @@
             <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v1.0.0/Talkify-v1.0.0.zip" length="9065134" type="application/octet-stream" sparkle:edSignature="yODLyNRp0/HaMKf/uzY7SKlezA9F42QRZkQW/eZdth8RslCe2mp6dSzfE5kJ1KShySreIO7va8vPk9WJYgkBCA=="/>
         </item>
         <item>
-            <title>0.10.0</title>
-            <pubDate>Sat, 17 Oct 2026 03:06:20 +0400</pubDate>
-            <link>https://usetalkify.app</link>
-            <sparkle:fullReleaseNotesLink>https://github.com/tornikegomareli/Talkify/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>207</sparkle:version>
-            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/tornikegomareli/Talkify/releases/download/v0.10.0/Talkify-v0.10.0.zip" length="9064383" type="application/octet-stream" sparkle:edSignature="5rtPeNty7YoEY7ty+s6eYcFZ8JGgPrPXbmHn2OHXDofS/WtGeLQAeEvl/AwCknhBw6zG1UaBZeXFVbX/Mg5xAw=="/>
-        </item>
-        <item>
             <title>0.9.0</title>
             <pubDate>Sat, 17 Oct 2026 00:29:18 +0400</pubDate>
             <link>https://usetalkify.app</link>
